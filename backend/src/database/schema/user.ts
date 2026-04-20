@@ -8,6 +8,7 @@ import { pgTable, text, timestamp, uuid, boolean, pgEnum } from 'drizzle-orm/pg-
     email: text('email').notNull().unique(),
     passwordHash: text('password_hash'),
     name: text('name').notNull(),
+    phoneNumber: text('phone_number'),
     role: roleEnum('role').notNull().default('customer'),
     googleId: text('google_id'),
     organisationId: uuid('organisation_id').references(() => organisations.id),

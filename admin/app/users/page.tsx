@@ -71,6 +71,7 @@ interface User {
   id: string
   email: string
   name: string
+  phoneNumber?: string
   role: UserRole
   isActive: boolean
   emailVerified: boolean
@@ -90,6 +91,7 @@ interface PaginatedUsers {
 interface InviteForm {
   email: string
   name: string
+  phoneNumber: string
   role: UserRole
 }
 
@@ -127,6 +129,7 @@ function UsersTable() {
   const [inviteForm, setInviteForm] = React.useState<InviteForm>({
     email: "",
     name: "",
+    phoneNumber: "",
     role: "customer",
   })
   const [inviting, setInviting] = React.useState(false)
@@ -134,7 +137,7 @@ function UsersTable() {
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null)
   const [viewOpen, setViewOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
-  const [editForm, setEditForm] = React.useState({ name: "", email: "" })
+  const [editForm, setEditForm] = React.useState({ name: "", email: "", phoneNumber: "" })
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set())
@@ -223,7 +226,10 @@ function UsersTable() {
     setInviting(true)
     try {
       await api.post("/users/invite", {
-        ...inviteForm,
+        email: inviteForm.email,
+        name: inviteForm.name,
+        phoneNumber: inviteForm.phoneNumber || undefined,
+        role: inviteForm.role,
         organisationId: selectedOrganisation,
       })
       console.log("Invitation sent")
@@ -361,6 +367,19 @@ const handleDelete = async (userId: string) => {
                             })
                           }
                           placeholder="john@example.com"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Phone</Label>
+                        <Input
+                          value={inviteForm.phoneNumber}
+                          onChange={(e) =>
+                            setInviteForm({
+                              ...inviteForm,
+                              phoneNumber: e.target.value,
+                            })
+                          }
+                          placeholder="+1 234 567 8900"
                         />
                       </div>
                       {user?.role === "admin" && (
@@ -517,6 +536,7 @@ const handleDelete = async (userId: string) => {
                     </TableHead>
                     <SortHeader column="name" label="Name" />
                     <SortHeader column="email" label="Email" />
+                    <TableHead>Phone</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <SortHeader column="createdAt" label="Created" />
@@ -528,13 +548,13 @@ const handleDelete = async (userId: string) => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         <Loader2 className="mx-auto size-6 animate-spin" />
                       </TableCell>
                     </TableRow>
                   ) : users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         No users found.
                       </TableCell>
                     </TableRow>
@@ -553,6 +573,7 @@ const handleDelete = async (userId: string) => {
                         </TableCell>
                         <TableCell className="font-medium">{u.name}</TableCell>
                         <TableCell>{u.email}</TableCell>
+                        <TableCell>{u.phoneNumber || '-'}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{u.role}</Badge>
                         </TableCell>
@@ -584,7 +605,7 @@ const handleDelete = async (userId: string) => {
                               </DropdownMenuItem>
                               {user?.role === "admin" && (
                                 <>
-                                  <DropdownMenuItem onClick={() => { setSelectedUser(u); setEditForm({ name: u.name, email: u.email }); setEditOpen(true); }}>
+                                  <DropdownMenuItem onClick={() => { setSelectedUser(u); setEditForm({ name: u.name, email: u.email, phoneNumber: u.phoneNumber || "" }); setEditOpen(true); }}>
                                     <PencilIcon className="size-4 mr-2" /> Edit User
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleDelete(u.id)} className="text-red-600">
@@ -668,6 +689,22 @@ const handleDelete = async (userId: string) => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/50 p-4">
+<div>
+                        <div className="text-xs text-muted-foreground uppercase">
+                          Email
+                        </div>
+                        <div className="truncate text-sm">
+                          {selectedUser.email}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase">
+                          Phone
+                        </div>
+                        <div className="text-sm">
+                          {selectedUser.phoneNumber || '-'}
+                        </div>
+                      </div>
                       <div>
                         <div className="text-xs text-muted-foreground uppercase">
                           Role
@@ -752,7 +789,7 @@ const handleDelete = async (userId: string) => {
                           <Button
                             variant="outline"
                             className="flex-1"
-                            onClick={() => { setEditForm({ name: selectedUser.name, email: selectedUser.email }); setEditOpen(true); }}
+                            onClick={() => { setEditForm({ name: selectedUser.name, email: selectedUser.email, phoneNumber: selectedUser.phoneNumber || "" }); setEditOpen(true); }}
                           >
                             <PencilIcon className="size-4 mr-2" /> Edit
                           </Button>
@@ -792,19 +829,26 @@ const handleDelete = async (userId: string) => {
                       <Input
                         value={editForm.name}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        defaultValue={selectedUser.name}
                       />
                     </div>
                     <div className="grid gap-2">
                       <Label>Email</Label>
                       <Input value={selectedUser.email} disabled />
                     </div>
+                    <div className="grid gap-2">
+                      <Label>Phone</Label>
+                      <Input
+                        value={editForm.phoneNumber}
+                        onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                        placeholder="+1 234 567 8900"
+                      />
+                    </div>
                   </div>
                 )}
                 <DialogFooter>
                   <Button onClick={async () => {
                     try {
-                      await api.put(`/users/${selectedUser?.id}`, { name: editForm.name })
+                      await api.patch(`/users/${selectedUser?.id}`, { name: editForm.name, phoneNumber: editForm.phoneNumber || null })
                       fetchUsers()
                       setEditOpen(false)
                     } catch (err) {

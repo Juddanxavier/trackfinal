@@ -74,7 +74,7 @@ export class UsersController {
   @Post('invite')
   @ApiOperation({ summary: 'Invite new user' })
   @ApiResponse({ status: 201, description: 'User invited' })
-  invite(@Body() inviteDto: { email: string; name: string; role?: Role; organisationId?: string }, @Request() req: any) {
+  invite(@Body() inviteDto: { email: string; name: string; phoneNumber?: string; role?: Role; organisationId?: string }, @Request() req: any) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
     const isAdmin = userRole === Role.ADMIN;
@@ -92,6 +92,7 @@ export class UsersController {
     return this.usersService.invite({
       email: inviteDto.email,
       name: inviteDto.name,
+      phoneNumber: inviteDto.phoneNumber || undefined,
       role,
       organisationId,
     });
@@ -114,7 +115,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update user' })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({ status: 200, description: 'User updated' })
-  update(@Param('id') id: string, @Body() updateDto: { name?: string; role?: Role; isActive?: boolean }, @Request() req: any) {
+  update(@Param('id') id: string, @Body() updateDto: { name?: string; phoneNumber?: string | null; role?: Role; isActive?: boolean }, @Request() req: any) {
     return this.usersService.update(id, updateDto);
   }
 

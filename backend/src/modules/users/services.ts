@@ -39,6 +39,19 @@ export class UsersService {
     return result[0];
   }
 
+  async findByPhoneNumber(phoneNumber: string, excludeUserId?: string) {
+    let query = db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
+    if (excludeUserId) {
+      const result = await db.select().from(users).where(and(
+        eq(users.phoneNumber, phoneNumber),
+        eq(users.id, excludeUserId)
+      ));
+      return result[0] ? null : result[0];
+    }
+    const result = await query;
+    return result[0];
+  }
+
   async findByOrganisation(organisationId: string) {
     return db.select().from(users).where(eq(users.organisationId, organisationId));
   }
@@ -116,12 +129,20 @@ export class UsersService {
   async invite(data: {
     email: string;
     name: string;
+    phoneNumber?: string;
     role?: Role;
     organisationId: string;
   }) {
+    if (data.phoneNumber) {
+      const existing = await this.findByPhoneNumber(data.phoneNumber);
+      if (existing) {
+        throw new Error('Phone number already in use');
+      }
+    }
     const result = await db.insert(users).values({
       email: data.email,
       name: data.name,
+      phoneNumber: data.phoneNumber || null,
       role: data.role || Role.CUSTOMER,
       organisationId: data.organisationId,
       isActive: true,
@@ -158,12 +179,19 @@ export class UsersService {
     email: string;
     passwordHash: string;
     name: string;
+    phoneNumber: string | null;
     role: Role;
     googleId: string;
     organisationId: string;
     isActive: boolean;
     emailVerified: boolean;
   }>) {
+    if (data.phoneNumber) {
+      const existing = await this.findByPhoneNumber(data.phoneNumber, id);
+      if (existing) {
+        throw new Error('Phone number already in use');
+      }
+    }
     const result = await db.update(users)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(users.id, id))

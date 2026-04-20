@@ -15,6 +15,13 @@
       "when": 1776585909676,
       "tag": "0001_closed_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776701212805,
+      "tag": "0002_windy_leech",
+      "breakpoints": true
     }
   ]
 }
