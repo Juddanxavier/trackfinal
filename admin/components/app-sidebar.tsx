@@ -23,11 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   LayoutDashboardIcon,
-  ListIcon,
-  ChartBarIcon,
-  FolderIcon,
   UsersIcon,
-  CameraIcon,
   FileTextIcon,
   Settings2Icon,
   CircleHelpIcon,
@@ -37,6 +33,8 @@ import {
   FileIcon,
   CommandIcon,
   ChevronDownIcon,
+  TruckIcon,
+  CameraIcon,
 } from "lucide-react"
 
 export interface Organisation {
@@ -54,23 +52,18 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/dashboard",
       icon: <LayoutDashboardIcon />,
     },
     {
-      title: "Lifecycle",
-      url: "#",
-      icon: <ListIcon />,
+      title: "Quotes",
+      url: "/quotes",
+      icon: <FileTextIcon />,
     },
     {
-      title: "Analytics",
-      url: "#",
-      icon: <ChartBarIcon />,
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: <FolderIcon />,
+      title: "Shipments",
+      url: "/shipments",
+      icon: <TruckIcon />,
     },
     {
       title: "Users",

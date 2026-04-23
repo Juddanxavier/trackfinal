@@ -1,10 +1,32 @@
-import { pgTable, text, timestamp, uuid, numeric, pgEnum } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  numeric,
+  pgEnum,
+} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organisations, users } from './index';
 
-export const quoteStatusEnum = pgEnum('quote_status', ['pending', 'quoted', 'accepted', 'rejected']);
+export const quoteStatusEnum = pgEnum('quote_status', [
+  'pending',
+  'quoted',
+  'accepted',
+  'rejected',
+  'deleted',
+]);
 
-export const goodsTypeEnum = pgEnum('goods_type', ['general', 'fragile', 'hazardous', 'perishable', 'electronics', 'machinery', 'chemicals', 'other']);
+export const goodsTypeEnum = pgEnum('goods_type', [
+  'general',
+  'fragile',
+  'hazardous',
+  'perishable',
+  'electronics',
+  'machinery',
+  'chemicals',
+  'other',
+]);
 
 export const quotes = pgTable('quotes', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -22,6 +44,9 @@ export const quotes = pgTable('quotes', {
   price: numeric('price', { precision: 10, scale: 2 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+  deletedBy: uuid('deleted_by'),
+  deletedReason: text('deleted_reason'),
 });
 
 export const quotesRelations = relations(quotes, ({ one }) => ({

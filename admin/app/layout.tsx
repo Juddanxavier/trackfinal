@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AuthProvider } from "@/components/auth-context"
 import { AppLayout } from "@/components/app-layout"
+import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation"
 
@@ -68,6 +69,7 @@ export default function RootLayout({
         <RootProviders>
           {children}
         </RootProviders>
+        <Toaster />
       </body>
     </html>
   )

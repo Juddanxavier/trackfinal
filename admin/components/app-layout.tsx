@@ -4,14 +4,15 @@ import { usePathname } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
-import { SidebarInset } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarPageFooter } from "@/components/ui/sidebar"
 
 const authRoutes = ["/login", "/register", "/forgot-password"]
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-muted/30 to-background">
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-muted/30 to-background">
       {children}
+      <SidebarPageFooter />
     </div>
   )
 }
@@ -32,6 +33,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <SiteHeader user={user || { name: "", role: "" }} />
         {children}
+        <SidebarPageFooter />
       </SidebarInset>
     </>
   )

@@ -5,3 +5,4 @@ export * from './verifications';
 export * from './quotes';
 export * from './notifications';
 export * from './shipments';
+export * from './notification-preferences';

@@ -35,67 +35,115 @@ export class UsersService {
   }
 
   async findByGoogleId(googleId: string) {
-    const result = await db.select().from(users).where(eq(users.googleId, googleId));
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.googleId, googleId));
     return result[0];
   }
 
   async findByPhoneNumber(phoneNumber: string, excludeUserId?: string) {
-    let query = db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
-    if (excludeUserId) {
-      const result = await db.select().from(users).where(and(
-        eq(users.phoneNumber, phoneNumber),
-        eq(users.id, excludeUserId)
-      ));
-      return result[0] ? null : result[0];
+    const allUsers = await db.select().from(users);
+    const cleanedInput = phoneNumber.replace(/\D/g, '').slice(-10);
+
+    return (
+      allUsers.find((u) => {
+        if (excludeUserId && u.id === excludeUserId) return false;
+        if (!u.phoneNumber) return false;
+        const cleanedUser = u.phoneNumber.replace(/\D/g, '').slice(-10);
+        return cleanedUser === cleanedInput;
+      }) || null
+    );
+  }
+
+  async lookupUser(email?: string, phoneNumber?: string) {
+    if (email) {
+      const user = await this.findByEmail(email);
+      if (user) {
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+        };
+      }
     }
-    const result = await query;
-    return result[0];
+    if (phoneNumber) {
+      const user = await this.findByPhoneNumber(phoneNumber);
+      if (user) {
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+        };
+      }
+    }
+    return null;
   }
 
   async findByOrganisation(organisationId: string) {
-    return db.select().from(users).where(eq(users.organisationId, organisationId));
+    return db
+      .select()
+      .from(users)
+      .where(eq(users.organisationId, organisationId));
   }
 
   async findStaffByOrganisation(organisationId: string) {
-    const result = await db.select().from(users).where(
-      eq(users.organisationId, organisationId)
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.organisationId, organisationId));
+    const staff = result.filter(
+      (u) => u.role === Role.STAFF || u.role === Role.ADMIN,
     );
-    const staff = result.filter(u => u.role === Role.STAFF || u.role === Role.ADMIN);
     if (staff.length === 0) return null;
     const randomIndex = Math.floor(Math.random() * staff.length);
     return staff[randomIndex];
   }
 
-  async findWithPagination(params: FindWithPaginationParams): Promise<PaginatedResult<any>> {
-    const { organisationId, page = 1, limit = 10, search, role, sortBy = 'createdAt', sortOrder = 'desc' } = params;
+  async findWithPagination(
+    params: FindWithPaginationParams,
+  ): Promise<PaginatedResult<any>> {
+    const {
+      organisationId,
+      page = 1,
+      limit = 10,
+      search,
+      role,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = params;
     const offset = (page - 1) * limit;
 
-    let conditions: any[] = organisationId ? [eq(users.organisationId, organisationId)] : [];
-    
+    const conditions: any[] = organisationId
+      ? [eq(users.organisationId, organisationId)]
+      : [];
+
     if (search) {
       conditions.push(
-        or(
-          like(users.name, `%${search}%`),
-          like(users.email, `%${search}%`)
-        )
+        or(like(users.name, `%${search}%`), like(users.email, `%${search}%`)),
       );
     }
-    
+
     if (role) {
       conditions.push(eq(users.role, role));
     }
 
-    const whereClause = conditions.length > 1 
-      ? and(...conditions) 
-      : conditions.length === 1 
-        ? conditions[0]
-        : undefined;
+    const whereClause =
+      conditions.length > 1
+        ? and(...conditions)
+        : conditions.length === 1
+          ? conditions[0]
+          : undefined;
 
     const orderColumn = (users as any)[sortBy] || users.createdAt;
     const orderFn = sortOrder === 'asc' ? asc : desc;
 
     const [data, allData] = await Promise.all([
-      db.select().from(users)
+      db
+        .select()
+        .from(users)
         .where(whereClause)
         .orderBy(orderFn(orderColumn))
         .limit(limit)
@@ -115,14 +163,20 @@ export class UsersService {
     };
   }
 
-  async getAllStats() {
-    const allUsers = await db.select().from(users);
-    
+  async getAllStats(organisationId?: string) {
+    let allUsers = await db.select().from(users);
+
+    if (organisationId) {
+      allUsers = allUsers.filter((u) => u.organisationId === organisationId);
+    }
+
     const total = allUsers.length;
-    const active = allUsers.filter(u => u.isActive).length;
-    const customers = allUsers.filter(u => u.role === Role.CUSTOMER).length;
-    const staff = allUsers.filter(u => u.role === Role.STAFF || u.role === Role.ADMIN).length;
-    
+    const active = allUsers.filter((u) => u.isActive).length;
+    const customers = allUsers.filter((u) => u.role === Role.CUSTOMER).length;
+    const staff = allUsers.filter(
+      (u) => u.role === Role.STAFF || u.role === Role.ADMIN,
+    ).length;
+
     return { total, active, customers, staff };
   }
 
@@ -139,15 +193,18 @@ export class UsersService {
         throw new Error('Phone number already in use');
       }
     }
-    const result = await db.insert(users).values({
-      email: data.email,
-      name: data.name,
-      phoneNumber: data.phoneNumber || null,
-      role: data.role || Role.CUSTOMER,
-      organisationId: data.organisationId,
-      isActive: true,
-      emailVerified: false,
-    }).returning();
+    const result = await db
+      .insert(users)
+      .values({
+        email: data.email,
+        name: data.name,
+        phoneNumber: data.phoneNumber || null,
+        role: data.role || Role.CUSTOMER,
+        organisationId: data.organisationId,
+        isActive: true,
+        emailVerified: false,
+      })
+      .returning();
     return {
       ...result[0],
       message: 'User invited successfully',
@@ -163,36 +220,43 @@ export class UsersService {
     organisationId?: string;
     emailVerified?: boolean;
   }) {
-    const result = await db.insert(users).values({
-      email: data.email,
-      passwordHash: data.passwordHash,
-      name: data.name,
-      role: data.role || Role.CUSTOMER,
-      googleId: data.googleId,
-      organisationId: data.organisationId,
-      emailVerified: data.emailVerified || false,
-    }).returning();
+    const result = await db
+      .insert(users)
+      .values({
+        email: data.email,
+        passwordHash: data.passwordHash,
+        name: data.name,
+        role: data.role || Role.CUSTOMER,
+        googleId: data.googleId,
+        organisationId: data.organisationId,
+        emailVerified: data.emailVerified || false,
+      })
+      .returning();
     return result[0];
   }
 
-  async update(id: string, data: Partial<{
-    email: string;
-    passwordHash: string;
-    name: string;
-    phoneNumber: string | null;
-    role: Role;
-    googleId: string;
-    organisationId: string;
-    isActive: boolean;
-    emailVerified: boolean;
-  }>) {
+  async update(
+    id: string,
+    data: Partial<{
+      email: string;
+      passwordHash: string;
+      name: string;
+      phoneNumber: string | null;
+      role: Role;
+      googleId: string;
+      organisationId: string;
+      isActive: boolean;
+      emailVerified: boolean;
+    }>,
+  ) {
     if (data.phoneNumber) {
       const existing = await this.findByPhoneNumber(data.phoneNumber, id);
       if (existing) {
         throw new Error('Phone number already in use');
       }
     }
-    const result = await db.update(users)
+    const result = await db
+      .update(users)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
@@ -212,25 +276,38 @@ export class OrganisationsService {
   }
 
   async findById(id: string) {
-    const result = await db.select().from(organisations).where(eq(organisations.id, id));
+    const result = await db
+      .select()
+      .from(organisations)
+      .where(eq(organisations.id, id));
     return result[0];
   }
 
   async findBySlug(slug: string) {
-    const result = await db.select().from(organisations).where(eq(organisations.slug, slug));
+    const result = await db
+      .select()
+      .from(organisations)
+      .where(eq(organisations.slug, slug));
     return result[0];
   }
 
   async create(data: { name: string; slug: string }) {
-    const result = await db.insert(organisations).values({
-      name: data.name,
-      slug: data.slug,
-    }).returning();
+    const result = await db
+      .insert(organisations)
+      .values({
+        name: data.name,
+        slug: data.slug,
+      })
+      .returning();
     return result[0];
   }
 
-  async update(id: string, data: Partial<{ name: string; slug: string; isActive: boolean }>) {
-    const result = await db.update(organisations)
+  async update(
+    id: string,
+    data: Partial<{ name: string; slug: string; isActive: boolean }>,
+  ) {
+    const result = await db
+      .update(organisations)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(organisations.id, id))
       .returning();
@@ -246,7 +323,10 @@ export class OrganisationsService {
 @Injectable()
 export class SessionsService {
   async findByRefreshToken(refreshToken: string) {
-    const result = await db.select().from(sessions).where(eq(sessions.refreshToken, refreshToken));
+    const result = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.refreshToken, refreshToken));
     return result[0];
   }
 
@@ -254,12 +334,19 @@ export class SessionsService {
     return db.select().from(sessions).where(eq(sessions.userId, userId));
   }
 
-  async create(data: { userId: string; refreshToken: string; expiresAt: Date }) {
-    const result = await db.insert(sessions).values({
-      userId: data.userId,
-      refreshToken: data.refreshToken,
-      expiresAt: data.expiresAt,
-    }).returning();
+  async create(data: {
+    userId: string;
+    refreshToken: string;
+    expiresAt: Date;
+  }) {
+    const result = await db
+      .insert(sessions)
+      .values({
+        userId: data.userId,
+        refreshToken: data.refreshToken,
+        expiresAt: data.expiresAt,
+      })
+      .returning();
     return result[0];
   }
 
@@ -268,10 +355,16 @@ export class SessionsService {
   }
 
   async revokeByUserId(userId: string) {
-    await db.update(sessions).set({ revoked: true }).where(eq(sessions.userId, userId));
+    await db
+      .update(sessions)
+      .set({ revoked: true })
+      .where(eq(sessions.userId, userId));
   }
 
   async revokeByToken(refreshToken: string) {
-    await db.update(sessions).set({ revoked: true }).where(eq(sessions.refreshToken, refreshToken));
+    await db
+      .update(sessions)
+      .set({ revoked: true })
+      .where(eq(sessions.refreshToken, refreshToken));
   }
 }

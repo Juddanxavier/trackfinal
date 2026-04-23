@@ -22,34 +22,38 @@ jest.mock('../../database', () => ({
   db: {
     insert: jest.fn().mockReturnValue({
       values: jest.fn().mockReturnValue({
-        returning: jest.fn().mockResolvedValue([{
-          id: 'shipment-1',
-          organisationId: 'org-1',
-          userId: 'user-1',
-          trackingNumber: '123456789',
-          whiteLabelTrackingCode: '12345678901234',
-          carrierCode: 'dhl',
-          recipientName: 'John Doe',
-          recipientEmail: 'john@example.com',
-          recipientPhone: '+1234567890',
-          status: 'pending',
-        }]),
+        returning: jest.fn().mockResolvedValue([
+          {
+            id: 'shipment-1',
+            organisationId: 'org-1',
+            userId: 'user-1',
+            trackingNumber: '123456789',
+            whiteLabelTrackingCode: '12345678901234',
+            carrierCode: 'dhl',
+            recipientName: 'John Doe',
+            recipientEmail: 'john@example.com',
+            recipientPhone: '+1234567890',
+            status: 'pending',
+          },
+        ]),
       }),
     }),
     select: jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue([{
-          id: 'shipment-1',
-          organisationId: 'org-1',
-          userId: 'user-1',
-          trackingNumber: '123456789',
-          whiteLabelTrackingCode: '12345678901234',
-          carrierCode: 'dhl',
-          recipientName: 'John Doe',
-          recipientEmail: 'john@example.com',
-          recipientPhone: '+1234567890',
-          status: 'pending',
-        }]),
+        where: jest.fn().mockResolvedValue([
+          {
+            id: 'shipment-1',
+            organisationId: 'org-1',
+            userId: 'user-1',
+            trackingNumber: '123456789',
+            whiteLabelTrackingCode: '12345678901234',
+            carrierCode: 'dhl',
+            recipientName: 'John Doe',
+            recipientEmail: 'john@example.com',
+            recipientPhone: '+1234567890',
+            status: 'pending',
+          },
+        ]),
       }),
     }),
     update: jest.fn().mockReturnValue({
@@ -63,7 +67,15 @@ jest.mock('../../database', () => ({
 }));
 
 jest.mock('../../database/schema/shipments', () => ({
-  shipments: { id: {}, organisationId: {}, userId: {}, trackingNumber: {}, carrierCode: {}, status: {}, whiteLabelTrackingCode: {} },
+  shipments: {
+    id: {},
+    organisationId: {},
+    userId: {},
+    trackingNumber: {},
+    carrierCode: {},
+    status: {},
+    whiteLabelTrackingCode: {},
+  },
 }));
 
 describe('ShipmentsService', () => {
@@ -139,14 +151,16 @@ describe('ShipmentsService', () => {
     });
 
     it('should throw error if neither phone nor email provided', async () => {
-      await expect(service.create({
-        organisationId: 'org-1',
-        trackingNumber: '123456789',
-        carrierCode: 'dhl',
-        recipientName: 'John Doe',
-        originCountry: 'USA',
-        destinationCountry: 'UK',
-      })).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({
+          organisationId: 'org-1',
+          trackingNumber: '123456789',
+          carrierCode: 'dhl',
+          recipientName: 'John Doe',
+          originCountry: 'USA',
+          destinationCountry: 'UK',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should auto-detect carrier when not provided', async () => {
@@ -207,7 +221,9 @@ describe('ShipmentsService', () => {
         }),
       });
 
-      await expect(service.findById('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.findById('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -237,7 +253,9 @@ describe('ShipmentsService', () => {
         }),
       });
 
-      await expect(service.findByWhiteLabelCode('00000000000000')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findByWhiteLabelCode('00000000000000'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

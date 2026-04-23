@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { api, clearAuth, getAccessToken, setAccessToken } from "@/lib/api"
+import { api, clearAuth, getAccessToken, setAccessToken as setApiAccessToken } from "@/lib/api"
 
 export interface User {
   id: string
@@ -9,6 +9,7 @@ export interface User {
   name: string
   role: "admin" | "staff" | "customer"
   organisationId: string
+  avatar?: string
 }
 
 export interface Organisation {
@@ -30,6 +31,19 @@ const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
 
 const STORAGE_KEY = "selectedOrganisationId"
 
+const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/reset-password']
+
+function isPublicPath(path: string): boolean {
+  return PUBLIC_PATHS.some(p => path.startsWith(p))
+}
+
+function redirectToLogin() {
+  if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
+    clearAuth()
+    window.location.href = '/login'
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null)
   const [organisations, setOrganisations] = React.useState<Organisation[]>([])
@@ -40,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync with api.ts
   const setAccessToken = React.useCallback((token: string | null) => {
     setAccessTokenState(token)
+    setApiAccessToken(token)  // Also update the api.ts module's token
     if (token) {
       sessionStorage.setItem('accessToken', token)
     } else {
@@ -49,54 +64,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = React.useCallback(async () => {
     try {
+      console.log('[Auth] Calling /auth/check...')
       const userData = await api.get<User>("/auth/check")
+      console.log('[Auth] /auth/check success:', userData?.email)
       setUser(userData)
       return userData
-    } catch {
+    } catch (err: any) {
+      console.error('[Auth] /auth/check failed:', err?.message || err)
       setUser(null)
+      if (err.statusCode === 401) {
+        redirectToLogin()
+      }
       return null
     }
   }, [])
 
   const fetchOrganisations = React.useCallback(async (userData: User) => {
     if (!userData.organisationId) {
+      console.log("[Auth] No organisationId on user, skipping org fetch")
       setOrganisations([])
       return []
     }
+
+    // For admin users, try to fetch all organisations
     if (userData.role === "admin") {
       try {
+        console.log("[Auth] Admin user detected, fetching all organisations...")
         const orgs = await api.get<Organisation[]>("/organisations")
-        setOrganisations(orgs)
-        return orgs
-      } catch {
-        setOrganisations([])
-        return []
+        console.log("[Auth] Organisations list response:", orgs)
+        if (orgs && Array.isArray(orgs) && orgs.length > 0) {
+          setOrganisations(orgs)
+          return orgs
+        }
+      } catch (err: any) {
+        console.error("[Auth] Failed to fetch organisations list:", err?.message || err)
+        if (err.statusCode === 401) {
+          redirectToLogin()
+        }
       }
+
+      // Fallback: fetch user's own organisation
+      try {
+        console.log("[Auth] Falling back to fetch user's organisation...")
+        const singleOrg = await api.get<Organisation>(`/organisations/${userData.organisationId}`)
+        console.log("[Auth] Single org response:", singleOrg)
+        if (singleOrg && singleOrg.id) {
+          setOrganisations([singleOrg])
+          return [singleOrg]
+        }
+      } catch (e: any) {
+        console.error("[Auth] Fallback org fetch also failed:", e?.message || e)
+        if (e.statusCode === 401) {
+          redirectToLogin()
+        }
+      }
+
+      console.log("[Auth] No organisations found")
+      setOrganisations([])
+      return []
     }
+
+    // For non-admin users, fetch their own organisation only
     try {
-      const org = await api.get<Organisation>("/organisations/me")
-      setOrganisations([org])
-      return [org]
-    } catch {
+      console.log("[Auth] Non-admin user, fetching own organisation...")
+      const org = await api.get<Organisation>(`/organisations/${userData.organisationId}`)
+      console.log("[Auth] Non-admin org response:", org)
+      if (org && org.id) {
+        setOrganisations([org])
+        return [org]
+      }
+      setOrganisations([])
+      return []
+    } catch (err: any) {
+      console.error("[Auth] Failed to fetch organisation:", err?.message || err)
+      if (err.statusCode === 401) {
+        redirectToLogin()
+      }
       setOrganisations([])
       return []
     }
   }, [])
 
   React.useEffect(() => {
+    let isMounted = true
     const init = async () => {
       setIsLoading(true)
       try {
-        // Restore token from sessionStorage if in memory is empty
-        const storedToken = sessionStorage.getItem('accessToken');
-        if (storedToken && !accessToken) {
-          setAccessToken(storedToken);
+        const storedToken = sessionStorage.getItem('accessToken')
+        console.log('[Auth] Init - storedToken exists:', !!storedToken)
+        
+        // Always sync api.ts token immediately before any API calls
+        if (storedToken) {
+          console.log('[Auth] Syncing api.ts token from sessionStorage')
+          setApiAccessToken(storedToken)
         }
         
+        // Also update React state if needed
+        if (storedToken && !accessToken) {
+          setAccessToken(storedToken)
+        }
+
         const userData = await refreshUser()
+        if (!isMounted) return
+
         if (userData) {
           const orgs = await fetchOrganisations(userData)
-          
+          if (!isMounted) return
+
           if (orgs.length > 0) {
             const stored = localStorage.getItem(STORAGE_KEY)
             if (stored && orgs.some(o => o.id === stored)) {
@@ -107,13 +181,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 localStorage.setItem(STORAGE_KEY, userData.organisationId)
               }
             }
+          } else if (userData.organisationId) {
+            setSelectedOrganisationState(userData.organisationId)
           }
         }
+      } catch (err) {
+        console.error("Auth init failed:", err)
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
     init()
+    return () => { isMounted = false }
   }, [refreshUser, fetchOrganisations])
 
   const setSelectedOrganisation = React.useCallback((orgId: string) => {

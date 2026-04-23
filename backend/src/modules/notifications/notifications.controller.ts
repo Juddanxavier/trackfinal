@@ -1,5 +1,20 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto, QueryNotificationsDto } from './dto';
@@ -13,7 +28,10 @@ export class NotificationsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new notification' })
-  @ApiResponse({ status: 201, description: 'Notification created and WebSocket event emitted' })
+  @ApiResponse({
+    status: 201,
+    description: 'Notification created and WebSocket event emitted',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   create(@Request() req: any, @Body() dto: CreateNotificationDto) {
     return this.notificationsService.create(req.user.organisationId, {
@@ -40,7 +58,11 @@ export class NotificationsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Notification not found' })
   markRead(@Request() req: any, @Param('id') id: string) {
-    return this.notificationsService.markRead(id, req.user.organisationId, req.user.sub);
+    return this.notificationsService.markRead(
+      id,
+      req.user.organisationId,
+      req.user.sub,
+    );
   }
 
   @Patch(':id/unread')
@@ -49,6 +71,32 @@ export class NotificationsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Notification not found' })
   markUnread(@Request() req: any, @Param('id') id: string) {
-    return this.notificationsService.markUnread(id, req.user.organisationId, req.user.sub);
+    return this.notificationsService.markUnread(
+      id,
+      req.user.organisationId,
+      req.user.sub,
+    );
+  }
+
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Get unread notification count' })
+  @ApiResponse({ status: 200, description: 'Unread count' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getUnreadCount(@Request() req: any) {
+    return this.notificationsService.getUnreadCount(
+      req.user.organisationId,
+      req.user.sub,
+    );
+  }
+
+  @Patch('read-all')
+  @ApiOperation({ summary: 'Mark all notifications as read' })
+  @ApiResponse({ status: 200, description: 'All notifications marked as read' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  markAllRead(@Request() req: any) {
+    return this.notificationsService.markAllRead(
+      req.user.organisationId,
+      req.user.sub,
+    );
   }
 }

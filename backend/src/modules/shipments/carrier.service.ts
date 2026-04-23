@@ -14,12 +14,16 @@ export class CarrierService {
   private carriers: Carrier[] = [];
   private lastFetch: number = 0;
   private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-  private readonly CARRIER_LIST_URL = 'https://res.17track.net/asset/carrier/info/apicarrier.all.json';
+  private readonly CARRIER_LIST_URL =
+    'https://res.17track.net/asset/carrier/info/apicarrier.all.json';
 
   constructor(private configService: ConfigService) {}
 
   async fetchCarrierList(): Promise<Carrier[]> {
-    if (this.carriers.length > 0 && Date.now() - this.lastFetch < this.CACHE_TTL_MS) {
+    if (
+      this.carriers.length > 0 &&
+      Date.now() - this.lastFetch < this.CACHE_TTL_MS
+    ) {
       return this.carriers;
     }
 
@@ -48,7 +52,7 @@ export class CarrierService {
     const carriers = await this.fetchCarrierList();
     const codeLower = code.toLowerCase();
 
-    const carrier = carriers.find(c => {
+    const carrier = carriers.find((c) => {
       const keyStr = String(c.key);
       return keyStr === code || keyStr.toLowerCase() === codeLower;
     });
@@ -60,12 +64,13 @@ export class CarrierService {
     const carriers = await this.fetchCarrierList();
     const nameLower = name.toLowerCase();
 
-    const carrier = carriers.find(c =>
-      c._name.toLowerCase() === nameLower ||
-      c.name_zh_cn?.toLowerCase() === nameLower ||
-      c.name_zh_hk?.toLowerCase() === nameLower ||
-      c._name.toLowerCase().includes(nameLower) ||
-      nameLower.includes(c._name.toLowerCase())
+    const carrier = carriers.find(
+      (c) =>
+        c._name.toLowerCase() === nameLower ||
+        c.name_zh_cn?.toLowerCase() === nameLower ||
+        c.name_zh_hk?.toLowerCase() === nameLower ||
+        c._name.toLowerCase().includes(nameLower) ||
+        nameLower.includes(c._name.toLowerCase()),
     );
 
     return carrier || null;
@@ -74,7 +79,9 @@ export class CarrierService {
   async listCarriers(countryIso?: string): Promise<Carrier[]> {
     const carriers = await this.fetchCarrierList();
     if (countryIso) {
-      return carriers.filter(c => c._country_iso.toUpperCase() === countryIso.toUpperCase());
+      return carriers.filter(
+        (c) => c._country_iso.toUpperCase() === countryIso.toUpperCase(),
+      );
     }
     return carriers;
   }
@@ -83,11 +90,12 @@ export class CarrierService {
     const carriers = await this.fetchCarrierList();
     const queryLower = query.toLowerCase();
 
-    return carriers.filter(c =>
-      c._name.toLowerCase().includes(queryLower) ||
-      c.name_zh_cn?.toLowerCase().includes(queryLower) ||
-      c.name_zh_hk?.toLowerCase().includes(queryLower) ||
-      String(c.key).includes(query)
+    return carriers.filter(
+      (c) =>
+        c._name.toLowerCase().includes(queryLower) ||
+        c.name_zh_cn?.toLowerCase().includes(queryLower) ||
+        c.name_zh_hk?.toLowerCase().includes(queryLower) ||
+        String(c.key).includes(query),
     );
   }
 }

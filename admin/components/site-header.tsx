@@ -1,12 +1,15 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { NotificationBell } from "@/components/notification-bell"
 
 interface SiteHeaderProps {
   user: {
-    name: string;
-    role: string;
-  };
+    name: string
+    role: string
+  }
 }
 
 export function SiteHeader({ user }: SiteHeaderProps) {
@@ -19,7 +22,12 @@ export function SiteHeader({ user }: SiteHeaderProps) {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">Dashboard</h1>
-        <span className="ml-auto text-sm text-muted-foreground">({user.role})</span>
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
+          <span className="text-sm text-muted-foreground">
+            {user.name}
+          </span>
+        </div>
       </div>
     </header>
   )

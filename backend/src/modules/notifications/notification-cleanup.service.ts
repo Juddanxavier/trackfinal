@@ -18,8 +18,12 @@ export class NotificationCleanupService implements OnModuleInit {
   constructor(private schedulerRegistry: SchedulerRegistry) {}
 
   onModuleInit() {
-    const period = (process.env.NOTIFICATION_CLEANUP_PERIOD || 'weekly') as CleanupPeriod;
-    const cronExpression = process.env.NOTIFICATION_CLEANUP_CRON || CRON_MAP[period] || CRON_MAP.weekly;
+    const period = (process.env.NOTIFICATION_CLEANUP_PERIOD ||
+      'weekly') as CleanupPeriod;
+    const cronExpression =
+      process.env.NOTIFICATION_CLEANUP_CRON ||
+      CRON_MAP[period] ||
+      CRON_MAP.weekly;
 
     const job = new CronJob(cronExpression, () => {
       this.handleExpiredNotifications();
@@ -28,7 +32,9 @@ export class NotificationCleanupService implements OnModuleInit {
     this.schedulerRegistry.addCronJob('notification-cleanup', job);
     job.start();
 
-    console.log(`[NotificationCleanup] Scheduled: ${period} (${cronExpression})`);
+    console.log(
+      `[NotificationCleanup] Scheduled: ${period} (${cronExpression})`,
+    );
   }
 
   private async handleExpiredNotifications() {

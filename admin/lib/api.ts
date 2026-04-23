@@ -67,27 +67,56 @@ class ApiClient {
     return `${this.baseUrl}${url}`;
   }
 
-  private sanitizeError(message: string): string {
+  private sanitizeError(message: string, statusCode?: number): string {
+    // Return more specific messages based on status code
+    if (statusCode === 401) {
+      return 'Unauthorized - Please log in again';
+    }
+    if (statusCode === 403) {
+      return 'Access denied - Insufficient permissions';
+    }
+    if (statusCode === 404) {
+      return 'Resource not found';
+    }
+    if (statusCode === 422 || statusCode === 400) {
+      return message.includes('validation') ? 'Invalid input' : message;
+    }
+    if (statusCode && statusCode >= 500) {
+      return `Server error (${statusCode}) - Please try again later`;
+    }
+
+    // Check for specific keywords in the message
+    const lowerMessage = message.toLowerCase();
     if (
-      message.includes('permission') ||
-      message.includes('denied') ||
-      message.includes('unauthorized')
+      lowerMessage.includes('permission') ||
+      lowerMessage.includes('denied') ||
+      lowerMessage.includes('forbidden')
     ) {
       return 'Access denied';
     }
-    if (message.includes('not found')) {
+    if (lowerMessage.includes('not found')) {
       return 'Resource not found';
     }
-    if (message.includes('validation')) {
+    if (lowerMessage.includes('validation')) {
       return 'Invalid input';
     }
-    return 'Something went wrong';
+
+    // Return original message if it's informative, otherwise generic
+    return message.length > 5 && message.length < 100 ? message : 'Something went wrong';
   }
 
   private getAuthHeader(): string | null {
-    if (accessToken) return `Bearer ${accessToken}`;
+    if (accessToken) {
+      console.log('[ApiClient] Using module accessToken:', accessToken.substring(0, 20) + '...');
+      return `Bearer ${accessToken}`;
+    }
     const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('accessToken') : null;
-    return stored ? `Bearer ${stored}` : null;
+    if (stored) {
+      console.log('[ApiClient] Using sessionStorage token:', stored.substring(0, 20) + '...');
+      return `Bearer ${stored}`;
+    }
+    console.log('[ApiClient] No token found - accessToken:', accessToken, 'sessionStorage:', stored);
+    return null;
   }
 
   async fetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
@@ -118,7 +147,7 @@ class ApiClient {
       let message = 'An error occurred';
       try {
         const error = await res.json();
-        message = this.sanitizeError(error.message || message);
+        message = this.sanitizeError(error.message || message, res.status);
       } catch {
         message = `Request failed with status ${res.status}`;
       }

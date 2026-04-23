@@ -1,0 +1,32 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: Welcome back
+      - generic [ref=e8]: Enter your credentials to sign in
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Email
+        - generic [ref=e13]:
+          - img [ref=e14]
+          - textbox "Email" [ref=e17]:
+            - /placeholder: name@example.com
+      - generic [ref=e18]:
+        - generic [ref=e19]: Password
+        - generic [ref=e20]:
+          - img [ref=e21]
+          - textbox "Password" [ref=e24]
+          - button [ref=e25]:
+            - img [ref=e26]
+      - button "Forgot password?" [ref=e30]
+      - button "Sign in" [ref=e31]
+      - generic [ref=e36]: Or continue with
+      - button "Google" [ref=e37]:
+        - img
+        - text: Google
+    - paragraph [ref=e39]:
+      - text: Don't have an account?
+      - link "Sign up" [ref=e40] [cursor=pointer]:
+        - /url: /register
+  - button "Open Next.js Dev Tools" [ref=e46] [cursor=pointer]:
+    - img [ref=e47]
+  - alert [ref=e50]

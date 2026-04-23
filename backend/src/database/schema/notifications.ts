@@ -1,4 +1,11 @@
-import { pgTable, text, timestamp, uuid, boolean, jsonb } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  boolean,
+  jsonb,
+} from 'drizzle-orm/pg-core';
 import { organisations, users } from './index';
 
 export const notifications = pgTable('notifications', {

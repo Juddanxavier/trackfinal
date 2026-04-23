@@ -1,5 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { OrganisationsService } from '../users/services';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -18,7 +34,10 @@ export class OrganisationsController {
   @ApiOperation({ summary: 'Create new organisation' })
   @ApiResponse({ status: 201, description: 'Organisation created' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  create(@Body() createDto: { name: string; slug: string }, @Request() req: any) {
+  create(
+    @Body() createDto: { name: string; slug: string },
+    @Request() req: any,
+  ) {
     return this.organisationsService.create(createDto);
   }
 
@@ -61,7 +80,11 @@ export class OrganisationsController {
   @ApiOperation({ summary: 'Update organisation' })
   @ApiParam({ name: 'id', description: 'Organisation UUID' })
   @ApiResponse({ status: 200, description: 'Organisation updated' })
-  update(@Param('id') id: string, @Body() updateDto: { name?: string; slug?: string; isActive?: boolean }, @Request() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() updateDto: { name?: string; slug?: string; isActive?: boolean },
+    @Request() req: any,
+  ) {
     return this.organisationsService.update(id, updateDto);
   }
 

@@ -15,15 +15,21 @@ async function check() {
     WHERE table_schema = 'public' 
     AND table_name IN ('organisations', 'users', 'sessions')
   `);
-  console.log('✅ Tables in database:', result.rows.map(r => r.table_name));
-  
+  console.log(
+    '✅ Tables in database:',
+    result.rows.map((r) => r.table_name),
+  );
+
   // Also check columns for users
   const columns = await pool.query(`
     SELECT column_name, data_type FROM information_schema.columns 
     WHERE table_name = 'users' AND table_schema = 'public'
   `);
-  console.log('✅ Users columns:', columns.rows.map(c => c.column_name));
-  
+  console.log(
+    '✅ Users columns:',
+    columns.rows.map((c) => c.column_name),
+  );
+
   await pool.end();
 }
 

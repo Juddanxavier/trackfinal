@@ -7,18 +7,26 @@ jest.mock('../../database', () => ({
   db: {
     insert: jest.fn().mockReturnValue({
       values: jest.fn().mockReturnValue({
-        returning: jest.fn().mockResolvedValue([{ id: 'q1', organisationId: 'org-1' }]),
+        returning: jest
+          .fn()
+          .mockResolvedValue([{ id: 'q1', organisationId: 'org-1' }]),
       }),
     }),
     select: jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue([{ id: 'q1', organisationId: 'org-1', assignedToId: 'staff-1' }]),
+        where: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'q1', organisationId: 'org-1', assignedToId: 'staff-1' },
+          ]),
       }),
     }),
     update: jest.fn().mockReturnValue({
       set: jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
-          returning: jest.fn().mockResolvedValue([{ id: 'q1', assignedToId: 'staff-1' }]),
+          returning: jest
+            .fn()
+            .mockResolvedValue([{ id: 'q1', assignedToId: 'staff-1' }]),
         }),
       }),
     }),
@@ -26,7 +34,13 @@ jest.mock('../../database', () => ({
 }));
 
 jest.mock('../../database/schema/quotes', () => ({
-  quotes: { id: {}, organisationId: {}, userId: {}, status: {}, assignedToId: {} },
+  quotes: {
+    id: {},
+    organisationId: {},
+    userId: {},
+    status: {},
+    assignedToId: {},
+  },
 }));
 
 describe('QuotesService', () => {
@@ -93,7 +107,9 @@ describe('QuotesService', () => {
     });
 
     it('should not notify if no staff found', async () => {
-      (usersService.findAllByOrganisation as jest.Mock).mockResolvedValueOnce([]);
+      (usersService.findAllByOrganisation as jest.Mock).mockResolvedValueOnce(
+        [],
+      );
 
       await service.create({
         organisationId: 'org-1',
@@ -111,7 +127,11 @@ describe('QuotesService', () => {
 
   describe('update', () => {
     it('should assign staff who updates status', async () => {
-      const result = await service.update('q1', { status: 'quoted' }, 'staff-1');
+      const result = await service.update(
+        'q1',
+        { status: 'quoted' },
+        'staff-1',
+      );
 
       expect(notificationsService.create).not.toHaveBeenCalled();
     });

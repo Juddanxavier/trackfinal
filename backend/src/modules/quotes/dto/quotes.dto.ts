@@ -1,4 +1,10 @@
-import { IsString, IsNumber, IsOptional, IsEmail, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsEmail,
+  IsEnum,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateQuoteDto {
@@ -10,8 +16,28 @@ export class CreateQuoteDto {
   @IsString()
   destinationCountry: string;
 
-  @ApiProperty({ enum: ['general', 'fragile', 'hazardous', 'perishable', 'electronics', 'machinery', 'chemicals', 'other'] })
-  @IsEnum(['general', 'fragile', 'hazardous', 'perishable', 'electronics', 'machinery', 'chemicals', 'other'])
+  @ApiProperty({
+    enum: [
+      'general',
+      'fragile',
+      'hazardous',
+      'perishable',
+      'electronics',
+      'machinery',
+      'chemicals',
+      'other',
+    ],
+  })
+  @IsEnum([
+    'general',
+    'fragile',
+    'hazardous',
+    'perishable',
+    'electronics',
+    'machinery',
+    'chemicals',
+    'other',
+  ])
   goodsType: string;
 
   @ApiProperty({ example: 10.5 })
@@ -33,20 +59,33 @@ export class CreateQuoteDto {
 }
 
 export class UpdateQuoteDto {
-  @ApiPropertyOptional({ enum: ['pending', 'quoted', 'accepted', 'rejected'] })
+  @ApiPropertyOptional({
+    enum: ['pending', 'quoted', 'accepted', 'rejected', 'deleted'],
+  })
   @IsOptional()
-  @IsEnum(['pending', 'quoted', 'accepted', 'rejected'])
-  status?: 'pending' | 'quoted' | 'accepted' | 'rejected';
+  @IsEnum(['pending', 'quoted', 'accepted', 'rejected', 'deleted'])
+  status?: 'pending' | 'quoted' | 'accepted' | 'rejected' | 'deleted';
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  price?: number;
+  @IsString()
+  price?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   assignedToId?: string;
+}
+
+export class DeleteQuoteDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  hardDelete?: boolean;
 }
 
 export class QuoteResponseDto {
@@ -71,8 +110,27 @@ export class QuoteResponseDto {
   @ApiProperty({ enum: ['pending', 'quoted', 'accepted', 'rejected'] })
   status: 'pending' | 'quoted' | 'accepted' | 'rejected';
 
-  @ApiProperty({ enum: ['general', 'fragile', 'hazardous', 'perishable', 'electronics', 'machinery', 'chemicals', 'other'] })
-  goodsType: 'general' | 'fragile' | 'hazardous' | 'perishable' | 'electronics' | 'machinery' | 'chemicals' | 'other';
+  @ApiProperty({
+    enum: [
+      'general',
+      'fragile',
+      'hazardous',
+      'perishable',
+      'electronics',
+      'machinery',
+      'chemicals',
+      'other',
+    ],
+  })
+  goodsType:
+    | 'general'
+    | 'fragile'
+    | 'hazardous'
+    | 'perishable'
+    | 'electronics'
+    | 'machinery'
+    | 'chemicals'
+    | 'other';
 
   @ApiProperty()
   weight: number;

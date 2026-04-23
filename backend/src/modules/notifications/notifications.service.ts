@@ -11,7 +11,12 @@ export class NotificationsService {
 
   async create(organisationId: string, dto: CreateNotificationDto) {
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (process.env.NOTIFICATION_EXPIRY_DAYS ? parseInt(process.env.NOTIFICATION_EXPIRY_DAYS) : 30));
+    expiresAt.setDate(
+      expiresAt.getDate() +
+        (process.env.NOTIFICATION_EXPIRY_DAYS
+          ? parseInt(process.env.NOTIFICATION_EXPIRY_DAYS)
+          : 30),
+    );
 
     const [notification] = await db
       .insert(notifications)
@@ -35,7 +40,11 @@ export class NotificationsService {
     return notification;
   }
 
-  async findAll(organisationId: string, userId: string, query: QueryNotificationsDto) {
+  async findAll(
+    organisationId: string,
+    userId: string,
+    query: QueryNotificationsDto,
+  ) {
     const conditions = [
       eq(notifications.organisationId, organisationId),
       eq(notifications.userId, userId),
@@ -58,11 +67,13 @@ export class NotificationsService {
     const [updated] = await db
       .update(notifications)
       .set({ isRead: true })
-      .where(and(
-        eq(notifications.id, id),
-        eq(notifications.organisationId, organisationId),
-        eq(notifications.userId, userId),
-      ))
+      .where(
+        and(
+          eq(notifications.id, id),
+          eq(notifications.organisationId, organisationId),
+          eq(notifications.userId, userId),
+        ),
+      )
       .returning();
     return updated;
   }
@@ -71,12 +82,41 @@ export class NotificationsService {
     const [updated] = await db
       .update(notifications)
       .set({ isRead: false })
-      .where(and(
-        eq(notifications.id, id),
-        eq(notifications.organisationId, organisationId),
-        eq(notifications.userId, userId),
-      ))
+      .where(
+        and(
+          eq(notifications.id, id),
+          eq(notifications.organisationId, organisationId),
+          eq(notifications.userId, userId),
+        ),
+      )
       .returning();
     return updated;
+  }
+
+  async getUnreadCount(organisationId: string, userId: string) {
+    const result = await db
+      .select({ count: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.organisationId, organisationId),
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false),
+        ),
+      );
+    return result.length;
+  }
+
+  async markAllRead(organisationId: string, userId: string) {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(notifications.organisationId, organisationId),
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false),
+        ),
+      );
   }
 }

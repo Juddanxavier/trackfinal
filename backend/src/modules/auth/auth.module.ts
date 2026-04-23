@@ -19,7 +19,9 @@ import { VerificationsService } from './verifications.service';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET') || 'your-super-secret-key-min-32-chars',
+        secret:
+          configService.get('JWT_SECRET') ||
+          'your-super-secret-key-min-32-chars',
         signOptions: {
           expiresIn: configService.get('JWT_EXPIRES_IN') || '15m',
         },

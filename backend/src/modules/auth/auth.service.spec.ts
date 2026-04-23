@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { UsersService, OrganisationsService, SessionsService } from '../users/services';
+import {
+  UsersService,
+  OrganisationsService,
+  SessionsService,
+} from '../users/services';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
@@ -108,7 +112,10 @@ describe('AuthService', () => {
     it('should return null if user not found', async () => {
       mockUsersService.findByEmail.mockResolvedValue(undefined);
 
-      const result = await service.validateUser('notfound@test.com', 'password123');
+      const result = await service.validateUser(
+        'notfound@test.com',
+        'password123',
+      );
 
       expect(result).toBeNull();
     });
@@ -122,7 +129,10 @@ describe('AuthService', () => {
         name: 'Test User',
       });
 
-      const result = await service.validateUser('test@test.com', 'wrongpassword');
+      const result = await service.validateUser(
+        'test@test.com',
+        'wrongpassword',
+      );
 
       expect(result).toBeNull();
     });
@@ -165,7 +175,11 @@ describe('AuthService', () => {
 
     it('should create user with organisation', async () => {
       mockUsersService.findByEmail.mockResolvedValue(undefined);
-      mockOrganisationsService.create.mockResolvedValue({ id: 'org-id', name: 'Test Org', slug: 'test-org' } as any);
+      mockOrganisationsService.create.mockResolvedValue({
+        id: 'org-id',
+        name: 'Test Org',
+        slug: 'test-org',
+      } as any);
       mockUsersService.create.mockResolvedValue({
         id: 'user-id',
         email: 'new@test.com',
@@ -230,7 +244,9 @@ describe('AuthService', () => {
 
       const result = await service.logout('user-id');
 
-      expect(mockSessionsService.revokeByUserId).toHaveBeenCalledWith('user-id');
+      expect(mockSessionsService.revokeByUserId).toHaveBeenCalledWith(
+        'user-id',
+      );
       expect(result.message).toBe('Logged out successfully');
     });
   });

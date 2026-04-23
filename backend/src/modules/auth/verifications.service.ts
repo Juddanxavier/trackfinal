@@ -6,7 +6,10 @@ import { randomBytes } from 'crypto';
 
 @Injectable()
 export class VerificationsService {
-  async create(userId: string, type: 'email' | 'password-reset'): Promise<string> {
+  async create(
+    userId: string,
+    type: 'email' | 'password-reset',
+  ): Promise<string> {
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
@@ -21,20 +24,22 @@ export class VerificationsService {
     return token;
   }
 
-  async verify(token: string, type: 'email' | 'password-reset'): Promise<string | null> {
-    const result = await db.select().from(verifications).where(
-      and(
-        eq(verifications.token, token),
-        eq(verifications.type, type),
-      )
-    );
+  async verify(
+    token: string,
+    type: 'email' | 'password-reset',
+  ): Promise<string | null> {
+    const result = await db
+      .select()
+      .from(verifications)
+      .where(and(eq(verifications.token, token), eq(verifications.type, type)));
 
     const verification = result[0];
     if (!verification) return null;
     if (verification.usedAt) return null;
     if (verification.expiresAt < new Date()) return null;
 
-    await db.update(verifications)
+    await db
+      .update(verifications)
       .set({ usedAt: new Date() })
       .where(eq(verifications.id, verification.id));
 
@@ -42,11 +47,11 @@ export class VerificationsService {
   }
 
   async findByUser(userId: string, type: 'email' | 'password-reset') {
-    return db.select().from(verifications).where(
-      and(
-        eq(verifications.userId, userId),
-        eq(verifications.type, type),
-      )
-    );
+    return db
+      .select()
+      .from(verifications)
+      .where(
+        and(eq(verifications.userId, userId), eq(verifications.type, type)),
+      );
   }
 }

@@ -12,7 +12,7 @@ async function createVerificationsTable() {
 
   try {
     const client = await pool.connect();
-    
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS "verifications" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -25,7 +25,7 @@ async function createVerificationsTable() {
       )
     `);
     console.log('✅ Verifications table created');
-    
+
     await client.release();
   } catch (err: any) {
     console.log('ℹ️', err.message);

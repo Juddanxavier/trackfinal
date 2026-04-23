@@ -28,7 +28,10 @@ export class EmailService {
 
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
       console.log('📧 [DEV] Sending email:', options.subject, 'to', options.to);
-      console.log('📧 [DEV] Email content (preview):', options.html.substring(0, 100) + '...');
+      console.log(
+        '📧 [DEV] Email content (preview):',
+        options.html.substring(0, 100) + '...',
+      );
       return;
     }
 
@@ -44,7 +47,7 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/verify-email?token=${token}`;
-    
+
     await this.sendEmail({
       to: email,
       subject: 'Verify your email',
@@ -61,7 +64,7 @@ export class EmailService {
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password?token=${token}`;
-    
+
     await this.sendEmail({
       to: email,
       subject: 'Reset your password',

@@ -1,6 +1,26 @@
-import { Controller, Post, Body, Get, Patch, UseGuards, Request, HttpCode, HttpStatus, HttpException, Res, Req, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Patch,
+  UseGuards,
+  Request,
+  HttpCode,
+  HttpStatus,
+  HttpException,
+  Res,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
@@ -40,7 +60,9 @@ export class AuthController {
 
   @Public()
   @Get('check')
-  @ApiOperation({ summary: 'Check authentication status via Authorization header' })
+  @ApiOperation({
+    summary: 'Check authentication status via Authorization header',
+  })
   async checkAuth(@Request() req: any) {
     // Try Authorization header first
     let token = null;
@@ -48,16 +70,16 @@ export class AuthController {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
     }
-    
+
     // Fall back to cookie
     if (!token) {
       token = req.cookies?.[ACCESS_COOKIE_NAME];
     }
-    
+
     if (!token) {
       throw new UnauthorizedException('Unauthorized');
     }
-    
+
     try {
       const payload = this.authService['jwtService'].verify(token);
       if (!payload || !payload.sub) {
@@ -83,11 +105,14 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Email already exists' })
   async register(@Body() registerDto: RegisterDto) {
     const result = await this.authService.register(registerDto);
-    
+
     // Send verification email
-    const token = await this.verificationsService.create(result.user.id, 'email');
+    const token = await this.verificationsService.create(
+      result.user.id,
+      'email',
+    );
     await this.emailService.sendVerificationEmail(result.user.email, token);
-    
+
     return result;
   }
 
@@ -125,10 +150,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiResponse({ status: 200, description: 'Tokens refreshed' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refresh(@Req() req: ExpressRequest, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const refreshToken = req.cookies[REFRESH_COOKIE_NAME];
     if (!refreshToken) {
-      throw new HttpException('Refresh token not found', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Refresh token not found',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const result = await this.authService.refreshToken(refreshToken);
@@ -215,7 +246,9 @@ export class AuthController {
   async resendVerification(@Body() body: { email: string }) {
     const user = await this.usersService.findByEmail(body.email);
     if (!user) {
-      return { message: 'If the email exists, a verification email will be sent' };
+      return {
+        message: 'If the email exists, a verification email will be sent',
+      };
     }
     if (user.emailVerified) {
       return { message: 'Email is already verified' };
@@ -236,7 +269,10 @@ export class AuthController {
     if (!user) {
       return { message: 'If the email exists, a reset email will be sent' };
     }
-    const token = await this.verificationsService.create(user.id, 'password-reset');
+    const token = await this.verificationsService.create(
+      user.id,
+      'password-reset',
+    );
     await this.emailService.sendPasswordResetEmail(user.email, token);
     return { message: 'Password reset email sent' };
   }
@@ -248,11 +284,15 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
   async resetPassword(@Body() body: { token: string; password: string }) {
-    const userId = await this.verificationsService.verify(body.token, 'password-reset');
+    const userId = await this.verificationsService.verify(
+      body.token,
+      'password-reset',
+    );
     if (!userId) {
       return { message: 'Invalid or expired token' };
     }
-    const { hashPassword } = await import('../../common/utils/hash-password.js');
+    const { hashPassword } =
+      await import('../../common/utils/hash-password.js');
     const passwordHash = await hashPassword(body.password);
     await this.usersService.update(userId, { passwordHash });
     return { message: 'Password reset successfully' };

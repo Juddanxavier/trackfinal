@@ -9,7 +9,9 @@ import { EventsGateway } from './events.gateway';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET') || 'your-super-secret-key-min-32-chars',
+        secret:
+          configService.get('JWT_SECRET') ||
+          'your-super-secret-key-min-32-chars',
       }),
     }),
   ],

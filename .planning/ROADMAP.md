@@ -135,3 +135,15 @@ Plans:
 - [ ] 01-02-PLAN.md — Create login page
 - [ ] 01-03-PLAN.md — Create auth middleware
 - [ ] 01-04-PLAN.md — Connect core pages (dashboard, shipments, quotes, notifications)
+
+### Phase 17: quote management, we need same layout as user management. lets discuss in detail
+
+**Goal:** Quote management page for admin dashboard — same layout as user management (Phase 16), with table view, CRUD operations, stats cards, filters, and role-based permissions.
+**Requirements**: TBD
+**Depends on:** Phase 16
+**Plans:** 2 plans
+**Status:** Completed
+
+Plans:
+- [x] 17-01-PLAN.md — Backend Extension: DELETE, pagination, filtering, stats, email triggers
+- [x] 17-02-PLAN.md — Frontend: Quote management page with table, stats, CRUD, WebSocket

@@ -78,6 +78,43 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   )
 }
 
+function SortableTableHead({
+  className,
+  children,
+  onSort,
+  sortColumn,
+  sortDirection,
+  ...props
+}: React.ComponentProps<"th"> & {
+  onSort: (column: string, direction: "asc" | "desc") => void
+  sortColumn: string
+  sortDirection: "asc" | "desc"
+}) {
+  return (
+    <th
+      data-slot="table-head"
+      className={cn(
+        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 cursor-pointer hover:bg-muted/50 select-none",
+        className
+      )}
+      onClick={() => {
+        const newDirection = sortColumn === children && sortDirection === "asc" ? "desc" : "asc"
+        onSort(String(children), newDirection)
+      }}
+      {...props}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortColumn === children && (
+          <span className="text-muted-foreground">
+            {sortDirection === "asc" ? "↑" : "↓"}
+          </span>
+        )}
+      </div>
+    </th>
+  )
+}
+
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
@@ -113,4 +150,5 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  SortableTableHead,
 }

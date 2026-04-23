@@ -314,6 +314,21 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   )
 }
 
+function SidebarPageFooter({ className, ...props }: React.ComponentProps<"footer">) {
+  return (
+    <footer
+      data-slot="sidebar-page-footer"
+      className={cn(
+        "flex h-10 shrink-0 items-center justify-center border-t bg-muted/30 px-6 text-xs text-muted-foreground",
+        className
+      )}
+      {...props}
+    >
+      <span>TrackHub · Admin Dashboard</span>
+    </footer>
+  )
+}
+
 function SidebarInput({
   className,
   ...props
@@ -694,6 +709,7 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarPageFooter,
   SidebarProvider,
   SidebarRail,
   SidebarSeparator,

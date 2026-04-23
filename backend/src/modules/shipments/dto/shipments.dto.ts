@@ -2,62 +2,51 @@ import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateShipmentDto {
-  @ApiPropertyOptional({ description: 'Sender (customer) user ID - notifications will go to this user' })
-  @IsString()
-  @IsOptional()
-  userId?: string;
-
-  @ApiPropertyOptional({ description: 'Staff/admin to assign shipment to' })
-  @IsString()
-  @IsOptional()
-  assignedToId?: string;
-
-  @ApiPropertyOptional({ description: 'Tracking number from carrier' })
+  @ApiProperty({ description: 'Tracking number from carrier' })
   @IsString()
   @IsNotEmpty()
   trackingNumber: string;
 
-  @ApiPropertyOptional({ description: 'Carrier code (auto-detected if not provided)' })
+  @ApiProperty({ description: 'Carrier code' })
   @IsString()
-  @IsOptional()
-  carrierCode?: string;
+  @IsNotEmpty()
+  carrierCode: string;
+
+  @ApiProperty({
+    description: 'Sender email - notifications will be sent to this email',
+  })
+  @IsString()
+  @IsNotEmpty()
+  senderEmail: string;
 
   @ApiProperty({ description: 'Recipient full name' })
   @IsString()
   @IsNotEmpty()
   recipientName: string;
 
-  @ApiPropertyOptional({ description: 'Recipient email address' })
-  @IsString()
-  @IsOptional()
-  recipientEmail?: string;
-
   @ApiPropertyOptional({ description: 'Recipient phone number' })
   @IsString()
   @IsOptional()
   recipientPhone?: string;
 
-  @ApiPropertyOptional({ description: 'Recipient address' })
+  @ApiPropertyOptional({ description: 'Origin country code (from tracking)' })
   @IsString()
   @IsOptional()
-  recipientAddress?: string;
+  originCountry?: string;
 
-  @ApiProperty({ description: 'Origin country code' })
+  @ApiPropertyOptional({
+    description: 'Destination country code (from tracking)',
+  })
   @IsString()
-  @IsNotEmpty()
-  originCountry: string;
+  @IsOptional()
+  destinationCountry?: string;
 
-  @ApiProperty({ description: 'Destination country code' })
-  @IsString()
-  @IsNotEmpty()
-  destinationCountry: string;
-
-  @ApiPropertyOptional({ description: 'Type of goods', default: 'general' })
+  @ApiPropertyOptional({ description: 'Type of goods (from tracking)' })
   @IsString()
   @IsOptional()
   goodsType?: string;
 
-  @ApiPropertyOptional({ description: 'Package weight' })
+  @ApiPropertyOptional({ description: 'Package weight (from tracking)' })
   @IsString()
   @IsOptional()
   weight?: string;
@@ -78,9 +67,4 @@ export class UpdateShipmentDto {
   @IsString()
   @IsOptional()
   recipientPhone?: string;
-
-  @ApiPropertyOptional({ description: 'Recipient address' })
-  @IsString()
-  @IsOptional()
-  recipientAddress?: string;
 }

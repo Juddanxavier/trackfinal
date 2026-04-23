@@ -19,16 +19,18 @@ jest.mock('../../database', () => {
     db: {
       insert: jest.fn().mockReturnValue({
         values: jest.fn().mockReturnValue({
-          returning: jest.fn().mockResolvedValue([{
-            id: 'notif-1',
-            organisationId: 'org-1',
-            userId: 'user-1',
-            titleKey: 'quote.assigned',
-            data: { quoteId: 'q1' },
-            isRead: false,
-            createdAt: new Date(),
-            expiresAt: new Date(),
-          }]),
+          returning: jest.fn().mockResolvedValue([
+            {
+              id: 'notif-1',
+              organisationId: 'org-1',
+              userId: 'user-1',
+              titleKey: 'quote.assigned',
+              data: { quoteId: 'q1' },
+              isRead: false,
+              createdAt: new Date(),
+              expiresAt: new Date(),
+            },
+          ]),
         }),
       }),
       select: jest.fn().mockReturnValue({
@@ -37,7 +39,9 @@ jest.mock('../../database', () => {
       update: jest.fn().mockReturnValue({
         set: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
-            returning: jest.fn().mockResolvedValue([{ id: 'notif-1', isRead: true }]),
+            returning: jest
+              .fn()
+              .mockResolvedValue([{ id: 'notif-1', isRead: true }]),
           }),
         }),
       }),
@@ -46,7 +50,13 @@ jest.mock('../../database', () => {
 });
 
 jest.mock('../../database/schema', () => ({
-  notifications: { id: {}, organisationId: {}, userId: {}, isRead: {}, createdAt: {} },
+  notifications: {
+    id: {},
+    organisationId: {},
+    userId: {},
+    isRead: {},
+    createdAt: {},
+  },
 }));
 
 describe('NotificationsService', () => {

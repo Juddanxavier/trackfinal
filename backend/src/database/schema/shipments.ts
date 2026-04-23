@@ -1,8 +1,21 @@
-import { pgTable, text, timestamp, uuid, pgEnum, jsonb } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  pgEnum,
+  jsonb,
+} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organisations, users } from './index';
 
-export const shipmentStatusEnum = pgEnum('shipment_status', ['pending', 'in_transit', 'delivered', 'cancelled']);
+export const shipmentStatusEnum = pgEnum('shipment_status', [
+  'pending',
+  'in_transit',
+  'delivered',
+  'cancelled',
+  'archived',
+]);
 
 export const shipments = pgTable('shipments', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -24,6 +37,11 @@ export const shipments = pgTable('shipments', {
   track17Data: jsonb('track17_data'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  deliveredAt: timestamp('delivered_at'),
+  archivedAt: timestamp('archived_at'),
+  deletedAt: timestamp('deleted_at'),
+  deletedBy: uuid('deleted_by'),
+  deletedReason: text('deleted_reason'),
 });
 
 export const shipmentsRelations = relations(shipments, ({ one }) => ({

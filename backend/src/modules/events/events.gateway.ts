@@ -1,4 +1,12 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect, ConnectedSocket, MessageBody } from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  ConnectedSocket,
+  MessageBody,
+} from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 
@@ -15,7 +23,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth.token || client.handshake.headers.authorization?.replace('Bearer ', '');
+      const token =
+        client.handshake.auth.token ||
+        client.handshake.headers.authorization?.replace('Bearer ', '');
       if (token) {
         const payload = this.jwtService.verify(token);
         client.data.user = payload;
@@ -31,7 +41,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('message')
-  handleMessage(@ConnectedSocket() client: Socket, @MessageBody() data: any): string {
+  handleMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: any,
+  ): string {
     return 'Hello world!';
   }
 
@@ -47,14 +60,20 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Join organisation room
   @SubscribeMessage('join-organisation')
-  handleJoinOrganisation(@ConnectedSocket() client: Socket, @MessageBody() organisationId: string) {
+  handleJoinOrganisation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() organisationId: string,
+  ) {
     client.join(`org:${organisationId}`);
     return { status: 'joined', organisationId };
   }
 
   // Leave organisation room
   @SubscribeMessage('leave-organisation')
-  handleLeaveOrganisation(@ConnectedSocket() client: Socket, @MessageBody() organisationId: string) {
+  handleLeaveOrganisation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() organisationId: string,
+  ) {
     client.leave(`org:${organisationId}`);
     return { status: 'left', organisationId };
   }

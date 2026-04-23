@@ -1,13 +1,24 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UsersService, OrganisationsService, SessionsService } from '../users/services';
+import {
+  UsersService,
+  OrganisationsService,
+  SessionsService,
+} from '../users/services';
 import { EmailQueueService } from '../email/email-queue.service';
 import { EmailService } from './email.service';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Role } from '../../common/enums/role.enum';
 import { slugify } from '../../common/utils/slugify';
-import { comparePassword, hashPassword } from '../../common/utils/hash-password';
+import {
+  comparePassword,
+  hashPassword,
+} from '../../common/utils/hash-password';
 
 @Injectable()
 export class AuthService {
@@ -117,7 +128,9 @@ export class AuthService {
     if (!user && googleUser.email) {
       user = await this.usersService.findByEmail(googleUser.email);
       if (user) {
-        await this.usersService.update(user.id, { googleId: googleUser.googleId });
+        await this.usersService.update(user.id, {
+          googleId: googleUser.googleId,
+        });
       }
     }
 
@@ -134,7 +147,9 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(
       { sub: userId, type: 'refresh' },
       {
-        secret: this.configService.get('JWT_SECRET') || 'your-super-secret-key-min-32-chars',
+        secret:
+          this.configService.get('JWT_SECRET') ||
+          'your-super-secret-key-min-32-chars',
         expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
       },
     );

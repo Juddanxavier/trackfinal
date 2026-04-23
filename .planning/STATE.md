@@ -3,6 +3,9 @@
 ## Accumulated Context
 
 ### Roadmap Evolution
+- Phase 17 added: quote management, we need same layout as user management. lets discuss in detail
+- Phase 17 context gathered: 2026-04-20
+- Phase 17 planned: 2 plans (backend extension + frontend page)
 - Phase 15 added: lets build in app notification system for bell notification
 - Phase 15 context gathered: 2026-04-19
 - Phase 15 plans 15-01 and 15-02 completed: 2026-04-19
