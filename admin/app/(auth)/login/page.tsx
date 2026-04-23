@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { api, ApiError, getCsrfToken, setAccessToken, clearAuth } from '@/lib/api';
+import { api, ApiError, login } from '@/lib/api';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -39,6 +39,7 @@ function LoginForm() {
     register,
     handleSubmit,
     setError,
+    getValues,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -48,23 +49,19 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      await getCsrfToken();
-      const result = await api.post<{ accessToken: string; refreshToken: string }>('/auth/login', data);
-      sessionStorage.setItem('accessToken', result.accessToken);
-      setAccessToken(result.accessToken);
-      setLoading(false);
-      window.location.assign(redirect);
+      const user = await login(data.email, data.password);
+      window.location.href = redirect;
     } catch (err) {
+      console.error('Login error details:', err);
+      setLoading(false);
       if (err instanceof ApiError && err.statusCode === 401) {
         setError('password', { message: 'Invalid email or password' });
         setError('email', { message: ' ' });
       } else if (err instanceof ApiError) {
         setError('password', { message: err.message });
       } else {
-        setError('password', { message: 'Something went wrong' });
+        setError('password', { message: err instanceof Error ? err.message : 'Something went wrong' });
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -75,13 +72,13 @@ function LoginForm() {
 
   const handleForgotPassword = async (e: React.MouseEvent) => {
     e.preventDefault();
-    const email = (document.getElementById('email') as HTMLInputElement)?.value;
-    
+    const email = getValues('email');
+
     if (!email) {
       setMessage({ type: 'error', text: 'Please enter your email address' });
       return;
     }
-    
+
     setMessage(null);
     try {
       await api.post('/auth/forgot-password', { email });

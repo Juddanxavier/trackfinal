@@ -2,63 +2,89 @@ import {
   IsEmail,
   IsString,
   MinLength,
+  MaxLength,
   IsOptional,
   IsEnum,
+  IsNotEmpty,
+  Validate,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '../../../common/enums/role.enum';
+import { PasswordComplexity, PASSWORD_POLICY } from '../../../common/validators/password.validator';
 
 export class LoginDto {
-  @ApiProperty({ example: 'admin@test.com' })
-  @IsEmail()
+  @ApiProperty({ example: 'admin@test.com', description: 'User email address' })
+  @IsEmail({}, { message: 'Invalid email format' })
+  @MaxLength(255)
+  @Transform(({ value }) => value?.toLowerCase().trim())
   email: string;
 
-  @ApiProperty({ example: 'password123' })
+  @ApiProperty({ example: 'SecureP@ssw0rd!123', description: 'User password' })
   @IsString()
-  @MinLength(8)
   password: string;
 }
 
 export class RegisterDto {
-  @ApiProperty({ example: 'admin@test.com' })
-  @IsEmail()
+  @ApiProperty({ example: 'admin@test.com', description: 'User email address' })
+  @IsEmail({}, { message: 'Invalid email format' })
+  @MaxLength(255)
+  @Transform(({ value }) => value?.toLowerCase().trim())
   email: string;
 
-  @ApiProperty({ example: 'password123' })
+  @ApiProperty({
+    example: 'SecureP@ssw0rd!123',
+    description: `Password must be at least ${PASSWORD_POLICY.minLength} characters with uppercase, lowercase, number, and special character`,
+  })
   @IsString()
-  @MinLength(8)
+  @MinLength(PASSWORD_POLICY.minLength)
+  @MaxLength(PASSWORD_POLICY.maxLength)
+  @Validate(PasswordComplexity)
   password: string;
 
-  @ApiProperty({ example: 'John Doe' })
+  @ApiProperty({ example: 'John Doe', description: 'User full name' })
   @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  @Transform(({ value }) => value?.trim())
   name: string;
 
-  @ApiProperty({ example: 'My Company' })
+  @ApiProperty({ example: 'My Company', description: 'Organisation name' })
   @IsString()
+  @MinLength(2)
+  @MaxLength(200)
   organisationName: string;
+}
 
-  @ApiPropertyOptional({ enum: Role, default: Role.ADMIN })
-  @IsOptional()
-  @IsEnum(Role)
-  role?: Role = Role.ADMIN;
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'admin@test.com', description: 'Email address to reset password' })
+  @IsEmail({}, { message: 'Invalid email format' })
+  @MaxLength(255)
+  @Transform(({ value }) => value?.toLowerCase().trim())
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ description: 'Password reset token' })
+  @IsString()
+  @IsNotEmpty({ message: 'Token is required' })
+  token: string;
+
+  @ApiProperty({
+    description: `New password - minimum ${PASSWORD_POLICY.minLength} characters with uppercase, lowercase, number, and special character`,
+  })
+  @IsString()
+  @MinLength(PASSWORD_POLICY.minLength)
+  @MaxLength(PASSWORD_POLICY.maxLength)
+  @Validate(PasswordComplexity)
+  newPassword: string;
 }
 
 export class RefreshTokenDto {
-  @ApiProperty({ description: 'Refresh token from login response' })
+  @ApiPropertyOptional({ description: 'Refresh token (if not using cookie)' })
+  @IsOptional()
   @IsString()
-  refreshToken: string;
-}
-
-export class UpdatePasswordDto {
-  @ApiProperty()
-  @IsString()
-  @MinLength(8)
-  currentPassword: string;
-
-  @ApiProperty()
-  @IsString()
-  @MinLength(8)
-  newPassword: string;
+  refreshToken?: string;
 }
 
 export class AuthResponseDto {
@@ -71,4 +97,11 @@ export class AuthResponseDto {
     role: string;
     organisationId: string | null;
   };
+}
+
+export class VerifyEmailDto {
+  @ApiProperty({ description: 'Email verification token' })
+  @IsString()
+  @IsNotEmpty({ message: 'Token is required' })
+  token: string;
 }

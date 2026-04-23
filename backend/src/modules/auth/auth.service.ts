@@ -2,76 +2,126 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import {
   UsersService,
   OrganisationsService,
   SessionsService,
 } from '../users/services';
-import { EmailQueueService } from '../email/email-queue.service';
+import { TokenService, RequestContext } from './token.service';
 import { EmailService } from './email.service';
+import { VerificationsService } from './verifications.service';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Role } from '../../common/enums/role.enum';
 import { slugify } from '../../common/utils/slugify';
-import {
-  comparePassword,
-  hashPassword,
-} from '../../common/utils/hash-password';
+import { comparePassword, hashPassword } from '../../common/utils/hash-password';
+import { validatePassword } from '../../common/validators/password.validator';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+  private readonly passwordFailDelayMs = 500;
+
   constructor(
     private usersService: UsersService,
     private organisationsService: OrganisationsService,
     private sessionsService: SessionsService,
-    private jwtService: JwtService,
+    private tokenService: TokenService,
     private configService: ConfigService,
-    private emailQueueService: EmailQueueService,
     private emailService: EmailService,
+    private verificationsService: VerificationsService,
   ) {}
+
+  private async passwordFailDelay(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, this.passwordFailDelayMs));
+  }
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-    if (user && user.passwordHash) {
-      const isValid = await comparePassword(password, user.passwordHash);
-      if (isValid) {
-        const { passwordHash, ...result } = user;
-        return result;
-      }
+
+    if (!user) {
+      return null;
     }
-    return null;
+
+    if (!user.passwordHash) {
+      return null;
+    }
+
+    const isValid = await comparePassword(password, user.passwordHash);
+
+    if (!isValid) {
+      return null;
+    }
+
+    const { passwordHash, ...result } = user;
+    return result;
   }
 
-  async login(user: any): Promise<AuthResponseDto> {
-    const payload = {
-      email: user.email,
-      sub: user.id,
-      role: user.role,
-      organisationId: user.organisationId,
-    };
+  async login(
+    loginDto: LoginDto,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
+    const user = await this.usersService.findByEmail(loginDto.email);
 
-    const accessToken = this.jwtService.sign(payload);
-    const refreshToken = await this.generateRefreshToken(user.id);
+    if (!user) {
+      await this.passwordFailDelay();
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        'This account uses OAuth. Please sign in with Google.',
+      );
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    const isPasswordValid = await comparePassword(
+      loginDto.password,
+      user.passwordHash,
+    );
+
+    if (!isPasswordValid) {
+      await this.passwordFailDelay();
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.emailVerified) {
+      await this.verificationsService.create(user.id, 'email');
+      await this.emailService.sendVerificationEmail(user.email, '');
+      throw new UnauthorizedException(
+        'Please verify your email before signing in. A new verification link has been sent.',
+      );
+    }
+
+    const accessToken = this.tokenService.generateAccessToken(user);
+    const refreshToken = await this.tokenService.generateRefreshToken(user.id, context);
 
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        organisationId: user.organisationId,
-      },
+      user: this.sanitizeUser(user),
     };
   }
 
-  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
+  async register(
+    registerDto: RegisterDto,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
     const existingUser = await this.usersService.findByEmail(registerDto.email);
+
     if (existingUser) {
       throw new BadRequestException('Email already exists');
+    }
+
+    const passwordErrors = validatePassword(registerDto.password);
+    if (passwordErrors.length > 0) {
+      throw new BadRequestException(passwordErrors.join('. '));
     }
 
     const organisation = await this.organisationsService.create({
@@ -79,90 +129,133 @@ export class AuthService {
       slug: slugify(registerDto.organisationName),
     });
 
-    const passwordHash = await hashPassword(registerDto.password);
+    const configService = this.configService;
+    const passwordHash = await hashPassword(registerDto.password, configService);
 
     const user = await this.usersService.create({
       email: registerDto.email,
       passwordHash,
       name: registerDto.name,
-      role: registerDto.role || Role.ADMIN,
       organisationId: organisation.id,
       emailVerified: false,
     });
 
-    this.emailService.sendWelcomeEmail(registerDto.email, registerDto.name);
+    const token = await this.verificationsService.create(user.id, 'email');
+    await this.emailService.sendVerificationEmail(user.email, token);
 
-    return this.login(user);
+    const accessToken = this.tokenService.generateAccessToken(user);
+    const refreshToken = await this.tokenService.generateRefreshToken(user.id, context);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.sanitizeUser(user),
+    };
   }
 
-  async refreshToken(refreshToken: string): Promise<AuthResponseDto> {
-    const session = await this.sessionsService.findByRefreshToken(refreshToken);
-
-    if (!session || session.revoked || session.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid refresh token');
+  async refreshToken(
+    refreshToken: string,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token required');
     }
 
-    const user = await this.sessionsService.findByUserId(session.userId);
+    const { sessionId, userId } = await this.tokenService.verifyRefreshToken(refreshToken);
+    const user = await this.usersService.findById(userId);
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    const fullUser = await this.usersService.findById(session.userId);
-    if (!fullUser) {
-      throw new UnauthorizedException('User not found');
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
     }
 
-    await this.sessionsService.revoke(session.id);
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Please verify your email first');
+    }
 
-    return this.login(fullUser);
+    const newRefreshToken = await this.tokenService.rotateRefreshToken(refreshToken, context);
+    const accessToken = this.tokenService.generateAccessToken(user);
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      user: this.sanitizeUser(user),
+    };
   }
 
   async logout(userId: string): Promise<{ message: string }> {
-    await this.sessionsService.revokeByUserId(userId);
+    await this.sessionsService.revokeAllUserSessions(userId);
     return { message: 'Logged out successfully' };
   }
 
-  async googleLogin(googleUser: any): Promise<AuthResponseDto> {
+  async logoutAllDevices(userId: string): Promise<{ message: string; sessionsRevoked: number }> {
+    const sessions = await this.sessionsService.findByUserId(userId);
+    await this.sessionsService.revokeAllUserSessions(userId);
+    return {
+      message: 'Logged out from all devices',
+      sessionsRevoked: sessions.length,
+    };
+  }
+
+  async googleLogin(googleUser: any, context: RequestContext): Promise<AuthResponseDto> {
     let user = await this.usersService.findByGoogleId(googleUser.googleId);
 
     if (!user && googleUser.email) {
-      user = await this.usersService.findByEmail(googleUser.email);
-      if (user) {
-        await this.usersService.update(user.id, {
-          googleId: googleUser.googleId,
-        });
-      }
+      user = await this.usersService.findByGoogleIdOrEmail(
+        googleUser.googleId,
+        googleUser.email,
+      );
     }
 
     if (!user) {
       throw new BadRequestException(
-        'Please register first using email/password, then link your Google account',
+        'No account found. Please register with email/password first, then link your Google account.',
       );
     }
 
-    return this.login(user);
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    if (!user.emailVerified && googleUser.emailVerified) {
+      await this.usersService.update(user.id, { emailVerified: true });
+      user = await this.usersService.findById(user.id);
+    }
+
+    if (!user.emailVerified) {
+      await this.verificationsService.create(user.id, 'email');
+      await this.emailService.sendVerificationEmail(user.email, '');
+      throw new UnauthorizedException(
+        'Please verify your email before signing in. A new verification link has been sent.',
+      );
+    }
+
+    const accessToken = this.tokenService.generateAccessToken(user);
+    const refreshToken = await this.tokenService.generateRefreshToken(user.id, context);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.sanitizeUser(user),
+    };
   }
 
-  private async generateRefreshToken(userId: string): Promise<string> {
-    const refreshToken = this.jwtService.sign(
-      { sub: userId, type: 'refresh' },
-      {
-        secret:
-          this.configService.get('JWT_SECRET') ||
-          'your-super-secret-key-min-32-chars',
-        expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
-      },
-    );
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await this.sessionsService.create({
-      userId,
-      refreshToken,
-      expiresAt,
-    });
-
-    return refreshToken;
+  private sanitizeUser(user: any): {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    organisationId: string | null;
+  } {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      organisationId: user.organisationId,
+    };
   }
 }

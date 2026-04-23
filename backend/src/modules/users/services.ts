@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { db } from '../../database';
 import { users, organisations, sessions } from '../../database/schema';
-import { eq, like, or, and, desc, asc } from 'drizzle-orm';
+import { eq, like, or, and, desc, asc, lt, ne } from 'drizzle-orm';
 import { Role } from '../../common/enums/role.enum';
 
 export interface FindWithPaginationParams {
@@ -39,6 +39,14 @@ export class UsersService {
       .select()
       .from(users)
       .where(eq(users.googleId, googleId));
+    return result[0];
+  }
+
+  async findByGoogleIdOrEmail(googleId: string, email: string) {
+    const result = await db
+      .select()
+      .from(users)
+      .where(or(eq(users.googleId, googleId), eq(users.email, email)));
     return result[0];
   }
 
@@ -322,49 +330,113 @@ export class OrganisationsService {
 
 @Injectable()
 export class SessionsService {
-  async findByRefreshToken(refreshToken: string) {
+  async findByTokenHash(tokenHash: string) {
     const result = await db
       .select()
       .from(sessions)
-      .where(eq(sessions.refreshToken, refreshToken));
-    return result[0];
+      .where(
+        and(
+          eq(sessions.refreshTokenHash, tokenHash),
+          eq(sessions.revoked, false),
+        ),
+      );
+    return result[0] || null;
   }
 
-  async findByUserId(userId: string) {
-    return db.select().from(sessions).where(eq(sessions.userId, userId));
+  async findById(id: string) {
+    const result = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, id));
+    return result[0] || null;
+  }
+
+  async findByUserId(userId: string): Promise<typeof sessions.$inferSelect[]> {
+    return db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          eq(sessions.revoked, false),
+        ),
+      );
   }
 
   async create(data: {
     userId: string;
-    refreshToken: string;
+    refreshTokenHash: string;
     expiresAt: Date;
+    userAgent?: string;
+    ipAddress?: string;
   }) {
     const result = await db
       .insert(sessions)
       .values({
         userId: data.userId,
-        refreshToken: data.refreshToken,
+        refreshTokenHash: data.refreshTokenHash,
         expiresAt: data.expiresAt,
+        userAgent: data.userAgent,
+        ipAddress: data.ipAddress,
       })
       .returning();
     return result[0];
   }
 
-  async revoke(id: string) {
-    await db.update(sessions).set({ revoked: true }).where(eq(sessions.id, id));
-  }
-
-  async revokeByUserId(userId: string) {
+  async revoke(id: string): Promise<void> {
     await db
       .update(sessions)
-      .set({ revoked: true })
-      .where(eq(sessions.userId, userId));
+      .set({ revoked: true, revokedAt: new Date() })
+      .where(eq(sessions.id, id));
   }
 
-  async revokeByToken(refreshToken: string) {
+  async revokeByUserId(userId: string): Promise<void> {
     await db
       .update(sessions)
-      .set({ revoked: true })
-      .where(eq(sessions.refreshToken, refreshToken));
+      .set({ revoked: true, revokedAt: new Date() })
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          eq(sessions.revoked, false),
+        ),
+      );
+  }
+
+  async revokeAllUserSessions(userId: string): Promise<void> {
+    await db
+      .update(sessions)
+      .set({ revoked: true, revokedAt: new Date() })
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          eq(sessions.revoked, false),
+        ),
+      );
+  }
+
+  async revokeAllOtherSessions(userId: string, currentSessionId: string): Promise<void> {
+    await db
+      .update(sessions)
+      .set({ revoked: true, revokedAt: new Date() })
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          eq(sessions.revoked, false),
+          ne(sessions.id, currentSessionId),
+        ),
+      );
+  }
+
+  async cleanupExpiredSessions(): Promise<number> {
+    const now = new Date();
+    const result = await db
+      .delete(sessions)
+      .where(
+        or(
+          eq(sessions.revoked, true),
+          lt(sessions.expiresAt, now),
+        ),
+      );
+    return result.rowCount || 0;
   }
 }

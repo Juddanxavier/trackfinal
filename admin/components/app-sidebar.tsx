@@ -156,24 +156,15 @@ const data = {
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user: {
-    name: string
-    email: string
-    avatar: string
-    role: string
-  }
   organisations?: Organisation[]
   selectedOrganisation?: string
   onOrganisationChange?: (orgId: string) => void
-  onLogout: () => void
 }
 
 export function AppSidebar({
-  user,
   organisations = [],
   selectedOrganisation,
   onOrganisationChange,
-  onLogout,
   ...props
 }: AppSidebarProps) {
   const currentOrg = organisations.find(
@@ -223,9 +214,6 @@ export function AppSidebar({
         <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} onLogout={onLogout} />
-      </SidebarFooter>
     </Sidebar>
   )
 }
