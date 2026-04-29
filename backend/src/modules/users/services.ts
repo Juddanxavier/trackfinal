@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { db } from '../../database';
 import { users, organisations, sessions } from '../../database/schema';
-import { eq, like, or, and, desc, asc, lt, ne } from 'drizzle-orm';
+import { eq, like, or, and, desc, asc, lt, ne, sql } from 'drizzle-orm';
 import { Role } from '../../common/enums/role.enum';
 
 export interface FindWithPaginationParams {
@@ -159,7 +159,7 @@ export class UsersService {
     const orderColumn = (users as any)[sortBy] || users.createdAt;
     const orderFn = sortOrder === 'asc' ? asc : desc;
 
-    const [data, allData] = await Promise.all([
+    const [data, countResult] = await Promise.all([
       db
         .select()
         .from(users)
@@ -167,10 +167,10 @@ export class UsersService {
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select().from(users).where(whereClause),
+      db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause),
     ]);
 
-    const total = allData.length;
+    const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
 
     return {

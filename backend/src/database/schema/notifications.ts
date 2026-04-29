@@ -5,6 +5,7 @@ import {
   uuid,
   boolean,
   jsonb,
+  index,
 } from 'drizzle-orm/pg-core';
 import { organisations, users } from './index';
 
@@ -16,9 +17,14 @@ export const notifications = pgTable('notifications', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  titleKey: text('title_key').notNull(), // e.g., "quote.assigned"
-  data: jsonb('data').default({}), // Template variables as JSON
+  titleKey: text('title_key').notNull(),
+  data: jsonb('data').default({}),
   isRead: boolean('is_read').default(false),
   createdAt: timestamp('created_at').defaultNow(),
-  expiresAt: timestamp('expires_at').defaultNow(), // Auto-set to NOW + 30 days
-});
+  expiresAt: timestamp('expires_at').defaultNow(),
+}, (table) => [
+  index('idx_notifications_user_id').on(table.userId),
+  index('idx_notifications_organisation_id').on(table.organisationId),
+  index('idx_notifications_is_read').on(table.isRead),
+  index('idx_notifications_created_at').on(table.createdAt),
+]);

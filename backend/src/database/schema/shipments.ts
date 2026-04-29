@@ -6,6 +6,7 @@ import {
   jsonb,
   pgEnum,
   integer,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -48,7 +49,14 @@ export const shipments = pgTable('shipments', {
   notifyPhone: text('notify_phone'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => [
+  index('idx_shipments_organisation_id').on(table.organisationId),
+  index('idx_shipments_status').on(table.status),
+  index('idx_shipments_tracking_number').on(table.trackingNumber),
+  index('idx_shipments_created_at').on(table.createdAt),
+  index('idx_shipments_carrier_code').on(table.carrierCode),
+  index('idx_shipments_deleted_at').on(table.deletedAt),
+]);
 
 export const shipmentEvents = pgTable('shipment_events', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -59,7 +67,10 @@ export const shipmentEvents = pgTable('shipment_events', {
   location: text('location'),
   eventTime: timestamp('event_time').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => [
+  index('idx_shipment_events_shipment_id').on(table.shipmentId),
+  index('idx_shipment_events_event_time').on(table.eventTime),
+]);
 
 export const shipmentsRelations = relations(shipments, ({ many }) => ({
   events: many(shipmentEvents),

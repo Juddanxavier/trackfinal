@@ -54,7 +54,7 @@ export class NotificationPreferencesService {
       );
 
     if (existing.length > 0) {
-      const [updated] = await db
+      const updated = await db
         .update(notificationPreferences)
         .set({ ...data, updatedAt: new Date() })
         .where(
@@ -62,15 +62,16 @@ export class NotificationPreferencesService {
             eq(notificationPreferences.organisationId, organisationId),
             eq(notificationPreferences.userId, userId),
           ),
-        );
-      return updated;
+        )
+        .returning();
+      return updated[0];
     } else {
-      const [created] = await db.insert(notificationPreferences).values({
+      const created = await db.insert(notificationPreferences).values({
         organisationId,
         userId,
         ...data,
-      });
-      return created;
+      }).returning();
+      return created[0];
     }
   }
 

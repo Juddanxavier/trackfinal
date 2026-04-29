@@ -3,8 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import * as Sentry from '@sentry/nestjs';
 import { AppModule } from './app.module';
 import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
+import { AllExceptionsFilter } from './filters/all-exceptions.filter';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+});
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -63,7 +71,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  // Throttler filter
+  // Global filters
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalFilters(new ThrottlerExceptionFilter());
 
   await app.listen(process.env.PORT ?? 4000);

@@ -5,6 +5,7 @@ import {
   uuid,
   numeric,
   pgEnum,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { organisations, users } from './index';
@@ -48,7 +49,12 @@ export const quotes = pgTable('quotes', {
   deletedBy: uuid('deleted_by'),
   deletedReason: text('deleted_reason'),
   archivedAt: timestamp('archived_at'),
-});
+}, (table) => [
+  index('idx_quotes_organisation_id').on(table.organisationId),
+  index('idx_quotes_status').on(table.status),
+  index('idx_quotes_created_at').on(table.createdAt),
+  index('idx_quotes_archived_at').on(table.archivedAt),
+]);
 
 export const quotesRelations = relations(quotes, ({ one }) => ({
   organisation: one(organisations, {

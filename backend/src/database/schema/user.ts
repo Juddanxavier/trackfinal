@@ -5,6 +5,7 @@ import {
   uuid,
   boolean,
   pgEnum,
+  index,
 } from 'drizzle-orm/pg-core';
 import { organisations } from './organisations';
 
@@ -23,4 +24,8 @@ export const users = pgTable('users', {
   emailVerified: boolean('email_verified').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  index('idx_users_email').on(table.email),
+  index('idx_users_organisation_id').on(table.organisationId),
+  index('idx_users_role').on(table.role),
+]);
