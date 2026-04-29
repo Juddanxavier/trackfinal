@@ -12,7 +12,7 @@ export class VerificationsService {
   ): Promise<string> {
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
+    expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour
 
     await db.insert(verifications).values({
       userId,

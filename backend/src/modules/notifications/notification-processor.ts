@@ -7,11 +7,13 @@ import { NotificationLogsService } from './notification-logs.service';
 
 export interface SendNotificationJob {
   organisationId: string;
-  userId: string;
-  shipmentId: string;
+  userId?: string;
+  shipmentId?: string;
   channel: 'email' | 'whatsapp';
   titleKey: string;
   data: Record<string, any>;
+  to?: string;
+  phone?: string;
 }
 
 @Injectable()
@@ -26,27 +28,35 @@ export class NotificationProcessor extends WorkerHost {
   }
 
   async process(job: Job<SendNotificationJob>): Promise<any> {
-    const { organisationId, userId, shipmentId, channel, titleKey, data } =
-      job.data;
+    const {
+      organisationId,
+      userId,
+      shipmentId,
+      channel,
+      titleKey,
+      data,
+      to,
+      phone,
+    } = job.data;
 
     console.log(
-      `[NotificationProcessor] Processing job ${job.id}: ${channel} notification for user ${userId}`,
+      `[NotificationProcessor] Processing job ${job.id}: ${channel} notification for ${to || phone || userId || 'recipient'}`,
     );
 
     try {
       if (channel === 'email') {
         return await this.sendEmailNotification(
           organisationId,
-          userId,
-          shipmentId,
+          userId || '',
+          shipmentId || '',
           titleKey,
           data,
         );
       } else if (channel === 'whatsapp') {
         return await this.sendWhatsAppNotification(
           organisationId,
-          userId,
-          shipmentId,
+          userId || '',
+          shipmentId || '',
           titleKey,
           data,
         );
@@ -220,12 +230,19 @@ export class NotificationProcessor extends WorkerHost {
       return defaultVal;
     };
 
-    const statusLabel = titleKey === 'shipment.created' ? 'Created' :
-                        titleKey === 'shipment.in_transit' ? 'In Transit' :
-                        titleKey === 'shipment.delivered' ? 'Delivered' : 'Update';
+    const statusLabel =
+      titleKey === 'shipment.created'
+        ? 'Created'
+        : titleKey === 'shipment.in_transit'
+          ? 'In Transit'
+          : titleKey === 'shipment.delivered'
+            ? 'Delivered'
+            : 'Update';
     const name = getStr('recipientName') || 'Customer';
-    const whiteLabelCode = getStr('whiteLabelCode') || getStr('trackingNumber') || '';
-    const destination = getStr('destinationCountry') || getStr('location') || 'Unknown';
+    const whiteLabelCode =
+      getStr('whiteLabelCode') || getStr('trackingNumber') || '';
+    const destination =
+      getStr('destinationCountry') || getStr('location') || 'Unknown';
     const status = getOrDefault('status', statusLabel);
 
     switch (titleKey) {

@@ -1,8 +1,15 @@
-import { Injectable, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { hashForStorage, generateSecureToken } from '../../common/utils/crypto.util';
+import {
+  hashForStorage,
+  generateSecureToken,
+} from '../../common/utils/crypto.util';
 import { SessionsService } from '../users/services';
 
 export interface JwtPayload {
@@ -104,7 +111,9 @@ export class TokenService {
     }
   }
 
-  async verifyRefreshToken(token: string): Promise<{ sessionId: string; userId: string }> {
+  async verifyRefreshToken(
+    token: string,
+  ): Promise<{ sessionId: string; userId: string }> {
     const tokenHash = hashForStorage(token);
     const session = await this.sessionsService.findByTokenHash(tokenHash);
 
@@ -113,7 +122,9 @@ export class TokenService {
     }
 
     if (session.revoked || session.expiresAt < new Date()) {
-      throw new UnauthorizedException('Refresh token has expired or been revoked');
+      throw new UnauthorizedException(
+        'Refresh token has expired or been revoked',
+      );
     }
 
     return {

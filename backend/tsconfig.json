@@ -35,5 +35,7 @@
         "src/config/*"
       ]
     }
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/database/seed-orgs.ts", "node_modules"]
 }

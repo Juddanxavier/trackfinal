@@ -2,307 +2,393 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { db } from '../../database';
-import { shipments } from '../../database/schema/shipments';
-import { eq, and, like, or, desc, asc } from 'drizzle-orm';
-import { UsersService } from '../users/services';
-import { NotificationsService } from '../notifications/notifications.service';
-import { TrackingProviderFactory } from './tracking.factory';
+import { shipments, shipmentEvents } from '../../database/schema/shipments';
+import { organisations } from '../../database/schema/organisations';
+import { eq, and, desc, sql, isNull, isNotNull, inArray } from 'drizzle-orm';
+import { SeventeenTrackService } from '../tracking/seventeen-track.service';
+import { CarriersService } from '../carriers/carriers.service';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ShipmentsService {
+  private readonly logger = new Logger('ShipmentsService');
+
   constructor(
-    private usersService: UsersService,
-    private notificationsService: NotificationsService,
-    private trackingFactory: TrackingProviderFactory,
+    private readonly seventeenTrackService: SeventeenTrackService,
+    private readonly carriersService: CarriersService,
+    private readonly notificationService: NotificationService,
   ) {}
+
+  private async waitForTrackingData(
+    trackingNumber: string,
+    carrierCode: string,
+    maxAttempts = 5,
+    delayMs = 2000,
+  ): Promise<any> {
+    for (let i = 0; i < maxAttempts; i++) {
+      const tracking = await this.seventeenTrackService.getTracking(
+        trackingNumber,
+        carrierCode,
+      );
+      if (tracking && tracking.status && tracking.status !== 'not_found') {
+        return tracking;
+      }
+      if (i < maxAttempts - 1) {
+        this.logger.debug(
+          `Waiting for tracking data... attempt ${i + 1}/${maxAttempts}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return null;
+  }
 
   async create(data: {
     organisationId: string;
     trackingNumber: string;
     carrierCode: string;
-    senderEmail: string;
     recipientName: string;
-    recipientPhone?: string;
-    originCountry?: string;
-    destinationCountry?: string;
-    goodsType?: string;
-    weight?: string;
+    recipientEmail?: string;
+    recipientPhone: string;
+    userId?: string;
   }) {
-    console.log(
-      '[ShipmentsService] CREATE shipment:',
-      JSON.stringify(data, null, 2),
+    this.logger.log('[CREATE] Tracking:', data.trackingNumber);
+
+    if (!data.trackingNumber?.trim()) {
+      throw new BadRequestException('Tracking number is required');
+    }
+
+    const isValidCarrier = await this.carriersService.isValidCarrier(
+      data.carrierCode,
     );
-
-    const whiteLabelCode = this.generateWhiteLabelCode();
-
-    let finalUserId: string | null = null;
-
-    if (data.senderEmail) {
-      const userByEmail = await this.usersService.findByEmail(data.senderEmail);
-      if (userByEmail) {
-        finalUserId = userByEmail.id;
-      }
-    }
-
-    if (!finalUserId && data.recipientPhone) {
-      const userByPhone = await this.usersService.findByPhoneNumber(
-        data.recipientPhone,
+    if (!isValidCarrier) {
+      throw new BadRequestException(
+        `Invalid carrier code: ${data.carrierCode}`,
       );
-      if (userByPhone) {
-        finalUserId = userByPhone.id;
-      }
     }
 
-    let originCountry = data.originCountry;
-    let destinationCountry = data.destinationCountry;
-    let goodsType = data.goodsType;
-    let weight = data.weight;
+    const [existing] = await db
+      .select()
+      .from(shipments)
+      .where(
+        and(
+          eq(shipments.trackingNumber, data.trackingNumber),
+          eq(shipments.organisationId, data.organisationId),
+          isNull(shipments.deletedAt),
+        ),
+      );
 
-    let trackData: any = null;
+    if (existing) {
+      throw new ConflictException('Tracking number already exists');
+    }
+
+    const [org] = await db
+      .select()
+      .from(organisations)
+      .where(eq(organisations.id, data.organisationId));
+    const orgCountry = org?.countryCode || 'Unknown';
+
+    const detectPhoneCountry = (phone: string): string => {
+      const clean = phone.replace(/\D/g, '');
+      const patterns: [RegExp, string][] = [
+        [/^1(?!1$)/, 'US'],
+        [/^44/, 'GB'],
+        [/^61/, 'AU'],
+        [/^49/, 'DE'],
+        [/^33/, 'FR'],
+        [/^86/, 'CN'],
+        [/^81/, 'JP'],
+        [/^91/, 'IN'],
+        [/^55/, 'BR'],
+        [/^52/, 'MX'],
+      ];
+      for (const [regex, code] of patterns) {
+        if (regex.test(clean)) return code;
+      }
+      return 'Unknown';
+    };
+
+    const notifyPhoneCountry = detectPhoneCountry(data.recipientPhone);
+
+    let carrierCode = data.carrierCode || 'unknown';
+    let originCountry = orgCountry;
+    let destinationCountry = orgCountry;
+    let status: 'pending' | 'in_transit' | 'delivered' | 'exception' =
+      'pending';
+    let statusRaw = 'InfoReceived';
+    let events: any[] = [];
+
     try {
-      trackData = await this.trackingFactory.trackWithRetry(
-        data.carrierCode,
+      this.logger.debug('Fetching tracking from 17TRACK...');
+      let trackingData = await this.seventeenTrackService.getTracking(
         data.trackingNumber,
+        data.carrierCode,
       );
-      console.log(
-        '[ShipmentsService] Track data fetched:',
-        trackData ? 'yes' : 'no/null (pending first scan)',
+
+      if (!trackingData || trackingData.status === 'not_found') {
+        this.logger.debug('No existing tracking, registering...');
+        const registerResult = await this.seventeenTrackService.register(
+          data.trackingNumber,
+          data.carrierCode,
+          { tag: data.trackingNumber },
+        );
+
+        if (registerResult.success) {
+          this.logger.debug('Registered, waiting for tracking data...');
+          carrierCode = registerResult.carrierCode || carrierCode;
+
+          trackingData = await this.waitForTrackingData(
+            data.trackingNumber,
+            carrierCode,
+          );
+
+          if (trackingData) {
+            this.logger.debug(
+              'Got tracking data after registration:',
+              trackingData.status,
+            );
+          }
+        } else {
+          this.logger.warn('Registration failed:', registerResult.error);
+        }
+      }
+
+      if (
+        trackingData &&
+        trackingData.status &&
+        trackingData.status !== 'not_found'
+      ) {
+        this.logger.debug('Using tracking data, status:', trackingData.status);
+        carrierCode = trackingData.carrierCode || carrierCode;
+        originCountry = trackingData.originCountry || originCountry;
+        destinationCountry =
+          trackingData.destinationCountry || destinationCountry;
+        status = trackingData.status;
+        statusRaw = trackingData.statusRaw;
+        events = trackingData.events || [];
+      }
+    } catch (error: any) {
+      this.logger.warn(
+        '17TRACK error, creating with pending status:',
+        error.message,
       );
-    } catch (error) {
-      console.error('Failed to fetch tracking data:', error);
     }
 
-    if (trackData) {
-      if (!originCountry && trackData.origin) {
-        originCountry = trackData.origin;
+    const generateWhiteLabelCode = () => {
+      const digits = '0123456789';
+      let code = '';
+      for (let i = 0; i < 14; i++) {
+        code += digits.charAt(Math.floor(Math.random() * digits.length));
       }
-      if (!destinationCountry && trackData.destination) {
-        destinationCountry = trackData.destination;
-      }
-      if (!goodsType && trackData.description) {
-        goodsType = trackData.description;
-      }
-      if (!weight && trackData.weight) {
-        weight = trackData.weight;
-      }
-    }
+      return code;
+    };
 
-    let carrierCode = data.carrierCode;
-    if (!carrierCode) {
-      const detection = await this.detectCarrier(data.trackingNumber);
-      if (detection.detected && detection.carrierCode) {
-        carrierCode = detection.carrierCode;
-      }
-    }
-
-    console.log('[ShipmentsService] Inserting shipment...');
     const [shipment] = await db
       .insert(shipments)
       .values({
         organisationId: data.organisationId,
-        userId: finalUserId,
         trackingNumber: data.trackingNumber,
-        whiteLabelTrackingCode: whiteLabelCode,
-        carrierCode: carrierCode || data.carrierCode || 'unknown',
+        whiteLabelTrackingCode: generateWhiteLabelCode(),
+        carrierCode,
         recipientName: data.recipientName,
-        recipientEmail: data.senderEmail,
+        originCountry,
+        destinationCountry,
+        recipientEmail: data.recipientEmail || null,
         recipientPhone: data.recipientPhone || null,
-        originCountry: originCountry || 'unknown',
-        destinationCountry: destinationCountry || 'unknown',
-        goodsType: goodsType || 'general',
-        weight: weight || null,
-        status: 'pending',
-      } as any)
+        userId: data.userId || null,
+        status,
+        notifyEmail: data.recipientEmail || null,
+        notifyPhone: data.recipientPhone || null,
+        track17Data: {
+          lastSync: new Date().toISOString(),
+          originCountry,
+          destinationCountry,
+          notifyPhoneCountry,
+          lastStatus: status,
+        },
+      })
       .returning();
-    console.log('[ShipmentsService] Shipment inserted:', shipment?.id);
 
-    if (trackData) {
-      await db
-        .update(shipments)
-        .set({
-          track17Data: trackData,
-          updatedAt: new Date(),
-        } as any)
-        .where(eq(shipments.id, shipment.id));
-      console.log(
-        `[ShipmentsService] Saved tracking data to shipment ${shipment.id}`,
+    if (events.length > 0) {
+      const eventValues = events.map((event) => ({
+        shipmentId: shipment.id,
+        status: event.status || status,
+        statusRaw: event.statusRaw || statusRaw,
+        description: event.description || null,
+        location: event.location || null,
+        eventTime: event.eventTime ? new Date(event.eventTime) : new Date(),
+      }));
+
+      await db.insert(shipmentEvents).values(eventValues);
+      this.logger.debug(`Saved ${eventValues.length} events`);
+    }
+
+    this.logger.log(`Shipment created: ${shipment.id}, status: ${status}`);
+
+    const initialStatusToNotify =
+      status === 'in_transit' || status === 'delivered';
+    if (
+      initialStatusToNotify &&
+      (shipment.recipientEmail || shipment.recipientPhone || shipment.userId)
+    ) {
+      const titleKey =
+        status === 'delivered' ? 'shipment.delivered' : 'shipment.in_transit';
+
+      const results = await this.notificationService.sendToAll({
+        organisationId: shipment.organisationId,
+        userId: shipment.userId || undefined,
+        recipientEmail: shipment.recipientEmail || undefined,
+        recipientPhone: shipment.recipientPhone || undefined,
+        titleKey,
+        data: {
+          trackingNumber: shipment.trackingNumber,
+          carrierCode: shipment.carrierCode,
+          status,
+          recipientName: shipment.recipientName,
+          destinationCountry: shipment.destinationCountry,
+          whiteLabelCode: shipment.whiteLabelTrackingCode,
+        },
+      });
+
+      this.logger.debug(
+        `Notification results:`,
+        results
+          .map((r) => `${r.channel}: ${r.success ? 'sent' : 'failed'}`)
+          .join(', '),
       );
     }
 
-    if (finalUserId) {
-      await this.notificationsService.create(data.organisationId, {
-        userId: finalUserId,
-        titleKey: 'shipment.created',
-        data: {
-          shipmentId: shipment.id,
-          whiteLabelCode,
-          trackingNumber: data.trackingNumber,
-          carrierCode: data.carrierCode,
-        },
-      });
-    }
-
-    return this.findById(shipment.id);
-  }
-
-  async findById(id: string) {
-    const [shipment] = await db
-      .select()
-      .from(shipments)
-      .where(eq(shipments.id, id));
-    if (!shipment) throw new NotFoundException('Shipment not found');
     return shipment;
   }
 
-  async findByUser(userId: string) {
-    return db.select().from(shipments).where(eq(shipments.userId, userId));
-  }
-
-  async findByUserPaginated(
-    userId: string,
-    page: number = 1,
-    limit: number = 10,
-  ) {
-    const offset = (page - 1) * limit;
-    const allShipments = await db
-      .select()
-      .from(shipments)
-      .where(eq(shipments.userId, userId));
-    const total = allShipments.length;
-    const data = allShipments.slice(offset, offset + limit);
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  async findByOrganisation(organisationId: string) {
-    return db
-      .select()
-      .from(shipments)
-      .where(eq(shipments.organisationId, organisationId));
-  }
-
-  async findWithPagination(options: {
-    organisationId?: string;
+  async findAll(data: {
+    organisationId: string;
     page?: number;
     limit?: number;
     search?: string;
     status?: string;
-    sortBy?: string;
-    sortOrder?: string;
+    archived?: boolean;
+    deleted?: boolean;
   }) {
-    const {
-      organisationId,
-      page = 1,
-      limit = 10,
-      search,
-      status,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-    } = options;
-
-    const conditions: any[] = [];
-
-    if (organisationId) {
-      conditions.push(eq(shipments.organisationId, organisationId));
-    }
-    if (status) {
-      conditions.push(eq(shipments.status, status as any));
-    }
-    if (search) {
-      conditions.push(
-        or(
-          like(shipments.trackingNumber, `%${search}%`),
-          like(shipments.recipientName, `%${search}%`),
-          like(shipments.recipientEmail, `%${search}%`),
-          like(shipments.carrierCode, `%${search}%`),
-        ),
-      );
-    }
-
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
+    const page = data.page || 1;
+    const limit = data.limit || 20;
     const offset = (page - 1) * limit;
 
-    const orderColumn: any =
-      sortBy === 'trackingNumber'
-        ? shipments.trackingNumber
-        : sortBy === 'carrierCode'
-          ? shipments.carrierCode
-          : sortBy === 'recipientName'
-            ? shipments.recipientName
-            : sortBy === 'status'
-              ? shipments.status
-              : shipments.createdAt;
-    const orderFn = sortOrder === 'asc' ? asc : desc;
+    const where = [eq(shipments.organisationId, data.organisationId)];
 
-    const [data, allData] = await Promise.all([
-      db
-        .select()
-        .from(shipments)
-        .where(whereClause)
-        .orderBy(orderFn(orderColumn))
-        .limit(limit)
-        .offset(offset),
-      db.select().from(shipments).where(whereClause),
-    ]);
+    if (data.search) {
+      where.push(
+        sql`(${shipments.trackingNumber} ILIKE ${'%' + data.search + '%'} OR ${shipments.recipientEmail} ILIKE ${'%' + data.search + '%'} OR ${shipments.notifyEmail} ILIKE ${'%' + data.search + '%'})`,
+      );
+    }
 
-    const total = allData.length;
-    const totalPages = Math.ceil(total / limit);
+    if (data.status && data.status !== 'all') {
+      where.push(eq(shipments.status, data.status as any));
+    }
 
-    return { data, total, page, limit, totalPages };
+    if (data.archived) {
+      where.push(isNotNull(shipments.archivedAt));
+    } else {
+      where.push(isNull(shipments.archivedAt));
+    }
+
+    if (data.deleted) {
+      where.push(isNotNull(shipments.deletedAt));
+    } else {
+      where.push(isNull(shipments.deletedAt));
+    }
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(shipments)
+      .where(and(...where));
+
+    const result = await db
+      .select()
+      .from(shipments)
+      .where(and(...where))
+      .orderBy(desc(shipments.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const enrichedResult = await Promise.all(
+      result.map(async (shipment) => {
+        let carrierName: string | null = null;
+        if (shipment.carrierCode) {
+          const carrier = await this.carriersService.getCarrierByKey(
+            shipment.carrierCode,
+          );
+          carrierName = carrier?.name_en || null;
+        }
+        return { ...shipment, carrierName };
+      }),
+    );
+
+    return {
+      data: enrichedResult,
+      total: countResult?.count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((countResult?.count || 0) / limit),
+    };
   }
 
-  async getStats(organisationId?: string) {
-    try {
-      const conditions: any[] = [];
+  async findOne(id: string) {
+    const [shipment] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
 
-      if (organisationId) {
-        conditions.push(eq(shipments.organisationId, organisationId));
-      }
-
-      const whereClause =
-        conditions.length > 0 ? and(...conditions) : undefined;
-
-      const allShipments = whereClause
-        ? await db.select().from(shipments).where(whereClause)
-        : await db.select().from(shipments);
-
-      const activeShipments = allShipments.filter(
-        (s) => s.status !== 'archived',
-      );
-      const total = activeShipments.length;
-      const pending = activeShipments.filter(
-        (s) => s.status === 'pending',
-      ).length;
-      const in_transit = activeShipments.filter(
-        (s) => s.status === 'in_transit',
-      ).length;
-      const delivered = activeShipments.filter(
-        (s) => s.status === 'delivered',
-      ).length;
-      const cancelled = activeShipments.filter(
-        (s) => s.status === 'cancelled',
-      ).length;
-
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recent = activeShipments.filter(
-        (s) => s.createdAt && new Date(s.createdAt) >= sevenDaysAgo,
-      ).length;
-
-      return { total, pending, in_transit, delivered, cancelled, recent };
-    } catch (error) {
-      console.error('[ShipmentsService] getStats error:', error);
-      throw error;
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
     }
+
+    let carrierName: string | null = null;
+    if (shipment.carrierCode) {
+      const carrier = await this.carriersService.getCarrierByKey(
+        shipment.carrierCode,
+      );
+      carrierName = carrier?.name_en || null;
+    }
+
+    const events = await db
+      .select()
+      .from(shipmentEvents)
+      .where(eq(shipmentEvents.shipmentId, id))
+      .orderBy(desc(shipmentEvents.eventTime));
+
+    return { ...shipment, carrierName, events };
+  }
+
+  async findByTrackingNumber(trackingNumber: string) {
+    const [shipment] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.trackingNumber, trackingNumber));
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    let carrierName: string | null = null;
+    if (shipment.carrierCode) {
+      const carrier = await this.carriersService.getCarrierByKey(
+        shipment.carrierCode,
+      );
+      carrierName = carrier?.name_en || null;
+    }
+
+    const events = await db
+      .select()
+      .from(shipmentEvents)
+      .where(eq(shipmentEvents.shipmentId, shipment.id))
+      .orderBy(desc(shipmentEvents.eventTime));
+
+    return { ...shipment, carrierName, events };
   }
 
   async findByWhiteLabelCode(code: string) {
@@ -310,288 +396,350 @@ export class ShipmentsService {
       .select()
       .from(shipments)
       .where(eq(shipments.whiteLabelTrackingCode, code));
-    if (!shipment) throw new NotFoundException('Shipment not found');
-    return shipment;
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    let carrierName: string | null = null;
+    if (shipment.carrierCode) {
+      const carrier = await this.carriersService.getCarrierByKey(
+        shipment.carrierCode,
+      );
+      carrierName = carrier?.name_en || null;
+    }
+
+    const events = await db
+      .select()
+      .from(shipmentEvents)
+      .where(eq(shipmentEvents.shipmentId, shipment.id))
+      .orderBy(desc(shipmentEvents.eventTime));
+
+    return {
+      trackingNumber: shipment.trackingNumber,
+      carrierCode: shipment.carrierCode,
+      carrierName,
+      status: shipment.status,
+      originCountry: shipment.originCountry,
+      destinationCountry: shipment.destinationCountry,
+      recipientName: shipment.recipientName,
+      createdAt: shipment.createdAt,
+      updatedAt: shipment.updatedAt,
+      deliveredAt: shipment.deliveredAt,
+      events,
+    };
   }
 
-  async update(
+  async updateStatus(
     id: string,
-    data: {
-      assignedToId?: string;
-      recipientEmail?: string;
-      recipientPhone?: string;
+    status: string,
+    eventData?: {
+      statusRaw?: string;
+      description?: string;
+      location?: string;
+      eventTime?: Date;
     },
   ) {
-    const updateData: any = {
-      updatedAt: new Date(),
-    };
+    const [existing] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
 
-    if (data.assignedToId !== undefined)
-      updateData.assignedToId = data.assignedToId;
-    if (data.recipientEmail !== undefined)
-      updateData.recipientEmail = data.recipientEmail;
-    if (data.recipientPhone !== undefined)
-      updateData.recipientPhone = data.recipientPhone;
-
-    await db.update(shipments).set(updateData).where(eq(shipments.id, id));
-    return this.findById(id);
-  }
-
-  async refreshTrack17Data(id: string) {
-    const shipment = await this.findById(id);
-    const trackData = await this.trackingFactory.trackWithRetry(
-      shipment.carrierCode,
-      shipment.trackingNumber,
-    );
-    if (trackData) {
-      const updateData: any = {
-        track17Data: trackData,
-        updatedAt: new Date(),
-      };
-      if (trackData.status === 'delivered' && shipment.status !== 'delivered') {
-        updateData.status = 'delivered';
-        updateData.deliveredAt = new Date();
-      }
-      await db.update(shipments).set(updateData).where(eq(shipments.id, id));
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
     }
-    return this.findById(id);
-  }
 
-  async delete(id: string, deletedBy: string, reason?: string) {
-    const shipment = await this.findById(id);
-    await db
+    if (existing.status === status) {
+      this.logger.debug(`Status unchanged (${status}), skipping notification`);
+      return existing;
+    }
+
+    const [updated] = await db
       .update(shipments)
       .set({
-        status: 'cancelled',
-        deletedAt: new Date(),
-        deletedBy: deletedBy,
-        deletedReason: reason || null,
+        status: status as any,
+        deliveredAt: status === 'delivered' ? new Date() : null,
         updatedAt: new Date(),
-      } as any)
-      .where(eq(shipments.id, id));
-    return { message: 'Shipment cancelled successfully', id };
+      })
+      .where(eq(shipments.id, id))
+      .returning();
+
+    if (eventData) {
+      await db.insert(shipmentEvents).values({
+        shipmentId: id,
+        status,
+        statusRaw: eventData.statusRaw || null,
+        description: eventData.description || null,
+        location: eventData.location || null,
+        eventTime: eventData.eventTime || new Date(),
+      });
+    }
+
+    if (updated.userId || updated.recipientEmail || updated.recipientPhone) {
+      const titleKey =
+        status === 'delivered'
+          ? 'shipment.delivered'
+          : status === 'in_transit'
+            ? 'shipment.in_transit'
+            : 'shipment.created';
+
+      this.logger.debug(
+        `Sending notification for shipment ${updated.trackingNumber}, status: ${status}`,
+      );
+
+      const results = await this.notificationService.sendToAll({
+        organisationId: updated.organisationId,
+        userId: updated.userId || undefined,
+        recipientEmail: updated.recipientEmail || undefined,
+        recipientPhone: updated.recipientPhone || undefined,
+        titleKey,
+        data: {
+          trackingNumber: updated.trackingNumber,
+          carrierCode: updated.carrierCode,
+          status,
+          location: eventData?.location,
+          deliveredAt:
+            status === 'delivered'
+              ? new Date().toLocaleDateString()
+              : undefined,
+          recipientName: existing.recipientName,
+          destinationCountry: existing.destinationCountry,
+          whiteLabelCode: existing.whiteLabelTrackingCode,
+        },
+      });
+
+      this.logger.debug(
+        `Notification results:`,
+        results
+          .map((r) => `${r.channel}: ${r.success ? 'sent' : 'failed'}`)
+          .join(', '),
+      );
+    }
+
+    return updated;
   }
 
-  async processWebhookUpdate(
-    carrierCode: string,
-    trackingNumber: string,
-    trackData: any,
-  ) {
-    const [shipment] = await db
+  async archive(id: string, organisationId?: string) {
+    const [existing] = await db
       .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
+
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (organisationId && existing.organisationId !== organisationId) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (existing.archivedAt) {
+      return {
+        id,
+        archivedAt: existing.archivedAt,
+        message: 'Already archived',
+      };
+    }
+
+    await db
+      .update(shipments)
+      .set({ archivedAt: new Date() })
+      .where(eq(shipments.id, id));
+
+    return { id, archivedAt: new Date() };
+  }
+
+  async unarchive(id: string, organisationId?: string) {
+    const [existing] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
+
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (organisationId && existing.organisationId !== organisationId) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    await db
+      .update(shipments)
+      .set({ archivedAt: null })
+      .where(eq(shipments.id, id));
+
+    return { id, archivedAt: null };
+  }
+
+  async softDelete(id: string, organisationId?: string) {
+    const [existing] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
+
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (organisationId && existing.organisationId !== organisationId) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (existing.deletedAt) {
+      return { id, deletedAt: existing.deletedAt, message: 'Already deleted' };
+    }
+
+    await db
+      .update(shipments)
+      .set({ deletedAt: new Date() })
+      .where(eq(shipments.id, id));
+
+    return { id, deletedAt: new Date() };
+  }
+
+  async restore(id: string, organisationId?: string) {
+    const [existing] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
+
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (organisationId && existing.organisationId !== organisationId) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    await db
+      .update(shipments)
+      .set({ deletedAt: null })
+      .where(eq(shipments.id, id));
+
+    return { id, deletedAt: null };
+  }
+
+  async getStats(organisationId: string) {
+    if (!organisationId) {
+      return {
+        total: 0,
+        pending: 0,
+        inTransit: 0,
+        delivered: 0,
+        exception: 0,
+        cancelled: 0,
+      };
+    }
+
+    const results = await db
+      .select({
+        status: shipments.status,
+        count: sql<number>`count(*)`,
+      })
       .from(shipments)
       .where(
         and(
-          eq(shipments.carrierCode, carrierCode),
-          eq(shipments.trackingNumber, trackingNumber),
+          eq(shipments.organisationId, organisationId),
+          isNull(shipments.deletedAt),
         ),
-      );
+      )
+      .groupBy(shipments.status);
 
-    if (!shipment) {
-      console.log(
-        `[Webhook] Shipment not found for ${carrierCode}/${trackingNumber}`,
-      );
-      return null;
-    }
-
-    const updateData: any = {
-      track17Data: trackData,
-      updatedAt: new Date(),
+    const counts = {
+      total: 0,
+      pending: 0,
+      inTransit: 0,
+      delivered: 0,
+      exception: 0,
+      cancelled: 0,
     };
-
-    if (trackData.status === 'delivered' && shipment.status !== 'delivered') {
-      updateData.status = 'delivered';
-      updateData.deliveredAt = new Date();
+    for (const r of results) {
+      const status = String(r.status);
+      counts[status] = Number(r.count);
+      counts.total += Number(r.count);
     }
 
-    await db
-      .update(shipments)
-      .set(updateData)
-      .where(eq(shipments.id, shipment.id));
+    const activity = await this.getActivity(organisationId, 7);
+    const totalTrend = activity.map((a) => a.total);
+    const pendingTrend = activity.map((a) => a.pending || 0);
+    const inTransitTrend = activity.map((a) => a.inTransit || 0);
+    const deliveredTrend = activity.map((a) => a.delivered || 0);
 
-    return this.findById(shipment.id);
-  }
-
-  async detectCarrier(
-    trackingNumber: string,
-  ): Promise<{ detected: boolean; carrierCode?: string; trackData?: any }> {
-    console.log(`[ShipmentsService] detectCarrier: ${trackingNumber}`);
-
-    // First, try pattern matching (fast, free, no API)
-    const detectedCarrier = this.detectCarrierByPattern(trackingNumber);
-    console.log(
-      `[ShipmentsService] Pattern match result: ${detectedCarrier || 'none'}`,
-    );
-
-    if (detectedCarrier) {
-      // Try to get tracking data from Track17
-      const trackResult = await this.trackingFactory
-        .getProvider()
-        .track(detectedCarrier, trackingNumber)
-        .catch(() => null);
-      console.log(
-        `[ShipmentsService] Track result: ${trackResult ? 'success' : 'null'}`,
-      );
-
-      if (trackResult) {
-        console.log('[ShipmentsService] ========== TRACKING DATA ==========');
-        console.log(JSON.stringify(trackResult, null, 2));
-        console.log('[ShipmentsService] ====================================');
-        return {
-          detected: true,
-          carrierCode: detectedCarrier,
-          trackData: trackResult,
-        };
-      }
-
-      // Return detected even without track data (carrier detected, but no tracking events yet)
-      return {
-        detected: true,
-        carrierCode: detectedCarrier,
-        trackData: null,
-      };
-    }
-
-    // Fallback to API detection
-    const result = await this.trackingFactory
-      .getProvider()
-      .detectCarrier(trackingNumber);
-    console.log(`[ShipmentsService] API detect result:`, result);
-
-    if (!result) {
-      return { detected: false };
-    }
-
-    if (result.carrierCode) {
-      const trackResult = await this.trackingFactory
-        .getProvider()
-        .track(result.carrierCode, trackingNumber);
-      console.log(
-        `[ShipmentsService] API track result: ${trackResult ? 'success' : 'null'}`,
-      );
-
-      if (trackResult) {
-        return {
-          detected: true,
-          carrierCode: result.carrierCode,
-          trackData: trackResult,
-        };
-      }
-
-      return {
-        detected: true,
-        carrierCode: result.carrierCode,
-        trackData: null,
-      };
-    }
-
-    return { detected: false };
-  }
-
-  private detectCarrierByPattern(trackingNumber: string): string | null {
-    // Carrier patterns: prefix -> carrier code
-    const patterns: Array<{ prefix: RegExp; carrier: string }> = [
-      // DHL
-      { prefix: /^(\d{10}|\d{12}|JD\d{9}[A-Z]{2}|JD\d{13})$/i, carrier: 'dhl' },
-      { prefix: /^(\d{10}|\d{12})$/i, carrier: 'dhl' },
-      // UPS
-      { prefix: /^1Z[A-Z0-9]{16}$/i, carrier: 'ups' },
-      // FedEx
-      {
-        prefix:
-          /^(96\d{12}|96\d{15}|7489\d{12}|7489\d{15}|6129\d{12}|6129\d{15})$/i,
-        carrier: 'fedex',
-      },
-      // USPS
-      {
-        prefix:
-          /^(\d{20}|\d{22}|94\d{20}|92\d{20}|93\d{20}|94\d{22}|92\d{22}|93\d{22})$/i,
-        carrier: 'usps',
-      },
-      // Royal Mail
-      { prefix: /^(GB|A[BCD])\d{9}GB$/i, carrier: 'royalmail' },
-      // Australia Post
-      { prefix: /^(\d{10}|\d{2}L\d{8}|\d{8}L\d{8})$/i, carrier: 'auspost' },
-      // China Post
-      { prefix: /^(RA|CN|ER|RG|LA)\d{9,13}$/i, carrier: 'chinapost' },
-      // Japan Post
-      { prefix: /^[A-Z]{2}\d{9}JP$/i, carrier: 'japanpost' },
-      // Deutsche Post / DHL Germany
-      { prefix: /^\d{10,12}$/i, carrier: 'dpdhl' },
-      // TNT
-      { prefix: /^\d{8,9}$/i, carrier: 'tnt' },
-      // Aramex
-      { prefix: /^(\d{10}|\d{12})$/i, carrier: 'aramex' },
-      // Purolator
-      { prefix: /^\d{10,12}$/i, carrier: 'purolator' },
-      // Hermes / Evri
-      { prefix: /^Y\d{14}$/i, carrier: 'evri' },
-      // YunExpress
-      { prefix: /^YT\d{12,14}$/i, carrier: 'yunexpress' },
-      // 4PX
-      { prefix: /^(\d{10}|\d{12})$/i, carrier: '4px' },
-      // SF Express
-      { prefix: /^SF\d{12,15}$/i, carrier: 'sfer' },
-      // ZTO Express
-      { prefix: /^ZT\d{12,15}$/i, carrier: 'zto' },
-      // YTO Express
-      { prefix: /^YT\d{12,15}$/i, carrier: 'yto' },
-      // STO Express
-      { prefix: /^STO\d{12,15}$/i, carrier: 'sto' },
-      // Best Express
-      { prefix: /^BT\d{12,15}$/i, carrier: 'best' },
-    ];
-
-    // Try simple prefix matching first (most common carriers by first few chars)
-    const prefixes: Record<string, string> = {
-      '1Z': 'ups',
-      '96': 'fedex',
-      '94': 'usps',
-      '92': 'usps',
-      '93': 'usps',
-      JD: 'dhl',
-      SF: 'sfer',
-      YT: 'yunexpress',
-      ZT: 'zto',
-      ST: 'sto',
-      BT: 'best',
-      Y: 'evri',
-      RA: 'chinapost',
-      CN: 'chinapost',
-      GB: 'royalmail',
-      LA: 'chinapost',
-      ER: 'chinapost',
-      RG: 'chinapost',
+    return {
+      ...counts,
+      totalTrend,
+      pendingTrend,
+      inTransitTrend,
+      deliveredTrend,
     };
-
-    const firstChars = trackingNumber.substring(0, 2).toUpperCase();
-    if (prefixes[firstChars]) {
-      return prefixes[firstChars];
-    }
-
-    // Try first 3 chars
-    const prefix3 = trackingNumber.substring(0, 3).toUpperCase();
-    if (prefixes[prefix3]) {
-      return prefixes[prefix3];
-    }
-
-    // Try pattern matching
-    const code = trackingNumber.replace(/\s/g, '');
-    for (const pattern of patterns) {
-      if (pattern.prefix.test(code)) {
-        return pattern.carrier;
-      }
-    }
-
-    return null;
   }
 
-  private generateWhiteLabelCode(): string {
-    const digits = '0123456789';
-    let code = '';
-    for (let i = 0; i < 14; i++) {
-      code += digits.charAt(Math.floor(Math.random() * digits.length));
+  async getActivity(organisationId: string, days: number = 30) {
+    if (!organisationId) return [];
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const result = await db.execute(sql`
+      SELECT 
+        date(created_at) as date,
+        status,
+        count(*) as count
+      FROM shipments
+      WHERE organisation_id = ${organisationId}
+        AND created_at >= ${startDate}
+      GROUP BY date(created_at), status
+      ORDER BY date(created_at)
+    `);
+
+    const rows = (result as any).rows || [];
+
+    if (rows.length === 0) {
+      return [];
     }
-    return code;
+
+    const byDate: Record<
+      string,
+      { total: number; pending: number; inTransit: number; delivered: number }
+    > = {};
+    for (const r of rows) {
+      const dateStr = String(r.date);
+      if (!byDate[dateStr]) {
+        byDate[dateStr] = { total: 0, pending: 0, inTransit: 0, delivered: 0 };
+      }
+      const cnt = Number(r.count);
+      byDate[dateStr].total += cnt;
+      if (r.status === 'pending') byDate[dateStr].pending = cnt;
+      if (r.status === 'in_transit') byDate[dateStr].inTransit = cnt;
+      if (r.status === 'delivered') byDate[dateStr].delivered = cnt;
+    }
+
+    return Object.entries(byDate).map(([date, data]) => ({ date, ...data }));
+  }
+
+  async getDestinations(organisationId: string, limit: number = 6) {
+    if (!organisationId) return [];
+
+    const result = await db
+      .select({
+        destinationCountry: shipments.destinationCountry,
+        count: sql<number>`count(*)`,
+      })
+      .from(shipments)
+      .where(
+        and(
+          eq(shipments.organisationId, organisationId),
+          isNull(shipments.deletedAt),
+          isNotNull(shipments.destinationCountry),
+        ),
+      )
+      .groupBy(shipments.destinationCountry)
+      .orderBy(sql`count(*) desc`)
+      .limit(limit);
+
+    return result.map((r) => ({
+      country: r.destinationCountry || 'Unknown',
+      count: r.count,
+    }));
   }
 }

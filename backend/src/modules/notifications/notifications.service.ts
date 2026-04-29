@@ -10,6 +10,10 @@ export class NotificationsService {
   constructor(private eventsGateway: EventsGateway) {}
 
   async create(organisationId: string, dto: CreateNotificationDto) {
+    if (!dto.userId) {
+      throw new Error('userId is required');
+    }
+
     const expiresAt = new Date();
     expiresAt.setDate(
       expiresAt.getDate() +

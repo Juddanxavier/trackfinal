@@ -47,6 +47,7 @@ export const quotes = pgTable('quotes', {
   deletedAt: timestamp('deleted_at'),
   deletedBy: uuid('deleted_by'),
   deletedReason: text('deleted_reason'),
+  archivedAt: timestamp('archived_at'),
 });
 
 export const quotesRelations = relations(quotes, ({ one }) => ({

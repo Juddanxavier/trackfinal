@@ -32,7 +32,9 @@ export const notificationLogs = pgTable('notification_logs', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  shipmentId: uuid('shipment_id').references(() => shipments.id, { onDelete: 'cascade' }),
+  shipmentId: uuid('shipment_id').references(() => shipments.id, {
+    onDelete: 'cascade',
+  }),
   channel: text('channel').notNull(),
   titleKey: text('title_key').notNull(),
   data: jsonb('data').default({}),

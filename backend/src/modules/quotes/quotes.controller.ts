@@ -29,7 +29,6 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
-import { Public } from '../../common/decorators/public.decorator';
 
 interface PaginationQuery {
   page?: string;
@@ -39,6 +38,12 @@ interface PaginationQuery {
   sortBy?: string;
   sortOrder?: string;
   organisationId?: string;
+}
+
+function sanitizeQuoteForCustomer(quote: any) {
+  if (!quote) return null;
+  const { price, assignedToId, assignedTo, ...sanitized } = quote;
+  return sanitized;
 }
 
 @ApiTags('quotes')
@@ -55,7 +60,7 @@ export class QuotesController {
   async create(@Body() createDto: CreateQuoteDto, @Request() req: any) {
     return this.quotesService.create({
       organisationId: req.user.organisationId,
-      userId: req.user.sub,
+      userId: req.user.id,
       originCountry: createDto.originCountry,
       destinationCountry: createDto.destinationCountry,
       goodsType: createDto.goodsType,
@@ -71,7 +76,8 @@ export class QuotesController {
   @ApiResponse({ status: 200, description: 'List of my quotes' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findMyQuotes(@Request() req: any) {
-    return this.quotesService.findByUser(req.user.sub);
+    const quotes = await this.quotesService.findByUser(req.user.id);
+    return quotes.map(sanitizeQuoteForCustomer);
   }
 
   @UseGuards(RolesGuard)
@@ -86,6 +92,14 @@ export class QuotesController {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
     const isAdmin = userRole === Role.ADMIN;
+
+    if (
+      !isAdmin &&
+      query.organisationId &&
+      query.organisationId !== userOrgId
+    ) {
+      throw new ForbiddenException('You can only access your own organisation');
+    }
 
     const organisationId =
       isAdmin && query.organisationId
@@ -128,14 +142,28 @@ export class QuotesController {
     @Body() updateDto: UpdateQuoteDto,
     @Request() req: any,
   ) {
+    const quote = await this.quotesService.findById(id);
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (
+      req.user.role !== Role.ADMIN &&
+      quote.organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+
     return this.quotesService.update(
       id,
       {
         status: updateDto.status,
         price: updateDto.price,
         assignedToId: updateDto.assignedToId,
+        remarks: updateDto.remarks,
       },
-      req.user.sub,
+      req.user.id,
     );
   }
 
@@ -151,35 +179,45 @@ export class QuotesController {
   ) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
-    const userId = req.user.sub;
+    const userId = req.user.id;
 
     if (userRole === Role.ADMIN && body?.hardDelete) {
-      await this.quoteExistsInOrg(id, userOrgId);
-      return this.quotesService.hardDelete(id);
-    }
-
-    if (userRole === Role.CUSTOMER || userRole === 'customer') {
-      return this.quotesService.deleteOwn(id, userId);
-    }
-
-    await this.quoteExistsInOrg(id, userOrgId);
-    return this.quotesService.delete(id, userId, body?.reason);
-  }
-
-  private async quoteExistsInOrg(quoteId: string, organisationId: string) {
-    try {
-      const quote = await this.quotesService.findById(quoteId);
-      if (quote.organisationId !== organisationId) {
+      const quote = await this.quotesService.findById(id);
+      if (!quote) {
+        throw new NotFoundException('Quote not found');
+      }
+      if (quote.organisationId !== userOrgId) {
         throw new ForbiddenException(
           'Quote does not belong to your organisation',
         );
       }
-    } catch (e) {
-      if (e instanceof NotFoundException) {
+      return this.quotesService.hardDelete(id);
+    }
+
+    if (userRole === Role.CUSTOMER) {
+      const quote = await this.quotesService.findById(id);
+      if (!quote) {
         throw new NotFoundException('Quote not found');
       }
-      throw e;
+      if (quote.userId !== userId) {
+        throw new ForbiddenException('You can only delete your own quotes');
+      }
+      if (quote.status !== 'pending') {
+        throw new ForbiddenException('You can only delete pending quotes');
+      }
+      return this.quotesService.delete(id, userId, 'Owner deleted');
     }
+
+    const quote = await this.quotesService.findById(id);
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+    if (quote.organisationId !== userOrgId) {
+      throw new ForbiddenException(
+        'Quote does not belong to your organisation',
+      );
+    }
+    return this.quotesService.delete(id, userId, body?.reason);
   }
 
   @UseGuards(RolesGuard)
@@ -195,9 +233,74 @@ export class QuotesController {
     const userOrgId = req.user.organisationId;
     const isAdmin = userRole === Role.ADMIN;
 
+    if (
+      !isAdmin &&
+      query.organisationId &&
+      query.organisationId !== userOrgId
+    ) {
+      throw new ForbiddenException(
+        'You can only access your own organisation stats',
+      );
+    }
+
     const organisationId =
       isAdmin && query.organisationId ? query.organisationId : userOrgId;
 
     return this.quotesService.getStats(organisationId);
+  }
+
+  @Get('activity')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({
+    summary: 'Get quote activity history',
+    description: 'Get daily quote creation counts for charting',
+  })
+  @ApiResponse({ status: 200, description: 'Activity history data' })
+  async getActivityHistory(
+    @Request() req: any,
+    @Query() query: { organisationId?: string; days?: string },
+  ) {
+    if (
+      req.user.role !== Role.ADMIN &&
+      query.organisationId &&
+      query.organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+    return this.quotesService.getActivityHistory(
+      query.organisationId || req.user.organisationId,
+      query.days ? parseInt(query.days) : 30,
+    );
+  }
+
+  @Post(':id/send-email')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: 'Send custom email to quote customer' })
+  @ApiResponse({ status: 200, description: 'Email sent' })
+  async sendEmail(
+    @Param('id') id: string,
+    @Body() body: { subject: string; message: string },
+    @Request() req: any,
+  ) {
+    const quote = await this.quotesService.findById(id);
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (
+      req.user.role !== Role.ADMIN &&
+      quote.organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return this.quotesService.sendCustomEmail(
+      quote.email,
+      body.subject,
+      body.message,
+    );
   }
 }

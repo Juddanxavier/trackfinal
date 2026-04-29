@@ -10,6 +10,8 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,7 +20,11 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
-import { UsersService, PaginatedResult } from '../users/services';
+import {
+  UsersService,
+  PaginatedResult,
+  OrganisationsService,
+} from '../users/services';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -34,20 +40,31 @@ interface PaginationQuery {
   sortOrder?: string;
 }
 
+function sanitizeUser(user: any) {
+  if (!user) return null;
+  const { passwordHash, googleId, ...sanitized } = user;
+  return sanitized;
+}
+
 @ApiTags('users')
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly organisationsService: OrganisationsService,
+  ) {}
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
   @Get('lookup')
   @ApiOperation({ summary: 'Lookup user by email or phone' })
   @ApiResponse({ status: 200, description: 'User info if found' })
-  lookupUser(@Query('email') email?: string, @Query('phone') phone?: string) {
-    return this.usersService.lookupUser(email, phone);
+  lookupUser(
+    @Request() req: any,
+    @Query('email') email?: string,
+    @Query('phone') phone?: string,
+  ) {
+    return this.usersService.lookupUser(email, phone, req.user.organisationId);
   }
 
   @UseGuards(RolesGuard)
@@ -56,7 +73,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get users with pagination, search, filter' })
   @ApiResponse({ status: 200, description: 'List of users' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin or Staff only' })
-  findAll(
+  async findAll(
     @Request() req: any,
     @Query() query: PaginationQuery,
   ): Promise<PaginatedResult<any>> {
@@ -71,7 +88,7 @@ export class UsersController {
           ? undefined
           : userOrgId;
 
-    return this.usersService.findWithPagination({
+    const result = await this.usersService.findWithPagination({
       organisationId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 10,
@@ -80,15 +97,22 @@ export class UsersController {
       sortBy: query.sortBy || 'createdAt',
       sortOrder: query.sortOrder || 'desc',
     });
+
+    return {
+      ...result,
+      data: result.data.map(sanitizeUser),
+    };
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF, Role.CUSTOMER)
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'User profile' })
-  getProfile(@Request() req: any) {
-    return this.usersService.findById(req.user.sub);
+  async getProfile(@Request() req: any) {
+    const user = await this.usersService.findById(req.user.id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return sanitizeUser(user);
   }
 
   @UseGuards(RolesGuard)
@@ -96,7 +120,10 @@ export class UsersController {
   @Get('stats')
   @ApiOperation({ summary: 'Get stats for organisation' })
   @ApiResponse({ status: 200, description: 'Organisation stats' })
-  getStats(@Request() req: any, @Query() query: { organisationId?: string }) {
+  async getStats(
+    @Request() req: any,
+    @Query() query: { organisationId?: string },
+  ) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
     const isAdmin = userRole === Role.ADMIN;
@@ -125,38 +152,38 @@ export class UsersController {
   @Post('invite')
   @ApiOperation({ summary: 'Invite new user' })
   @ApiResponse({ status: 201, description: 'User invited' })
-  invite(
+  async invite(
     @Body()
     inviteDto: {
       email: string;
       name: string;
       phoneNumber?: string;
-      role?: Role;
       organisationId?: string;
     },
     @Request() req: any,
   ) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
-    const isAdmin = userRole === Role.ADMIN;
 
-    const role = inviteDto.role || Role.CUSTOMER;
+    if (userRole !== Role.ADMIN) {
+      throw new ForbiddenException('Only admins can invite users');
+    }
+
     const organisationId = inviteDto.organisationId || userOrgId;
 
-    if (!isAdmin && role !== Role.CUSTOMER) {
-      throw new Error('Staff can only invite customers');
-    }
-    if (!isAdmin && organisationId !== userOrgId) {
-      throw new Error('Staff can only invite users to their organisation');
+    if (!organisationId) {
+      throw new BadRequestException('Organisation ID is required');
     }
 
-    return this.usersService.invite({
+    const result = await this.usersService.invite({
       email: inviteDto.email,
       name: inviteDto.name,
-      phoneNumber: inviteDto.phoneNumber || undefined,
-      role,
+      phoneNumber: inviteDto.phoneNumber,
+      role: Role.CUSTOMER,
       organisationId,
     });
+
+    return sanitizeUser(result);
   }
 
   @UseGuards(RolesGuard)
@@ -168,24 +195,32 @@ export class UsersController {
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden - Admin or Staff can view any user, others can only view own profile',
+      'Forbidden - Admin or Staff can view users in their org, others can only view own profile',
   })
-  findOne(@Param('id') id: string, @Request() req: any) {
+  async findOne(@Param('id') id: string, @Request() req: any) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
-    const userSub = req.user.sub;
+    const userId = req.user.id;
 
-    if (userRole === Role.ADMIN) {
-      return this.usersService.findById(id);
+    if (userRole === Role.ADMIN || userRole === Role.STAFF) {
+      const targetUser = await this.usersService.findById(id);
+
+      if (!targetUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (userRole === Role.STAFF && targetUser.organisationId !== userOrgId) {
+        throw new ForbiddenException(
+          'You can only view users in your organisation',
+        );
+      }
+
+      return sanitizeUser(targetUser);
     }
 
-    if (userRole === Role.STAFF) {
-      const targetUser = this.usersService.findById(id);
-      return targetUser;
-    }
-
-    if (userSub === id) {
-      return this.usersService.findById(id);
+    if (userId === id) {
+      const targetUser = await this.usersService.findById(id);
+      return sanitizeUser(targetUser);
     }
 
     throw new ForbiddenException('You can only view your own profile');
@@ -197,18 +232,40 @@ export class UsersController {
   @ApiOperation({ summary: 'Update user' })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({ status: 200, description: 'User updated' })
-  update(
+  async update(
     @Param('id') id: string,
     @Body()
     updateDto: {
       name?: string;
       phoneNumber?: string | null;
-      role?: Role;
       isActive?: boolean;
+      role?: string;
     },
     @Request() req: any,
   ) {
-    return this.usersService.update(id, updateDto);
+    const user = await this.usersService.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (
+      req.user.role === Role.ADMIN &&
+      user.organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException(
+        'You can only update users in your organisation',
+      );
+    }
+
+    if (updateDto.role && req.user.id === id && req.user.role === Role.ADMIN) {
+      throw new ForbiddenException('You cannot change your own role');
+    }
+
+    const result = await this.usersService.update(id, {
+      ...updateDto,
+      role: updateDto.role as Role,
+    });
+    return sanitizeUser(result);
   }
 
   @UseGuards(RolesGuard)
@@ -217,7 +274,18 @@ export class UsersController {
   @ApiOperation({ summary: 'Delete user' })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({ status: 200, description: 'User deleted' })
-  remove(@Param('id') id: string, @Request() req: any) {
+  async remove(@Param('id') id: string, @Request() req: any) {
+    const user = await this.usersService.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.organisationId !== req.user.organisationId) {
+      throw new ForbiddenException(
+        'You can only delete users in your organisation',
+      );
+    }
+
     return this.usersService.remove(id);
   }
 }

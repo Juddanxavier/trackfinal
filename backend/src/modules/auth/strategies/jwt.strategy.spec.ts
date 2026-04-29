@@ -32,12 +32,14 @@ describe('JwtStrategy', () => {
         email: 'test@test.com',
         role: 'admin',
         organisationId: 'org-id-456',
+        type: 'access' as const,
+        jti: 'test-jti',
       };
 
       const result = await strategy.validate(payload);
 
       expect(result).toEqual({
-        sub: 'user-id-123',
+        id: 'user-id-123',
         email: 'test@test.com',
         role: 'admin',
         organisationId: 'org-id-456',
@@ -50,12 +52,14 @@ describe('JwtStrategy', () => {
         email: 'test@test.com',
         role: 'customer',
         organisationId: null,
+        type: 'access' as const,
+        jti: 'test-jti',
       };
 
       const result = await strategy.validate(payload);
 
       expect(result).toEqual({
-        sub: 'user-id-123',
+        id: 'user-id-123',
         email: 'test@test.com',
         role: 'customer',
         organisationId: null,

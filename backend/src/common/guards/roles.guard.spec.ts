@@ -60,13 +60,13 @@ describe('RolesGuard', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false if user does not have required role', () => {
+    it('should throw ForbiddenException if user does not have required role', () => {
       mockReflector.getAllAndOverride.mockReturnValue([Role.ADMIN]);
       const context = createMockExecutionContext({ role: 'customer' });
 
-      const result = guard.canActivate(context);
-
-      expect(result).toBe(false);
+      expect(() => guard.canActivate(context)).toThrow(
+        'Insufficient permissions',
+      );
     });
 
     it('should return true if user has one of required roles', () => {
@@ -78,22 +78,22 @@ describe('RolesGuard', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false if user has no role', () => {
+    it('should throw ForbiddenException if user has no role', () => {
       mockReflector.getAllAndOverride.mockReturnValue([Role.ADMIN]);
       const context = createMockExecutionContext({ role: undefined });
 
-      const result = guard.canActivate(context);
-
-      expect(result).toBe(false);
+      expect(() => guard.canActivate(context)).toThrow(
+        'Access denied - user has no role assigned',
+      );
     });
 
-    it('should return false if user is undefined', () => {
+    it('should throw UnauthorizedException if user is undefined', () => {
       mockReflector.getAllAndOverride.mockReturnValue([Role.ADMIN]);
       const context = createMockExecutionContext(undefined as any);
 
-      const result = guard.canActivate(context);
-
-      expect(result).toBe(false);
+      expect(() => guard.canActivate(context)).toThrow(
+        'Authentication required',
+      );
     });
   });
 });

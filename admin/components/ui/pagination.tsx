@@ -172,7 +172,7 @@ interface SimplePaginationProps {
 }
 
 export function SimplePagination({ page, totalPages, onPageChange }: SimplePaginationProps) {
-  if (totalPages <= 1) {
+  if (totalPages <= 0) {
     return null
   }
 

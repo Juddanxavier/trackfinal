@@ -12,12 +12,26 @@ import { EmailModule } from './modules/email/email.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { CarriersModule } from './modules/carriers/carriers.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     ThrottlerModule.forRoot([
       {
+        name: 'short',
+        ttl: 60000,
+        limit: 5,
+      },
+      {
+        name: 'medium',
+        ttl: 300000,
+        limit: 20,
+      },
+      {
+        name: 'long',
         ttl: 60000,
         limit: 100,
       },
@@ -31,6 +45,9 @@ import { ShipmentsModule } from './modules/shipments/shipments.module';
     QuotesModule,
     NotificationsModule,
     ShipmentsModule,
+    ReportsModule,
+    CarriersModule,
+    TrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -4,6 +4,8 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -14,10 +16,17 @@ import {
 import { TokenService, RequestContext } from './token.service';
 import { EmailService } from './email.service';
 import { VerificationsService } from './verifications.service';
+import { InvitationsService } from './invitations.service';
+import { db } from '../../database';
+import { invitationStatuses, organisations } from '../../database/schema';
+import { eq, isNull } from 'drizzle-orm';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Role } from '../../common/enums/role.enum';
 import { slugify } from '../../common/utils/slugify';
-import { comparePassword, hashPassword } from '../../common/utils/hash-password';
+import {
+  comparePassword,
+  hashPassword,
+} from '../../common/utils/hash-password';
 import { validatePassword } from '../../common/validators/password.validator';
 
 @Injectable()
@@ -33,10 +42,14 @@ export class AuthService {
     private configService: ConfigService,
     private emailService: EmailService,
     private verificationsService: VerificationsService,
+    @Inject(forwardRef(() => InvitationsService))
+    private invitationsService: InvitationsService,
   ) {}
 
   private async passwordFailDelay(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, this.passwordFailDelayMs));
+    await new Promise((resolve) =>
+      setTimeout(resolve, this.passwordFailDelayMs),
+    );
   }
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -100,7 +113,10 @@ export class AuthService {
     }
 
     const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(user.id, context);
+    const refreshToken = await this.tokenService.generateRefreshToken(
+      user.id,
+      context,
+    );
 
     return {
       accessToken,
@@ -130,7 +146,10 @@ export class AuthService {
     });
 
     const configService = this.configService;
-    const passwordHash = await hashPassword(registerDto.password, configService);
+    const passwordHash = await hashPassword(
+      registerDto.password,
+      configService,
+    );
 
     const user = await this.usersService.create({
       email: registerDto.email,
@@ -144,7 +163,10 @@ export class AuthService {
     await this.emailService.sendVerificationEmail(user.email, token);
 
     const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(user.id, context);
+    const refreshToken = await this.tokenService.generateRefreshToken(
+      user.id,
+      context,
+    );
 
     return {
       accessToken,
@@ -161,7 +183,8 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token required');
     }
 
-    const { sessionId, userId } = await this.tokenService.verifyRefreshToken(refreshToken);
+    const { sessionId, userId } =
+      await this.tokenService.verifyRefreshToken(refreshToken);
     const user = await this.usersService.findById(userId);
 
     if (!user) {
@@ -176,7 +199,10 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email first');
     }
 
-    const newRefreshToken = await this.tokenService.rotateRefreshToken(refreshToken, context);
+    const newRefreshToken = await this.tokenService.rotateRefreshToken(
+      refreshToken,
+      context,
+    );
     const accessToken = this.tokenService.generateAccessToken(user);
 
     return {
@@ -191,7 +217,9 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async logoutAllDevices(userId: string): Promise<{ message: string; sessionsRevoked: number }> {
+  async logoutAllDevices(
+    userId: string,
+  ): Promise<{ message: string; sessionsRevoked: number }> {
     const sessions = await this.sessionsService.findByUserId(userId);
     await this.sessionsService.revokeAllUserSessions(userId);
     return {
@@ -200,7 +228,10 @@ export class AuthService {
     };
   }
 
-  async googleLogin(googleUser: any, context: RequestContext): Promise<AuthResponseDto> {
+  async googleLogin(
+    googleUser: any,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
     let user = await this.usersService.findByGoogleId(googleUser.googleId);
 
     if (!user && googleUser.email) {
@@ -234,7 +265,10 @@ export class AuthService {
     }
 
     const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(user.id, context);
+    const refreshToken = await this.tokenService.generateRefreshToken(
+      user.id,
+      context,
+    );
 
     return {
       accessToken,
@@ -257,5 +291,106 @@ export class AuthService {
       role: user.role,
       organisationId: user.organisationId,
     };
+  }
+
+  async registerWithInvitation(
+    token: string,
+    password: string,
+    name: string,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
+    const invitation = await this.invitationsService.verify(token);
+    if (!invitation) {
+      throw new BadRequestException('Invalid or expired invitation');
+    }
+
+    const existingUser = await this.usersService.findByEmail(invitation.email);
+    if (existingUser) {
+      throw new BadRequestException(
+        'An account already exists with this email. Please login instead.',
+      );
+    }
+
+    const passwordErrors = validatePassword(password);
+    if (passwordErrors.length > 0) {
+      throw new BadRequestException(passwordErrors.join('. '));
+    }
+
+    const passwordHash = await hashPassword(password, this.configService);
+
+    const user = await this.usersService.create({
+      email: invitation.email,
+      passwordHash,
+      name,
+      role: invitation.role as Role,
+      organisationId: invitation.organisationId,
+      emailVerified: true,
+    });
+
+    await this.invitationsService.accept(invitation.id, user.id);
+
+    const organisation = await this.organisationsService.findById(
+      invitation.organisationId,
+    );
+
+    const accessToken = this.tokenService.generateAccessToken(user);
+    const refreshToken = await this.tokenService.generateRefreshToken(
+      user.id,
+      context,
+    );
+
+    await this.emailService.sendWelcomeEmail(
+      user.email,
+      name,
+      organisation?.name || 'your organisation',
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  async createInvitation(
+    organisationId: string,
+    createdBy: string,
+    dto: { email: string; role: 'admin' | 'staff' },
+    inviterName: string,
+    organisationName: string,
+  ) {
+    return this.invitationsService.create(
+      organisationId,
+      createdBy,
+      dto,
+      inviterName,
+      organisationName,
+    );
+  }
+
+  async listInvitations(organisationId?: string) {
+    let invitations;
+    if (organisationId) {
+      invitations =
+        await this.invitationsService.findByOrganisation(organisationId);
+    } else {
+      invitations = await this.invitationsService.findAllPending();
+    }
+
+    const result: any[] = [];
+    for (const inv of invitations) {
+      const org = await db.query.organisations.findFirst({
+        where: eq(organisations.id, inv.organisationId),
+      });
+      result.push({
+        ...inv,
+        organisationName: org?.name || 'Unknown',
+      });
+    }
+    return result.map(({ token, ...inv }) => inv);
+  }
+
+  async deleteInvitation(invitationId: string) {
+    await this.invitationsService.delete(invitationId);
   }
 }

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { QuotesService } from './quotes.service';
 import { UsersService } from '../users/services';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../auth/email.service';
 
 jest.mock('../../database', () => ({
   db: {
@@ -47,6 +48,7 @@ describe('QuotesService', () => {
   let service: QuotesService;
   let usersService: Partial<UsersService>;
   let notificationsService: Partial<NotificationsService>;
+  let emailService: Partial<EmailService>;
 
   const mockStaff = [
     { id: 'staff-1', role: 'staff', organisationId: 'org-1' },
@@ -55,11 +57,15 @@ describe('QuotesService', () => {
 
   beforeEach(async () => {
     usersService = {
-      findAllByOrganisation: jest.fn().mockResolvedValue(mockStaff),
+      findByOrganisation: jest.fn().mockResolvedValue(mockStaff),
     };
 
     notificationsService = {
       create: jest.fn().mockResolvedValue({ id: 'notif-1' }),
+    };
+
+    emailService = {
+      sendEmail: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -67,6 +73,7 @@ describe('QuotesService', () => {
         QuotesService,
         { provide: UsersService, useValue: usersService },
         { provide: NotificationsService, useValue: notificationsService },
+        { provide: EmailService, useValue: emailService },
       ],
     }).compile();
 
@@ -87,7 +94,7 @@ describe('QuotesService', () => {
         phone: '+123',
       });
 
-      expect(usersService.findAllByOrganisation).toHaveBeenCalledWith('org-1');
+      expect(usersService.findByOrganisation).toHaveBeenCalledWith('org-1');
       expect(notificationsService.create).toHaveBeenCalledTimes(2);
       expect(notificationsService.create).toHaveBeenCalledWith(
         'org-1',
@@ -107,9 +114,7 @@ describe('QuotesService', () => {
     });
 
     it('should not notify if no staff found', async () => {
-      (usersService.findAllByOrganisation as jest.Mock).mockResolvedValueOnce(
-        [],
-      );
+      (usersService.findByOrganisation as jest.Mock).mockResolvedValueOnce([]);
 
       await service.create({
         organisationId: 'org-1',

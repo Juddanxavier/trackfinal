@@ -1,6 +1,19 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 const DEFAULT_TIMEOUT = 10000;
+const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
+
+const AUTH_STATE_KEY = '__track_auth_state';
+
+function getGlobalAuthState(): { accessToken: string | null; expiresAt: number | null } {
+  if (typeof window === 'undefined') {
+    return { accessToken: null, expiresAt: null };
+  }
+  if (!(window as any)[AUTH_STATE_KEY]) {
+    (window as any)[AUTH_STATE_KEY] = { accessToken: null, expiresAt: null };
+  }
+  return (window as any)[AUTH_STATE_KEY];
+}
 
 export class ApiError extends Error {
   constructor(
@@ -17,38 +30,67 @@ interface ApiOptions extends RequestInit {
   timeout?: number;
 }
 
-interface AuthTokens {
-  accessToken: string | null;
-}
-
-let tokens: AuthTokens = {
-  accessToken: null,
-};
-
 let refreshPromise: Promise<string> | null = null;
+let refreshChannel: BroadcastChannel | null = null;
 
 const listeners: Set<() => void> = new Set();
+
+function notifyAuthChange() {
+  listeners.forEach(cb => cb());
+}
 
 export function subscribeAuthChange(callback: () => void) {
   listeners.add(callback);
   return () => listeners.delete(callback);
 }
 
-function notifyAuthChange() {
-  listeners.forEach(cb => cb());
-}
-
-export function getAccessToken(): string | null {
-  return tokens.accessToken;
-}
-
-export function setAccessToken(token: string | null) {
-  tokens.accessToken = token;
+export function setAccessToken(token: string | null, expiresInSeconds?: number) {
+  const state = getGlobalAuthState();
+  state.accessToken = token;
+  state.expiresAt = expiresInSeconds
+    ? Date.now() + expiresInSeconds * 1000 - TOKEN_EXPIRY_BUFFER_MS
+    : null;
   notifyAuthChange();
 }
 
 export function clearAuth() {
-  setAccessToken(null);
+  const state = getGlobalAuthState();
+  state.accessToken = null;
+  state.expiresAt = null;
+  notifyAuthChange();
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('selectedOrganisationId');
+    } catch {}
+  }
+}
+
+export function hasValidSession(): boolean {
+  return !!getGlobalAuthState().accessToken;
+}
+
+function initBroadcastChannel() {
+  if (typeof window === 'undefined') return;
+  
+  if (refreshChannel) return;
+  
+  try {
+    refreshChannel = new BroadcastChannel('auth-logout');
+    refreshChannel.onmessage = (event) => {
+      if (event.data === 'logout') {
+        clearAuth();
+        window.location.href = '/login';
+      }
+    };
+  } catch {
+    // BroadcastChannel not supported
+  }
+}
+
+function broadcastLogout() {
+  if (refreshChannel) {
+    refreshChannel.postMessage('logout');
+  }
 }
 
 class ApiClient {
@@ -83,16 +125,9 @@ class ApiClient {
   }
 
   private getAuthHeader(): string | null {
-    if (tokens.accessToken) {
-      return `Bearer ${tokens.accessToken}`;
-    }
-    if (typeof document !== 'undefined') {
-      const cookies = document.cookie.split(';').map(c => c.trim());
-      const accessCookie = cookies.find(c => c.startsWith('access_token='));
-      if (accessCookie) {
-        const token = accessCookie.split('=')[1];
-        return `Bearer ${token}`;
-      }
+    const token = getGlobalAuthState().accessToken;
+    if (token) {
+      return `Bearer ${token}`;
     }
     return null;
   }
@@ -109,13 +144,22 @@ class ApiClient {
   }
 
   private async refreshAccessToken(): Promise<string> {
-    if (refreshPromise) return refreshPromise;
+    if (refreshPromise) {
+      return refreshPromise;
+    }
 
     refreshPromise = (async () => {
       try {
         const res = await this.fetchWithTimeout(
           this.getUrl('auth/refresh'),
-          { method: 'POST', credentials: 'include' },
+          {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          },
           DEFAULT_TIMEOUT
         );
 
@@ -137,6 +181,7 @@ class ApiClient {
 
   async fetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
     const { throwOnError = true, timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
+    let hasRetried = false;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -162,7 +207,8 @@ class ApiClient {
       throw e;
     }
 
-    if (res.status === 401 && tokens.accessToken) {
+    if (res.status === 401 && !hasRetried && authHeader) {
+      hasRetried = true;
       try {
         const newToken = await this.refreshAccessToken();
         headers['Authorization'] = `Bearer ${newToken}`;
@@ -172,15 +218,20 @@ class ApiClient {
           timeout
         );
       } catch {
-        throw new ApiError('Session expired - please log in again', 401);
+        clearAuth();
+        if (typeof window !== 'undefined' && throwOnError) {
+          window.location.href = '/login';
+        }
+        throw new ApiError('Session expired', 401);
       }
     }
 
-    if (throwOnError && !res.ok) {
+    if (!res.ok) {
+      if (!throwOnError) return {} as T;
       let message = 'An error occurred';
       try {
-        const error = await res.json();
-        message = this.sanitizeError(error.message, res.status);
+        const errorData = await res.json();
+        message = errorData.message || `Request failed with status ${res.status}`;
       } catch {
         message = `Request failed with status ${res.status}`;
       }
@@ -198,27 +249,27 @@ class ApiClient {
     return this.fetch<T>(path, { ...options, method: 'GET' });
   }
 
-  async post<T>(path: string, data?: unknown, options?: ApiOptions): Promise<T> {
+  async post<T>(path: string, body?: unknown, options?: ApiOptions): Promise<T> {
     return this.fetch<T>(path, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     });
   }
 
-  async patch<T>(path: string, data?: unknown, options?: ApiOptions): Promise<T> {
-    return this.fetch<T>(path, {
-      ...options,
-      method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async put<T>(path: string, data?: unknown, options?: ApiOptions): Promise<T> {
+  async put<T>(path: string, body?: unknown, options?: ApiOptions): Promise<T> {
     return this.fetch<T>(path, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async patch<T>(path: string, body?: unknown, options?: ApiOptions): Promise<T> {
+    return this.fetch<T>(path, {
+      ...options,
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
     });
   }
 
@@ -229,54 +280,61 @@ class ApiClient {
 
 export const api = new ApiClient(API_BASE_URL);
 
-export interface User extends AuthUser {
-  emailVerified: boolean;
+export async function logout() {
+  try {
+    await api.post('auth/logout');
+  } finally {
+    clearAuth();
+    broadcastLogout();
+  }
+}
+
+export async function login(email: string, password: string) {
+  initBroadcastChannel();
+  
+  const data = await api.post<{ accessToken: string; user: AuthUser }>('auth/login', { email, password });
+  setAccessToken(data.accessToken);
+  
+  return data.user;
 }
 
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'staff' | 'customer';
-  organisationId: string;
+  role: string;
+  organisationId: string | null;
+  emailVerified: boolean;
+  avatar: string;
 }
 
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: AuthUser;
+export async function getMe(): Promise<AuthUser | null> {
+  return api.get<AuthUser>('auth/me');
 }
 
-export async function login(email: string, password: string): Promise<AuthUser> {
-  const data = await api.post<LoginResponse>('auth/login', { email, password });
-  setAccessToken(data.accessToken);
-  return data.user;
-}
-
-export async function logout(): Promise<void> {
+export async function restoreSession(): Promise<AuthUser | null> {
   try {
-    await api.post('auth/logout');
-  } finally {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      clearAuth();
+      return null;
+    }
+
+    const data = await res.json();
+    setAccessToken(data.accessToken);
+    
+    const user = await api.get<AuthUser>('auth/me');
+    return user;
+  } catch {
     clearAuth();
+    return null;
   }
-}
-
-export async function getMe(): Promise<User> {
-  return api.get<User>('auth/me');
-}
-
-export async function register(
-  email: string,
-  password: string,
-  name: string,
-  organisationName: string
-): Promise<AuthUser> {
-  const data = await api.post<LoginResponse>('auth/register', {
-    email,
-    password,
-    name,
-    organisationName,
-  });
-  setAccessToken(data.accessToken);
-  return data.user;
 }

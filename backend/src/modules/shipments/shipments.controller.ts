@@ -15,18 +15,16 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
-  ApiParam,
-  ApiHeader,
-  ApiBody,
 } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
-import { CarrierService, Carrier } from './carrier.service';
-import { CreateShipmentDto, UpdateShipmentDto } from './dto/shipments.dto';
+import { CreateShipmentDto } from './dto/shipments.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { Public } from '../../common/decorators/public.decorator';
+import { CarriersService } from '../carriers/carriers.service';
+import { UsersService } from '../users/services';
 
 @ApiTags('Shipments')
 @Controller('shipments')
@@ -35,297 +33,226 @@ import { Public } from '../../common/decorators/public.decorator';
 export class ShipmentsController {
   constructor(
     private readonly shipmentsService: ShipmentsService,
-    private readonly carrierService: CarrierService,
+    private readonly carriersService: CarriersService,
+    private readonly usersService: UsersService,
   ) {}
 
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Create shipment',
-    description:
-      'Creates a new shipment. Carrier is auto-detected if not provided.',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Shipment created with white label tracking code',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'At least phone or email is required',
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  async create(@Body() createDto: CreateShipmentDto, @Request() req: any) {
-    console.log(
-      '[Controller] Create shipment - user:',
-      req.user?.email,
-      'org:',
-      req.user?.organisationId,
-    );
+  @ApiOperation({ summary: 'Create new shipment' })
+  @ApiResponse({ status: 201, description: 'Shipment created' })
+  async create(@Body() dto: CreateShipmentDto, @Request() req: any) {
     return this.shipmentsService.create({
-      organisationId: req.user?.organisationId,
-      trackingNumber: createDto.trackingNumber,
-      carrierCode: createDto.carrierCode,
-      senderEmail: createDto.senderEmail,
-      recipientName: createDto.recipientName,
-      recipientPhone: createDto.recipientPhone,
-      originCountry: createDto.originCountry,
-      destinationCountry: createDto.destinationCountry,
-      goodsType: createDto.goodsType,
-      weight: createDto.weight,
+      organisationId: req.user.organisationId,
+      trackingNumber: dto.trackingNumber,
+      carrierCode: dto.carrierCode || 'unknown',
+      recipientName: dto.recipientName,
+      recipientEmail: dto.recipientEmail,
+      recipientPhone: dto.recipientPhone,
+      userId: dto.userId,
     });
   }
 
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Get all shipments',
-    description: 'List all shipments for the organisation with pagination',
-  })
-  @ApiResponse({ status: 200, description: 'List of organisation shipments' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
+  @ApiOperation({ summary: 'List shipments' })
+  @ApiResponse({ status: 200, description: 'Shipments list' })
   async findAll(
     @Request() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: string,
+    @Query('archived') archived?: string,
+    @Query('deleted') deleted?: string,
     @Query('organisationId') organisationId?: string,
   ) {
-    const pageNum = page ? parseInt(page) : 1;
-    const limitNum = limit ? parseInt(limit) : 10;
-    return this.shipmentsService.findWithPagination({
-      organisationId: organisationId || req.user.organisationId,
-      page: pageNum,
-      limit: limitNum,
+    const orgId = organisationId || req.user.organisationId;
+    return this.shipmentsService.findAll({
+      organisationId: orgId,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 20,
       search,
       status,
-      sortBy,
-      sortOrder,
+      archived: archived === 'true',
+      deleted: deleted === 'true',
     });
   }
 
-  @Get('stats')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Get shipment statistics',
-    description: 'Get shipment counts by status',
-  })
-  @ApiResponse({ status: 200, description: 'Shipment statistics' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  async getStats(
-    @Request() req: any,
-    @Query('organisationId') organisationId?: string,
+  @Get('carriers')
+  @Public()
+  @ApiOperation({ summary: 'List all carriers' })
+  @ApiResponse({ status: 200, description: 'Carriers list' })
+  async getCarriers() {
+    return this.carriersService.getAllCarriers();
+  }
+
+  @Post('test-create')
+  @Public()
+  @ApiOperation({ summary: 'Create test shipment (no auth)' })
+  @ApiResponse({ status: 201, description: 'Test shipment created' })
+  async createTest(@Body() dto: CreateShipmentDto) {
+    const testOrgId = '00000000-0000-0000-0000-000000000001';
+    return this.shipmentsService.create({
+      organisationId: testOrgId,
+      trackingNumber: dto.trackingNumber,
+      carrierCode: dto.carrierCode || 'dhl',
+      recipientName: dto.recipientName,
+      recipientEmail: dto.recipientEmail,
+      recipientPhone: dto.recipientPhone,
+      userId: dto.userId,
+    });
+  }
+
+  @Get('detect-carrier')
+  @Public()
+  @ApiOperation({ summary: 'Detect carrier from tracking number' })
+  @ApiResponse({ status: 200, description: 'Carrier detection result' })
+  async detectCarrier(@Query('trackingNumber') trackingNumber: string) {
+    const carrier =
+      await this.carriersService.detectByTrackingNumber(trackingNumber);
+    if (carrier) {
+      return {
+        detected: true,
+        carrierCode: carrier.key,
+        carrierName: carrier.name_en,
+      };
+    }
+    return {
+      detected: false,
+      carrierCode: null,
+      carrierName: null,
+    };
+  }
+
+  @Get('lookup-user')
+  @Public()
+  @ApiOperation({ summary: 'Lookup user by email or phone' })
+  @ApiResponse({ status: 200, description: 'User info if found' })
+  async lookupUser(
+    @Query('email') email?: string,
+    @Query('phone') phone?: string,
   ) {
-    return this.shipmentsService.getStats(
-      organisationId || req.user.organisationId,
+    return this.usersService.lookupUser(email, phone);
+  }
+
+  @Get('public/track/:code')
+  @Public()
+  @ApiOperation({ summary: 'Track shipment by white label code' })
+  @ApiResponse({ status: 200, description: 'Shipment tracking info' })
+  async findByWhiteLabelCode(@Param('code') code: string) {
+    return this.shipmentsService.findByWhiteLabelCode(code);
+  }
+
+  @Get('public/:code')
+  @Public()
+  @ApiOperation({ summary: 'Get shipment by tracking number' })
+  @ApiResponse({ status: 200, description: 'Shipment details' })
+  async findByTrackingNumber(@Param('code') code: string) {
+    return this.shipmentsService.findByTrackingNumber(code);
+  }
+
+  @Get('stats')
+  @Public()
+  @ApiOperation({ summary: 'Get shipment stats' })
+  @ApiResponse({ status: 200, description: 'Shipment stats' })
+  async getStats(@Query('organisationId') organisationId?: string) {
+    return this.shipmentsService.getStats(organisationId || '');
+  }
+
+  @Get('activity')
+  @Public()
+  @ApiOperation({ summary: 'Get shipment activity history' })
+  @ApiResponse({ status: 200, description: 'Activity data' })
+  async getActivity(
+    @Query('organisationId') organisationId?: string,
+    @Query('days') days?: string,
+  ) {
+    return this.shipmentsService.getActivity(
+      organisationId || '',
+      days ? parseInt(days) : 30,
     );
   }
 
+  @Get('destinations')
   @Public()
-  @Get('public/track/:code')
-  @ApiOperation({
-    summary: 'Track shipment (public)',
-    description: 'Public endpoint to track shipment by white label code',
-  })
-  @ApiParam({ name: 'code', description: '14-digit white label tracking code' })
-  @ApiResponse({ status: 200, description: 'Shipment tracking info' })
-  @ApiResponse({ status: 404, description: 'Shipment not found' })
-  async trackByCode(@Param('code') code: string) {
-    return this.shipmentsService.findByWhiteLabelCode(code);
+  @ApiOperation({ summary: 'Get top destinations' })
+  @ApiResponse({ status: 200, description: 'Destination data' })
+  async getDestinations(
+    @Query('organisationId') organisationId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.shipmentsService.getDestinations(
+      organisationId || '',
+      limit ? parseInt(limit) : 6,
+    );
   }
 
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: 'Get shipment by ID' })
-  @ApiParam({ name: 'id', description: 'Shipment UUID' })
   @ApiResponse({ status: 200, description: 'Shipment details' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  @ApiResponse({ status: 404, description: 'Shipment not found' })
   async findOne(@Param('id') id: string) {
-    return this.shipmentsService.findById(id);
+    return this.shipmentsService.findOne(id);
   }
 
-  @Get('customer/:userId')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Get shipments by customer ID',
-    description: 'List all shipments for a specific customer',
-  })
-  @ApiParam({ name: 'userId', description: 'Customer user UUID' })
-  @ApiResponse({ status: 200, description: 'List of customer shipments' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  async findByCustomer(
-    @Param('userId') userId: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+  @Patch(':id/status')
+  @Public()
+  @ApiOperation({ summary: 'Update shipment status' })
+  @ApiResponse({ status: 200, description: 'Shipment status updated' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      status: string;
+      location?: string;
+      statusRaw?: string;
+      description?: string;
+    },
   ) {
-    const pageNum = page ? parseInt(page) : 1;
-    const limitNum = limit ? parseInt(limit) : 10;
-    return this.shipmentsService.findByUserPaginated(userId, pageNum, limitNum);
-  }
-
-  @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Update shipment',
-    description: 'Update shipment contact info or assignment',
-  })
-  @ApiParam({ name: 'id', description: 'Shipment UUID' })
-  @ApiResponse({ status: 200, description: 'Shipment updated' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  @ApiResponse({ status: 404, description: 'Shipment not found' })
-  async update(@Param('id') id: string, @Body() updateDto: UpdateShipmentDto) {
-    return this.shipmentsService.update(id, {
-      assignedToId: updateDto.assignedToId,
-      recipientEmail: updateDto.recipientEmail,
-      recipientPhone: updateDto.recipientPhone,
+    return this.shipmentsService.updateStatus(id, body.status, {
+      location: body.location,
+      statusRaw: body.statusRaw,
+      description: body.description,
     });
   }
 
-  @Post(':id/refresh-tracking')
+  @Patch(':id/archive')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Refresh tracking data',
-    description: 'Fetch latest tracking info from Track17 API',
-  })
-  @ApiParam({ name: 'id', description: 'Shipment UUID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Updated with latest tracking data',
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  @ApiResponse({ status: 404, description: 'Shipment not found' })
-  async refreshTracking(@Param('id') id: string) {
-    return this.shipmentsService.refreshTrack17Data(id);
+  @ApiOperation({ summary: 'Archive shipment' })
+  @ApiResponse({ status: 200, description: 'Shipment archived' })
+  async archive(@Param('id') id: string, @Request() req: any) {
+    return this.shipmentsService.archive(id, req.user.organisationId);
+  }
+
+  @Patch(':id/unarchive')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: 'Unarchive shipment' })
+  @ApiResponse({ status: 200, description: 'Shipment unarchived' })
+  async unarchive(@Param('id') id: string, @Request() req: any) {
+    return this.shipmentsService.unarchive(id, req.user.organisationId);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Cancel shipment',
-    description: 'Cancel a shipment by setting status to cancelled',
-  })
-  @ApiParam({ name: 'id', description: 'Shipment UUID' })
-  @ApiResponse({ status: 200, description: 'Shipment cancelled' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  @ApiResponse({ status: 404, description: 'Shipment not found' })
-  async delete(@Param('id') id: string, @Request() req: any) {
-    return this.shipmentsService.delete(id, req.user.sub);
+  @ApiOperation({ summary: 'Soft delete shipment' })
+  @ApiResponse({ status: 200, description: 'Shipment deleted' })
+  async softDelete(@Param('id') id: string, @Request() req: any) {
+    return this.shipmentsService.softDelete(id, req.user.organisationId);
   }
 
-  @Post('detect-carrier')
+  @Patch(':id/restore')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Detect carrier',
-    description: 'Auto-detect carrier from tracking number using Track17 API',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: { trackingNumber: { type: 'string', example: '1234567890' } },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Carrier detection result',
-    schema: {
-      properties: {
-        detected: { type: 'boolean' },
-        carrierCode: { type: 'string' },
-        trackData: { type: 'object' },
-      },
-    },
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  async detectCarrier(@Body() body: { trackingNumber: string }) {
-    return this.shipmentsService.detectCarrier(body.trackingNumber);
-  }
-
-  @Get('carriers')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'List carriers',
-    description:
-      'Get list of supported carriers. Optional: filter by country ISO code.',
-  })
-  @ApiParam({
-    name: 'country',
-    required: false,
-    description: 'Filter by country ISO code (e.g., US, GB, DE)',
-  })
-  @ApiResponse({ status: 200, description: 'List of carriers' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  async listCarriers(@Query('country') country?: string) {
-    return this.carrierService.listCarriers(country);
-  }
-
-  @Get('carriers/search')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({
-    summary: 'Search carriers',
-    description: 'Search carriers by name or code',
-  })
-  @ApiParam({ name: 'q', description: 'Search query (name or key)' })
-  @ApiResponse({ status: 200, description: 'List of matching carriers' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - requires admin or staff role',
-  })
-  async searchCarriers(@Query('q') query: string) {
-    return this.carrierService.searchCarriers(query);
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Restore soft-deleted shipment' })
+  @ApiResponse({ status: 200, description: 'Shipment restored' })
+  async restore(@Param('id') id: string, @Request() req: any) {
+    return this.shipmentsService.restore(id, req.user.organisationId);
   }
 }

@@ -28,19 +28,29 @@ import {
   Settings2Icon,
   CircleHelpIcon,
   SearchIcon,
-  DatabaseIcon,
   FileChartColumnIcon,
-  FileIcon,
-  CommandIcon,
-  ChevronDownIcon,
   TruckIcon,
-  CameraIcon,
+  BellIcon,
+  ChevronDownIcon,
+  LayoutIcon,
+  MailIcon,
 } from "lucide-react"
 
 export interface Organisation {
   id: string
   name: string
   slug: string
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  countryCode?: string
+  currency?: string
+  logoUrl?: string
+  isActive?: boolean
+  createdAt?: string
 }
 
 const data = {
@@ -70,87 +80,39 @@ const data = {
       url: "/users",
       icon: <UsersIcon />,
     },
-  ],
-  navClouds: [
     {
-      title: "Capture",
-      icon: <CameraIcon />,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      title: "Invitations",
+      url: "/invitations",
+      icon: <MailIcon />,
     },
   ],
   navSecondary: [
     {
       title: "Settings",
-      url: "#",
+      url: "/settings",
       icon: <Settings2Icon />,
     },
     {
+      title: "Notifications",
+      url: "/notifications",
+      icon: <BellIcon />,
+    },
+    {
       title: "Get Help",
-      url: "#",
+      url: "/help",
       icon: <CircleHelpIcon />,
     },
     {
       title: "Search",
-      url: "#",
+      url: "/search",
       icon: <SearchIcon />,
     },
   ],
   documents: [
     {
-      name: "Data Library",
-      url: "#",
-      icon: <DatabaseIcon />,
-    },
-    {
       name: "Reports",
-      url: "#",
+      url: "/reports",
       icon: <FileChartColumnIcon />,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: <FileIcon />,
     },
   ],
 }
@@ -159,33 +121,63 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   organisations?: Organisation[]
   selectedOrganisation?: string
   onOrganisationChange?: (orgId: string) => void
+  isAdmin?: boolean
 }
 
 export function AppSidebar({
   organisations = [],
   selectedOrganisation,
   onOrganisationChange,
+  isAdmin = false,
   ...props
-}: AppSidebarProps) {
+}: AppSidebarProps & { isAdmin?: boolean }) {
   const currentOrg = organisations.find(
     (org) => org.id === selectedOrganisation
-  )
+  ) || organisations[0]
+  const showOrgSelector = isAdmin && organisations.length > 1
+
+  let displayName = currentOrg?.name
+  if (!displayName && selectedOrganisation) {
+    displayName = "Org: " + selectedOrganisation.slice(0, 8)
+  }
+  if (!displayName) {
+    displayName = showOrgSelector ? "Select Org" : "My Organisation"
+  }
+
+if (!showOrgSelector) {
+    return (
+      <Sidebar collapsible="icon" {...props}>
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="w-full data-[slot=sidebar-menu-button]:p-1.5!">
+                <span className="truncate text-base font-semibold">
+                  {displayName}
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <NavMain items={data.navMain} />
+          <NavDocuments items={data.documents} />
+          <NavSecondary items={data.navSecondary} className="mt-auto" />
+        </SidebarContent>
+      </Sidebar>
+    )
+  }
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="flex w-full items-center justify-between data-[slot=sidebar-menu-button]:p-1.5!">
-                  <div className="flex items-center gap-2">
-                    <CommandIcon className="size-5!" />
-                    <span className="truncate text-base font-semibold">
-                      {currentOrg?.name || "Select Org"}
-                    </span>
-                  </div>
-                  <ChevronDownIcon className="size-4" />
+                <SidebarMenuButton className="w-full data-[slot=sidebar-menu-button]:p-1.5!">
+                  <span className="truncate text-base font-semibold">
+                    {displayName}
+                  </span>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="start" className="w-48">

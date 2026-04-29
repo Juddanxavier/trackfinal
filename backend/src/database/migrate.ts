@@ -27,16 +27,36 @@ async function migrate() {
         expires_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ notifications table ready');
+    console.log('notifications table ready');
   } catch (err: any) {
     if (err.code === '42P07') {
-      console.log('ℹ️ notifications table already exists');
+      console.log('notifications table already exists');
     } else {
       throw err;
     }
   }
 
-  console.log('✅ All migrations complete');
+  // Migrate tracking_trans_log table
+  try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS tracking_trans_log (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tracking_number TEXT NOT NULL,
+        carrier_code TEXT NOT NULL,
+        retrans_attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        metadata JSONB
+      );
+    `);
+    console.log('tracking_trans_log table ready');
+  } catch (err: any) {
+    if (err.code === '42P07') {
+      console.log('tracking_trans_log table already exists');
+    } else {
+      throw err;
+    }
+  }
+
+  console.log('All migrations complete');
   await pool.end();
 }
 

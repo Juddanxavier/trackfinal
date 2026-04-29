@@ -4,10 +4,9 @@ import { CronJob } from 'cron';
 import { db } from '../../database';
 import { quotes } from '../../database/schema/quotes';
 import { notifications } from '../../database/schema/notifications';
-import { lt, eq, and, isNotNull } from 'drizzle-orm';
+import { lt, eq, and, isNull, isNotNull, or, lt as ltRef } from 'drizzle-orm';
 
-const RETENTION_DAYS = 365;
-const RETENTION_CRON = '0 0 1 * *';
+const RETENTION_CRON = '0 0 * * *';
 
 @Injectable()
 export class QuoteCleanupService implements OnModuleInit {
@@ -28,30 +27,98 @@ export class QuoteCleanupService implements OnModuleInit {
 
   private async handleRetentionCleanup() {
     console.log('[QuoteCleanup] Running retention policy...');
+    const now = new Date();
+
+    const rejectedDays = parseInt(process.env.QUOTE_RETENTION_REJECTED_DAYS || '30');
+    const pendingDays = parseInt(process.env.QUOTE_RETENTION_PENDING_DAYS || '45');
+    const acceptedArchiveDays = parseInt(process.env.QUOTE_RETENTION_ACCEPTED_ARCHIVE_DAYS || '30');
+    const acceptedDeleteDays = parseInt(process.env.QUOTE_RETENTION_ACCEPTED_DELETE_DAYS || '365');
 
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
+      const rejectedCutoff = new Date(now);
+      rejectedCutoff.setDate(rejectedCutoff.getDate() - rejectedDays);
 
-      const deletedQuotes = await db
+      const pendingCutoff = new Date(now);
+      pendingCutoff.setDate(pendingCutoff.getDate() - pendingDays);
+
+      const acceptedArchiveCutoff = new Date(now);
+      acceptedArchiveCutoff.setDate(acceptedArchiveCutoff.getDate() - acceptedArchiveDays);
+
+      const acceptedDeleteCutoff = new Date(now);
+      acceptedDeleteCutoff.setDate(acceptedDeleteCutoff.getDate() - acceptedDeleteDays);
+
+      const rejectedDeleted = await db
         .delete(quotes)
         .where(
           and(
-            eq(quotes.status, 'deleted'),
-            isNotNull(quotes.deletedAt),
-            lt(quotes.deletedAt, cutoffDate),
+            eq(quotes.status, 'rejected'),
+            isNull(quotes.deletedAt),
+            lt(quotes.updatedAt, rejectedCutoff),
           ),
         )
         .returning();
 
-      for (const q of deletedQuotes) {
+      const pendingDeleted = await db
+        .delete(quotes)
+        .where(
+          and(
+            eq(quotes.status, 'pending'),
+            isNull(quotes.deletedAt),
+            lt(quotes.updatedAt, pendingCutoff),
+          ),
+        )
+        .returning();
+
+      const quotedDeleted = await db
+        .delete(quotes)
+        .where(
+          and(
+            eq(quotes.status, 'quoted'),
+            isNull(quotes.deletedAt),
+            lt(quotes.updatedAt, pendingCutoff),
+          ),
+        )
+        .returning();
+
+      console.log(
+        `[QuoteCleanup] Deleted ${rejectedDeleted.length} rejected (>${rejectedDays}d), ${pendingDeleted.length} pending (>${pendingDays}d), ${quotedDeleted.length} quoted (>${pendingDays}d)`,
+      );
+
+      const acceptedToArchive = await db
+        .update(quotes)
+        .set({ archivedAt: now })
+        .where(
+          and(
+            eq(quotes.status, 'accepted'),
+            isNull(quotes.archivedAt),
+            lt(quotes.updatedAt, acceptedArchiveCutoff),
+          ),
+        )
+        .returning();
+
+      console.log(
+        `[QuoteCleanup] Archived ${acceptedToArchive.length} accepted (>${acceptedArchiveDays}d)`,
+      );
+
+      const acceptedToDelete = await db
+        .delete(quotes)
+        .where(
+          and(
+            eq(quotes.status, 'accepted'),
+            isNotNull(quotes.archivedAt),
+            lt(quotes.archivedAt, acceptedDeleteCutoff),
+          ),
+        )
+        .returning();
+
+      for (const q of acceptedToDelete) {
         await db
           .delete(notifications)
           .where(eq(notifications.titleKey, 'quote.assigned'));
       }
 
       console.log(
-        `[QuoteCleanup] Permanently deleted ${deletedQuotes.length} quotes older than ${RETENTION_DAYS} days`,
+        `[QuoteCleanup] Permanently deleted ${acceptedToDelete.length} accepted (>${acceptedDeleteDays}d since archive)`,
       );
     } catch (error) {
       console.error('[QuoteCleanup] Error:', error);

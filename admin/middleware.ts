@@ -1,60 +1,58 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getAccessToken } from '@/lib/api';
 
 const PUBLIC_PATHS = [
   '/login',
   '/register',
+  '/forgot-password',
+  '/reset-password',
   '/api/auth/',
-  '/auth/check',
   '/_next/',
   '/favicon.ico',
 ];
 
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const refreshToken = request.cookies.get('refresh_token')?.value;
+  const hasSession = !!refreshToken;
+
+  if (pathname === '/login' || pathname === '/register') {
+    if (hasSession) {
+      const response = NextResponse.redirect(new URL('/dashboard', request.url));
+      return addSecurityHeaders(response);
+    }
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
 
   if (PUBLIC_PATHS.some(path => pathname.startsWith(path))) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
   }
 
-  if (pathname === '/') {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Get token from cookies (stored by browser after login)
-  const token = request.cookies.get('access_token')?.value;
-
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-    const headers: Record<string, string> = { 
-      'Content-Type': 'application/json',
-    };
-    
-    // Add Authorization header if token exists
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${apiUrl}/auth/check`, {
-      method: 'GET',
-      credentials: 'include',
-      headers,
-      redirect: 'manual',
-    });
-
-    if (response.status === 200) {
-      return NextResponse.next();
-    }
-
+  if (!hasSession) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
-  } catch (e) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    return addSecurityHeaders(response);
   }
+
+  const nextResponse = NextResponse.next();
+  return addSecurityHeaders(nextResponse);
 }
 
 export const config = {

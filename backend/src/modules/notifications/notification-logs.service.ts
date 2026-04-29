@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, gte } from 'drizzle-orm';
 import { db } from '../../database';
 import { notificationLogs } from '../../database/schema';
 
@@ -92,5 +92,37 @@ export class NotificationLogsService {
       .select()
       .from(notificationLogs)
       .where(eq(notificationLogs.shipmentId, shipmentId));
+  }
+
+  async getRecentLogs(
+    shipmentId: string,
+    titleKey: string,
+    channel: string,
+    since: Date,
+  ) {
+    return db
+      .select()
+      .from(notificationLogs)
+      .where(
+        and(
+          eq(notificationLogs.shipmentId, shipmentId),
+          eq(notificationLogs.titleKey, titleKey),
+          eq(notificationLogs.channel, channel),
+          eq(notificationLogs.status, 'sent'),
+          gte(notificationLogs.createdAt, since),
+        ),
+      );
+  }
+
+  async getFailedLogs(shipmentId: string) {
+    return db
+      .select()
+      .from(notificationLogs)
+      .where(
+        and(
+          eq(notificationLogs.shipmentId, shipmentId),
+          eq(notificationLogs.status, 'failed'),
+        ),
+      );
   }
 }

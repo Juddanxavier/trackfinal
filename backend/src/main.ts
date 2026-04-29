@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -61,6 +62,9 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
+
+  // Throttler filter
+  app.useGlobalFilters(new ThrottlerExceptionFilter());
 
   await app.listen(process.env.PORT ?? 4000);
   console.log(

@@ -75,6 +75,11 @@ export class UpdateQuoteDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 }
 
 export class DeleteQuoteDto {

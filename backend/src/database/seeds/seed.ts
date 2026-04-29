@@ -2,7 +2,13 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { db } from '../../database';
-import { users, organisations, sessions, quotes, shipments } from '../../database/schema';
+import {
+  users,
+  organisations,
+  sessions,
+  quotes,
+  shipments,
+} from '../../database/schema';
 import { eq } from 'drizzle-orm';
 import { Role } from '../../common/enums/role.enum';
 import { slugify } from '../../common/utils/slugify';
@@ -230,25 +236,37 @@ async function seed() {
   console.log('  Staff: staff@track.com / staff123');
   console.log('  Customer: customer@track.com / customer123');
 
-  // Seed quotes for each organisation
-  const trackStaff = (
-    await db.select().from(users).where(eq(users.email, 'staff@track.com'))
-  )[0];
-  const indiaStaff = (
-    await db.select().from(users).where(eq(users.email, 'staff@india.com'))
-  )[0];
-  const slStaff = (
-    await db.select().from(users).where(eq(users.email, 'staff@srilanka.com'))
-  )[0];
+  // Get all organisations and seed quotes for each
+  const allOrgs = await db.select().from(organisations);
+  const allStaff = await db
+    .select()
+    .from(users)
+    .where(eq(users.role, Role.STAFF));
 
-  await seedQuotes(org.id, trackStaff, 'Track HQ');
-  await seedQuotes(india?.id, indiaStaff, 'India');
-  await seedQuotes(sriLanka?.id, slStaff, 'Sri Lanka');
+  for (const org of allOrgs) {
+    let staffForOrg = allStaff.find((s) => s.organisationId === org.id);
 
-  // Seed shipments
-  await seedShipments(org.id, trackStaff, 'Track HQ');
-  await seedShipments(india?.id, indiaStaff, 'India');
-  await seedShipments(sriLanka?.id, slStaff, 'Sri Lanka');
+    if (!staffForOrg) {
+      const passwordHash = await bcrypt.hash('staff123', 10);
+      const [newStaff] = await db
+        .insert(users)
+        .values({
+          email: `staff@${org.slug}.com`,
+          passwordHash,
+          name: `${org.name} Staff`,
+          role: Role.STAFF,
+          organisationId: org.id,
+          isActive: true,
+          emailVerified: true,
+        })
+        .returning();
+      staffForOrg = newStaff;
+      console.log(`✅ Created staff for: ${org.name}`);
+    }
+
+    await seedQuotes(org.id, staffForOrg, org.name);
+    await seedShipments(org.id, staffForOrg, org.name);
+  }
 
   console.log('\n🎉 All seed completed!');
   process.exit(0);
@@ -260,63 +278,93 @@ async function seed() {
       .select()
       .from(quotes)
       .where(eq(quotes.organisationId, orgId));
-    if (existingQuotes.length > 0) {
+    if (existingQuotes.length >= 100) {
       console.log(
         `✅ ${orgName}: ${existingQuotes.length} quotes already exist`,
       );
       return;
     }
 
-    const quoteData = [
-      {
-        email: 'john@example.com',
-        origin: 'China',
-        destination: 'Sri Lanka',
-        status: 'pending',
-        goodsType: 'general',
-        weight: '100',
-        phone: '+94771234567',
-      },
-      {
-        email: 'jane@example.com',
-        origin: 'India',
-        destination: 'USA',
-        status: 'quoted',
-        goodsType: 'electronics',
-        weight: '50',
-        phone: '+19171234567',
-        price: '500',
-      },
-      {
-        email: 'bob@example.com',
-        origin: 'China',
-        destination: 'India',
-        status: 'accepted',
-        goodsType: 'fragile',
-        weight: '25',
-        phone: '+919812345678',
-        price: '200',
-      },
-      {
-        email: 'alice@example.com',
-        origin: 'Japan',
-        destination: 'UK',
-        status: 'rejected',
-        goodsType: 'machinery',
-        weight: '500',
-        phone: '+447123456789',
-        price: '2500',
-      },
-      {
-        email: 'charlie@example.com',
-        origin: 'Korea',
-        destination: 'Australia',
-        status: 'pending',
-        goodsType: 'perishable',
-        weight: '10',
-        phone: '+61412345678',
-      },
+    const origins = [
+      'China',
+      'India',
+      'Japan',
+      'Korea',
+      'USA',
+      'UK',
+      'Germany',
+      'France',
+      'Italy',
+      'UAE',
     ];
+    const destinations = [
+      'Sri Lanka',
+      'USA',
+      'UK',
+      'India',
+      'Australia',
+      'Canada',
+      'Germany',
+      'France',
+      'Japan',
+      'Singapore',
+    ];
+    const statuses = ['pending', 'quoted', 'accepted', 'rejected'];
+    const goodsTypes = [
+      'general',
+      'electronics',
+      'fragile',
+      'machinery',
+      'perishable',
+      'clothing',
+      'food',
+      'medical',
+    ];
+    const emails = [
+      'john.doe@gmail.com',
+      'jane.smith@yahoo.com',
+      'bob.wilson@outlook.com',
+      'alice.brown@hotmail.com',
+      'charlie.lee@gmail.com',
+      'david.chen@yahoo.com',
+      'emma.watson@outlook.com',
+      'frank.liu@gmail.com',
+      'grace.huang@yahoo.com',
+      'henry.zhang@outlook.com',
+    ];
+    const priceRange = [100, 500, 1000, 2500, 5000, 10000];
+
+    const quoteCount = 100;
+    interface QuoteItem {
+      email: string;
+      origin: string;
+      destination: string;
+      status: string;
+      goodsType: string;
+      weight: string;
+      phone: string;
+      price: string | null;
+    }
+    const quoteData: QuoteItem[] = [];
+
+    for (let i = 0; i < quoteCount; i++) {
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const hasPrice = status === 'quoted' || status === 'accepted';
+
+      quoteData.push({
+        email: emails[Math.floor(Math.random() * emails.length)],
+        origin: origins[Math.floor(Math.random() * origins.length)],
+        destination:
+          destinations[Math.floor(Math.random() * destinations.length)],
+        status,
+        goodsType: goodsTypes[Math.floor(Math.random() * goodsTypes.length)],
+        weight: String(Math.floor(Math.random() * 500) + 1),
+        phone: `+${Math.floor(Math.random() * 9000000000) + 1000000000}`,
+        price: hasPrice
+          ? String(priceRange[Math.floor(Math.random() * priceRange.length)])
+          : null,
+      });
+    }
 
     for (const q of quoteData) {
       await db.insert(quotes).values({
@@ -371,7 +419,7 @@ async function seed() {
         destinationCountry: 'Sri Lanka',
         status: 'pending' as const,
         goodsType: 'Electronics',
-        weight: '25kg',
+        weight: 25,
       },
       {
         trackingNumber: 'JD0144000012345678',
@@ -383,7 +431,7 @@ async function seed() {
         destinationCountry: 'UK',
         status: 'in_transit' as const,
         goodsType: 'Clothing',
-        weight: '10kg',
+        weight: 10,
       },
       {
         trackingNumber: '9400123456789012345678',
@@ -395,7 +443,7 @@ async function seed() {
         destinationCountry: 'Australia',
         status: 'in_transit' as const,
         goodsType: 'Books',
-        weight: '5kg',
+        weight: 5,
       },
       {
         trackingNumber: 'RK123456789GB',
@@ -407,7 +455,7 @@ async function seed() {
         destinationCountry: 'Canada',
         status: 'delivered' as const,
         goodsType: 'Toys',
-        weight: '15kg',
+        weight: 15,
       },
       {
         trackingNumber: 'YT1234567890123',
@@ -419,7 +467,7 @@ async function seed() {
         destinationCountry: 'USA',
         status: 'pending' as const,
         goodsType: 'General',
-        weight: '50kg',
+        weight: 50,
       },
     ];
 

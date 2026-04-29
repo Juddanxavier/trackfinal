@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
-import { api, getAccessToken, clearAuth, subscribeAuthChange, getMe, logout as apiLogout, AuthUser, setAccessToken } from "@/lib/api"
+import { useRouter, usePathname } from "next/navigation"
+import { api, clearAuth, subscribeAuthChange, getMe, logout as apiLogout, login as apiLogin, AuthUser, hasValidSession, restoreSession } from "@/lib/api"
 
 export type { AuthUser as User }
 
@@ -10,6 +10,17 @@ export interface Organisation {
   id: string
   name: string
   slug: string
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  countryCode?: string
+  currency?: string
+  logoUrl?: string
+  isActive?: boolean
+  createdAt?: string
 }
 
 interface AuthContextType {
@@ -19,6 +30,7 @@ interface AuthContextType {
   selectedOrganisation: string | null
   setSelectedOrganisation: (orgId: string) => void
   refreshUser: () => Promise<AuthUser | null>
+  login: (email: string, password: string) => Promise<AuthUser>
   logout: () => Promise<void>
 }
 
@@ -28,6 +40,7 @@ const STORAGE_KEY = "selectedOrganisationId"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [user, setUser] = React.useState<AuthUser | null>(null)
   const [organisations, setOrganisations] = React.useState<Organisation[]>([])
   const [selectedOrganisation, setSelectedOrganisationState] = React.useState<string | null>(null)
@@ -36,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = React.useCallback(async () => {
     try {
       await apiLogout()
+    } catch (err) {
+      console.error('Logout API call failed:', err);
     } finally {
       clearAuth()
       setUser(null)
@@ -50,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData = await getMe()
       setUser(userData)
       return userData
-    } catch {
+    } catch (err) {
       clearAuth()
       setUser(null)
       return null
@@ -80,34 +95,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const login = React.useCallback(async (email: string, password: string): Promise<AuthUser> => {
+    const user = await apiLogin(email, password)
+    setUser(user)
+    const orgs = await fetchOrganisations(user)
+    if (orgs.length > 0) {
+      if (user.organisationId) {
+        setSelectedOrganisationState(user.organisationId)
+        localStorage.setItem(STORAGE_KEY, user.organisationId)
+      }
+    } else if (user.organisationId) {
+      setSelectedOrganisationState(user.organisationId)
+      localStorage.setItem(STORAGE_KEY, user.organisationId)
+    }
+    return user
+  }, [fetchOrganisations])
+
   React.useEffect(() => {
     let isMounted = true
 
     const init = async () => {
       try {
-        const token = getAccessToken()
-        let userData = token ? await refreshUser() : null
+        const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname.startsWith('/(auth)') || pathname.startsWith('/reset-password')
 
-        if (!userData && token === null) {
-          try {
-            const refreshData = await api.post<{ accessToken: string }>('auth/refresh')
-            setAccessToken(refreshData.accessToken)
-            userData = await refreshUser()
-          } catch {
-            if (isMounted) setIsLoading(false)
-            return
+        if (isAuthPage) {
+          if (hasValidSession()) {
+            const userData = await refreshUser()
+            if (userData) {
+              router.push('/dashboard')
+              return
+            }
           }
-        }
-
-        if (!isMounted) return
-
-        if (!userData) {
           if (isMounted) setIsLoading(false)
           return
         }
 
-        if (window.location.pathname === '/login') {
-          window.location.href = '/dashboard'
+        let userData: AuthUser | null = null
+
+        if (hasValidSession()) {
+          userData = await refreshUser()
+        } else {
+          userData = await restoreSession()
+        }
+
+        if (!userData) {
+          if (isMounted) {
+            clearAuth()
+            router.push('/login')
+          }
           return
         }
 
@@ -118,15 +153,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const stored = localStorage.getItem(STORAGE_KEY)
           if (stored && orgs.some(o => o.id === stored)) {
             setSelectedOrganisationState(stored)
-          } else {
+          } else if (userData.organisationId) {
             setSelectedOrganisationState(userData.organisationId)
             localStorage.setItem(STORAGE_KEY, userData.organisationId)
           }
         } else if (userData.organisationId) {
           setSelectedOrganisationState(userData.organisationId)
+          localStorage.setItem(STORAGE_KEY, userData.organisationId)
         }
-      } catch (err) {
-        console.error("[Auth] Init failed:", err)
+      } catch {
         clearAuth()
         setUser(null)
       } finally {
@@ -136,12 +171,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     init()
 
-    const unsubscribe = subscribeAuthChange(() => {
-      const token = getAccessToken()
-      if (!token) {
+    const unsubscribe = subscribeAuthChange(async () => {
+      if (!hasValidSession()) {
         setUser(null)
         setOrganisations([])
         setSelectedOrganisationState(null)
+      } else if (!user) {
+        const userData = await refreshUser()
+        if (userData) {
+          await fetchOrganisations(userData)
+        }
       }
     })
 
@@ -165,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         selectedOrganisation,
         setSelectedOrganisation,
         refreshUser,
+        login,
         logout,
       }}
     >

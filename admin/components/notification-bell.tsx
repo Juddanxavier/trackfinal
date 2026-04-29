@@ -28,19 +28,10 @@ interface Notification {
 }
 
 const notificationIcons: Record<string, React.ElementType> = {
-  "shipment.in_transit": TruckIcon,
-  "shipment.delivered": PackageIcon,
 }
 
 const getMessage = (titleKey: string, data: Record<string, unknown>): string => {
-  switch (titleKey) {
-    case "shipment.in_transit":
-      return `Shipment ${data.trackingNumber} is in transit`
-    case "shipment.delivered":
-      return `Shipment ${data.trackingNumber} has been delivered`
-    default:
-      return titleKey
-  }
+  return titleKey
 }
 
 function formatTimeAgo(dateString: string): string {
@@ -64,19 +55,27 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
 
   const fetchNotifications = useCallback(async () => {
+    const token = sessionStorage.getItem('accessToken')
+    if (!token) return
+
     try {
       const data = await api.get<Notification[]>("/notifications?limit=5")
       setNotifications(data)
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.statusCode === 401) return
       console.error("Failed to fetch notifications:", error)
     }
   }, [])
 
   const fetchUnreadCount = useCallback(async () => {
+    const token = sessionStorage.getItem('accessToken')
+    if (!token) return
+
     try {
       const count = await api.get<number>("/notifications/unread-count")
       setUnreadCount(count)
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.statusCode === 401) return
       console.error("Failed to fetch unread count:", error)
     }
   }, [])
@@ -96,7 +95,8 @@ export function NotificationBell() {
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.statusCode === 401) return
       console.error("Failed to mark as read:", error)
     }
   }
@@ -106,7 +106,8 @@ export function NotificationBell() {
       await api.patch("/notifications/read-all")
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
       setUnreadCount(0)
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.statusCode === 401) return
       console.error("Failed to mark all as read:", error)
     }
   }

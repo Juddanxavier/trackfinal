@@ -50,9 +50,16 @@ export class UsersService {
     return result[0];
   }
 
-  async findByPhoneNumber(phoneNumber: string, excludeUserId?: string) {
-    const allUsers = await db.select().from(users);
+  async findByPhoneNumber(
+    phoneNumber: string,
+    organisationId?: string,
+    excludeUserId?: string,
+  ) {
+    if (!phoneNumber) return null;
+
     const cleanedInput = phoneNumber.replace(/\D/g, '').slice(-10);
+
+    const allUsers = await db.select().from(users);
 
     return (
       allUsers.find((u) => {
@@ -64,7 +71,11 @@ export class UsersService {
     );
   }
 
-  async lookupUser(email?: string, phoneNumber?: string) {
+  async lookupUser(
+    email?: string,
+    phoneNumber?: string,
+    organisationId?: string,
+  ) {
     if (email) {
       const user = await this.findByEmail(email);
       if (user) {
@@ -77,7 +88,7 @@ export class UsersService {
       }
     }
     if (phoneNumber) {
-      const user = await this.findByPhoneNumber(phoneNumber);
+      const user = await this.findByPhoneNumber(phoneNumber, organisationId);
       if (user) {
         return {
           id: user.id,
@@ -299,12 +310,33 @@ export class OrganisationsService {
     return result[0];
   }
 
-  async create(data: { name: string; slug: string }) {
+  async create(data: {
+    name: string;
+    slug: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    countryCode?: string;
+    currency?: string;
+    logoUrl?: string;
+  }) {
     const result = await db
       .insert(organisations)
       .values({
         name: data.name,
         slug: data.slug,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        postalCode: data.postalCode,
+        countryCode: data.countryCode,
+        currency: data.currency,
+        logoUrl: data.logoUrl,
       })
       .returning();
     return result[0];
@@ -312,7 +344,20 @@ export class OrganisationsService {
 
   async update(
     id: string,
-    data: Partial<{ name: string; slug: string; isActive: boolean }>,
+    data: Partial<{
+      name: string;
+      slug: string;
+      isActive: boolean;
+      email: string;
+      phone: string;
+      address: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      countryCode: string;
+      currency: string;
+      logoUrl: string;
+    }>,
   ) {
     const result = await db
       .update(organisations)
@@ -344,23 +389,17 @@ export class SessionsService {
   }
 
   async findById(id: string) {
-    const result = await db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.id, id));
+    const result = await db.select().from(sessions).where(eq(sessions.id, id));
     return result[0] || null;
   }
 
-  async findByUserId(userId: string): Promise<typeof sessions.$inferSelect[]> {
+  async findByUserId(
+    userId: string,
+  ): Promise<(typeof sessions.$inferSelect)[]> {
     return db
       .select()
       .from(sessions)
-      .where(
-        and(
-          eq(sessions.userId, userId),
-          eq(sessions.revoked, false),
-        ),
-      );
+      .where(and(eq(sessions.userId, userId), eq(sessions.revoked, false)));
   }
 
   async create(data: {
@@ -394,27 +433,20 @@ export class SessionsService {
     await db
       .update(sessions)
       .set({ revoked: true, revokedAt: new Date() })
-      .where(
-        and(
-          eq(sessions.userId, userId),
-          eq(sessions.revoked, false),
-        ),
-      );
+      .where(and(eq(sessions.userId, userId), eq(sessions.revoked, false)));
   }
 
   async revokeAllUserSessions(userId: string): Promise<void> {
     await db
       .update(sessions)
       .set({ revoked: true, revokedAt: new Date() })
-      .where(
-        and(
-          eq(sessions.userId, userId),
-          eq(sessions.revoked, false),
-        ),
-      );
+      .where(and(eq(sessions.userId, userId), eq(sessions.revoked, false)));
   }
 
-  async revokeAllOtherSessions(userId: string, currentSessionId: string): Promise<void> {
+  async revokeAllOtherSessions(
+    userId: string,
+    currentSessionId: string,
+  ): Promise<void> {
     await db
       .update(sessions)
       .set({ revoked: true, revokedAt: new Date() })
@@ -431,12 +463,7 @@ export class SessionsService {
     const now = new Date();
     const result = await db
       .delete(sessions)
-      .where(
-        or(
-          eq(sessions.revoked, true),
-          lt(sessions.expiresAt, now),
-        ),
-      );
+      .where(or(eq(sessions.revoked, true), lt(sessions.expiresAt, now)));
     return result.rowCount || 0;
   }
 }

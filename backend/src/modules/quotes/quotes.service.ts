@@ -11,6 +11,67 @@ import { UsersService } from '../users/services';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../auth/email.service';
 
+const emailColors = {
+  primary: '#0ea5e9',
+  primaryDark: '#0284c7',
+  bg: '#f8fafc',
+  surface: '#ffffff',
+  text: '#0f172a',
+  textMuted: '#64748b',
+  border: '#e2e8f0',
+  success: '#16a34a',
+  successLight: '#f0fdf4',
+  warning: '#d97706',
+  warningLight: '#fffbeb',
+};
+
+function emailWrapper(content: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track Logistics</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: ${emailColors.bg}; color: ${emailColors.text}; line-height: 1.6; }
+    @media (max-width: 480px) {
+      .container { padding: 16px !important; }
+      .body { padding: 24px 20px !important; }
+      .footer { padding: 24px 20px !important; }
+    }
+  </style>
+</head>
+<body>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background: ${emailColors.bg};">
+    <tr><td class="container" style="padding: 48px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; margin: 0 auto;">
+        <tr><td style="text-align: center; padding-bottom: 24px;">
+          <span style="display: inline-block; background: linear-gradient(135deg, ${emailColors.primary} 0%, ${emailColors.primaryDark} 100%); color: #fff; padding: 12px 28px; border-radius: 8px; font-size: 20px; font-weight: 700;">Track Logistics</span>
+        </td></tr>
+        <tr><td style="background: ${emailColors.surface}; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${emailColors.border};">
+          ${content}
+        </td></tr>
+        <tr><td class="footer" style="text-align: center; padding: 24px 20px; color: ${emailColors.textMuted}; font-size: 12px;">
+          &copy; ${new Date().getFullYear()} Track Logistics. All rights reserved.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function emailHeader(title: string, subtitle: string): string {
+  return `<div style="background: linear-gradient(135deg, ${emailColors.primary} 0%, ${emailColors.primaryDark} 100%); color: #fff; padding: 32px 24px; text-align: center;">
+  <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700;">${title}</h1>
+  <p style="margin: 0; font-size: 14px; opacity: 0.9;">${subtitle}</p>
+</div>`;
+}
+
+function emailBody(content: string): string {
+  return `<div style="padding: 24px;">${content}</div>`;
+}
+
 @Injectable()
 export class QuotesService {
   constructor(
@@ -70,7 +131,7 @@ export class QuotesService {
 
   async update(
     id: string,
-    data: { status?: any; price?: any; assignedToId?: any },
+    data: { status?: any; price?: any; assignedToId?: any; remarks?: any },
     userId?: string,
   ) {
     const quote = await this.findById(id);
@@ -82,6 +143,10 @@ export class QuotesService {
       updatedAt: new Date(),
     };
 
+    if (data.remarks !== undefined) {
+      updateData.remarks = data.remarks || null;
+    }
+
     if (!data.assignedToId && userId) {
       updateData.assignedToId = userId;
     } else {
@@ -90,40 +155,25 @@ export class QuotesService {
 
     await db.update(quotes).set(updateData).where(eq(quotes.id, id));
 
-    if (data.status && data.status !== oldStatus) {
-      await this.sendStatusEmail(quote, data.status, data.price);
+    if (
+      data.status &&
+      data.status !== oldStatus &&
+      (data.status === 'quoted' ||
+        data.status === 'accepted' ||
+        data.status === 'rejected')
+    ) {
+      await this.emailService.sendQuoteStatusEmail(
+        quote.email,
+        quote.id,
+        quote.originCountry,
+        quote.destinationCountry,
+        data.status,
+        data.price,
+        data.remarks,
+      );
     }
 
     return this.findById(id);
-  }
-
-  private async sendStatusEmail(quote: any, status: string, price?: string) {
-    const subject =
-      status === 'quoted'
-        ? 'Your Quote is Ready'
-        : status === 'accepted'
-          ? 'Your Quote has been Accepted'
-          : 'Your Quote Status Update';
-
-    let html = '';
-    if (status === 'quoted' && price) {
-      html = `<p>Your quote has been processed. The quoted price is: <strong>$${price}</strong></p>
-             <p>Log in to view the full details.</p>`;
-    } else if (status === 'accepted') {
-      html = `<p>Great news! Your quote has been <strong>accepted</strong>.</p>
-             <p>Thank you for your business!</p>`;
-    } else if (status === 'rejected') {
-      html = `<p>Unfortunately, your quote was not accepted this time.</p>
-             <p>Please contact us if you have any questions.</p>`;
-    }
-
-    if (html) {
-      await this.emailService.sendEmail({
-        to: quote.email,
-        subject,
-        html,
-      });
-    }
   }
 
   async findById(id: string, includeDeleted = false) {
@@ -290,6 +340,42 @@ export class QuotesService {
     return { total, pending, quoted, accepted, rejected, recent };
   }
 
+  async getActivityHistory(organisationId?: string, days: number = 30) {
+    const whereClause = organisationId
+      ? and(eq(quotes.organisationId, organisationId), isNull(quotes.deletedAt))
+      : isNull(quotes.deletedAt);
+
+    const allQuotes = await db
+      .select()
+      .from(quotes)
+      .where(whereClause as any);
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const historyMap = new Map<string, number>();
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const key = date.toISOString().split('T')[0];
+      historyMap.set(key, 0);
+    }
+
+    allQuotes.forEach((q) => {
+      if (q.createdAt) {
+        const date = new Date(q.createdAt);
+        if (date >= startDate) {
+          const key = date.toISOString().split('T')[0];
+          historyMap.set(key, (historyMap.get(key) || 0) + 1);
+        }
+      }
+    });
+
+    return Array.from(historyMap.entries())
+      .map(([date, count]) => ({ date, quotes: count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   async getDeletedStats(organisationId?: string) {
     const deletedQuotes = await db
       .select()
@@ -329,5 +415,24 @@ export class QuotesService {
     if (!quote) throw new NotFoundException('Quote not found');
     await db.delete(quotes).where(eq(quotes.id, id));
     return { message: 'Quote permanently deleted', id };
+  }
+
+  async sendCustomEmail(
+    email: string,
+    subject: string,
+    message: string,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.emailService.sendEmail({
+      to: email,
+      subject,
+      html: emailWrapper(
+        emailHeader('Message from Track Logistics', 'You have a new message') +
+          emailBody(`<div style="background: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <p style="margin: 0 0 16px; font-size: 14px; color: #334155; white-space: pre-wrap;">${message}</p>
+          </div>
+          <p style="margin: 0; font-size: 14px; color: #64748b;">Best regards,<br/>Track Logistics Team</p>`),
+      ),
+    });
+    return { success: true, message: 'Email sent successfully' };
   }
 }

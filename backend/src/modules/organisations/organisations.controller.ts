@@ -35,7 +35,20 @@ export class OrganisationsController {
   @ApiResponse({ status: 201, description: 'Organisation created' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   create(
-    @Body() createDto: { name: string; slug: string },
+    @Body()
+    createDto: {
+      name: string;
+      slug: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      countryCode?: string;
+      currency?: string;
+      logoUrl?: string;
+    },
     @Request() req: any,
   ) {
     return this.organisationsService.create(createDto);
@@ -82,7 +95,21 @@ export class OrganisationsController {
   @ApiResponse({ status: 200, description: 'Organisation updated' })
   update(
     @Param('id') id: string,
-    @Body() updateDto: { name?: string; slug?: string; isActive?: boolean },
+    @Body()
+    updateDto: {
+      name?: string;
+      slug?: string;
+      isActive?: boolean;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      countryCode?: string;
+      currency?: string;
+      logoUrl?: string;
+    },
     @Request() req: any,
   ) {
     return this.organisationsService.update(id, updateDto);

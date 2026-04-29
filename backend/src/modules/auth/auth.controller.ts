@@ -10,6 +10,9 @@ import {
   HttpException,
   Res,
   Req,
+  Query,
+  Param,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,30 +23,33 @@ import {
 } from '@nestjs/swagger';
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, VerifyEmailDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  VerifyEmailDto,
+  InviteRegisterDto,
+} from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
+import { ThrottlerGuard, Throttle, ThrottlerModule } from '@nestjs/throttler';
 import { EmailService } from './email.service';
 import { VerificationsService } from './verifications.service';
-import { UsersService } from '../users/services';
+import { UsersService, OrganisationsService } from '../users/services';
 import { hashPassword } from '../../common/utils/hash-password';
+import { validatePassword } from '../../common/validators/password.validator';
 import { ConfigService } from '@nestjs/config';
 
-const COOKIE_OPTIONS = {
-  access: {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
-    path: '/',
-    maxAge: 15 * 60 * 1000,
-  },
-  refresh: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  },
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 @ApiTags('auth')
@@ -54,24 +60,19 @@ export class AuthController {
     private readonly emailService: EmailService,
     private readonly verificationsService: VerificationsService,
     private readonly usersService: UsersService,
+    private readonly organisationsService: OrganisationsService,
     private readonly configService: ConfigService,
   ) {}
 
-  private getCookies(req: ExpressRequest) {
-    const refreshToken = req.cookies?.refresh_token;
-    return {
-      accessToken: req.cookies?.access_token,
-      refreshToken,
-    };
+  private getRefreshToken(req: ExpressRequest) {
+    return req.cookies?.refresh_token;
   }
 
-  private setCookies(res: Response, accessToken: string, refreshToken: string) {
-    res.cookie('access_token', accessToken, COOKIE_OPTIONS.access);
-    res.cookie('refresh_token', refreshToken, COOKIE_OPTIONS.refresh);
+  private setRefreshCookie(res: Response, refreshToken: string) {
+    res.cookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTIONS);
   }
 
-  private clearCookies(res: Response) {
-    res.clearCookie('access_token', { path: '/' });
+  private clearRefreshCookie(res: Response) {
     res.clearCookie('refresh_token', { path: '/' });
   }
 
@@ -79,7 +80,9 @@ export class AuthController {
     const forwardedFor = req.headers['x-forwarded-for'];
     const ip = Array.isArray(forwardedFor)
       ? forwardedFor[0]
-      : forwardedFor?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+      : forwardedFor?.split(',')[0]?.trim() ||
+        req.socket?.remoteAddress ||
+        'unknown';
     return {
       ip,
       userAgent: req.headers['user-agent'] || 'unknown',
@@ -89,15 +92,27 @@ export class AuthController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register new user' })
-  async register(@Body() dto: RegisterDto, @Req() req: ExpressRequest) {
-    const result = await this.authService.register(dto, this.extractContext(req));
-    return result;
+  @ApiOperation({ summary: 'Register with invitation token' })
+  async register(
+    @Body() dto: InviteRegisterDto,
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.registerWithInvitation(
+      dto.token,
+      dto.password,
+      dto.name,
+      this.extractContext(req),
+    );
+    this.setRefreshCookie(res, result.refreshToken);
+    return { accessToken: result.accessToken, user: result.user };
   }
 
   @Public()
-  @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
   async login(
@@ -106,8 +121,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto, this.extractContext(req));
-    this.setCookies(res, result.accessToken, result.refreshToken);
-    return result;
+    this.setRefreshCookie(res, result.refreshToken);
+    return { accessToken: result.accessToken, user: result.user };
   }
 
   @Public()
@@ -118,13 +133,19 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { refreshToken } = this.getCookies(req);
+    const refreshToken = this.getRefreshToken(req);
     if (!refreshToken) {
-      throw new HttpException('Refresh token required', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Refresh token required',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
-    const result = await this.authService.refreshToken(refreshToken, this.extractContext(req));
-    this.setCookies(res, result.accessToken, result.refreshToken);
-    return result;
+    const result = await this.authService.refreshToken(
+      refreshToken,
+      this.extractContext(req),
+    );
+    this.setRefreshCookie(res, result.refreshToken);
+    return { accessToken: result.accessToken, user: result.user };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -132,12 +153,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout and invalidate session' })
-  async logout(
-    @Request() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req.user.id);
-    this.clearCookies(res);
+    this.clearRefreshCookie(res);
     return { message: 'Logged out successfully' };
   }
 
@@ -157,6 +175,66 @@ export class AuthController {
     };
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('invitations')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create user invitation' })
+  async createInvitation(
+    @Body()
+    dto: { email: string; role: 'admin' | 'staff'; organisationId?: string },
+    @Request() req: any,
+  ) {
+    if (req.user.role !== Role.ADMIN) {
+      throw new HttpException(
+        'Only admins can create invitations',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const targetOrganisationId = dto.organisationId || req.user.organisationId;
+    const inviter = await this.usersService.findById(req.user.id);
+    const organisation =
+      await this.organisationsService.findById(targetOrganisationId);
+
+    return this.authService.createInvitation(
+      targetOrganisationId,
+      req.user.id,
+      dto,
+      inviter?.name || 'Admin',
+      organisation?.name || 'your organisation',
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @Get('invitations')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List pending invitations' })
+  async listInvitations(
+    @Request() req: any,
+    @Query('organisationId') organisationId?: string,
+  ) {
+    if (req.user.role === Role.ADMIN && !organisationId) {
+      return this.authService.listInvitations();
+    }
+    const targetOrgId =
+      req.user.role === Role.ADMIN && organisationId
+        ? organisationId
+        : req.user.organisationId;
+    return this.authService.listInvitations(targetOrgId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete('invitations/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete invitation' })
+  async deleteInvitation(@Param('id') id: string, @Request() req: any) {
+    await this.authService.deleteInvitation(id);
+    return { message: 'Invitation deleted' };
+  }
+
   @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
@@ -164,20 +242,27 @@ export class AuthController {
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     const userId = await this.verificationsService.verify(dto.token, 'email');
     if (!userId) {
-      throw new HttpException('Invalid or expired token', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Invalid or expired token',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     await this.usersService.update(userId, { emailVerified: true });
     return { message: 'Email verified successfully' };
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend verification email' })
   async resendVerification(@Body() body: { email: string }) {
     const user = await this.usersService.findByEmail(body.email);
     if (!user) {
-      return { message: 'If the email exists, a verification email will be sent' };
+      return {
+        message: 'If the email exists, a verification email will be sent',
+      };
     }
     if (user.emailVerified) {
       return { message: 'Email is already verified' };
@@ -188,29 +273,57 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 86400000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
-      return { message: 'If the email exists, a reset email will be sent' };
+      throw new HttpException(
+        'No account found with this email address',
+        HttpStatus.NOT_FOUND,
+      );
     }
-    const token = await this.verificationsService.create(user.id, 'password-reset');
+    const token = await this.verificationsService.create(
+      user.id,
+      'password-reset',
+    );
     await this.emailService.sendPasswordResetEmail(user.email, token);
     return { message: 'Password reset email sent' };
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with token' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    const userId = await this.verificationsService.verify(dto.token, 'password-reset');
+    const userId = await this.verificationsService.verify(
+      dto.token,
+      'password-reset',
+    );
     if (!userId) {
-      throw new HttpException('Invalid or expired token', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Invalid or expired token',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    const passwordHash = await hashPassword(dto.newPassword, this.configService);
+
+    const passwordErrors = validatePassword(dto.newPassword);
+    if (passwordErrors.length > 0) {
+      throw new HttpException(
+        passwordErrors.join('. '),
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const passwordHash = await hashPassword(
+      dto.newPassword,
+      this.configService,
+    );
     await this.usersService.update(userId, { passwordHash });
     return { message: 'Password reset successfully' };
   }

@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,7 +17,11 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 import { NotificationsService } from './notifications.service';
+import { UsersService } from '../users/services';
 import { CreateNotificationDto, QueryNotificationsDto } from './dto';
 
 @ApiTags('notifications')
@@ -24,19 +29,39 @@ import { CreateNotificationDto, QueryNotificationsDto } from './dto';
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
-  constructor(private notificationsService: NotificationsService) {}
+  constructor(
+    private notificationsService: NotificationsService,
+    private usersService: UsersService,
+  ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new notification' })
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: 'Create a new notification (admin/staff only)' })
   @ApiResponse({
     status: 201,
     description: 'Notification created and WebSocket event emitted',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  create(@Request() req: any, @Body() dto: CreateNotificationDto) {
+  @ApiResponse({ status: 403, description: 'Forbidden - admin/staff only' })
+  async create(@Request() req: any, @Body() dto: CreateNotificationDto) {
+    const targetUserId = dto.userId || req.user.id;
+
+    if (dto.userId && dto.userId !== req.user.id) {
+      const targetUser = await this.usersService.findById(dto.userId);
+      if (!targetUser) {
+        throw new ForbiddenException('Target user not found');
+      }
+      if (targetUser.organisationId !== req.user.organisationId) {
+        throw new ForbiddenException(
+          'Cannot send notifications to users outside your organisation',
+        );
+      }
+    }
+
     return this.notificationsService.create(req.user.organisationId, {
       ...dto,
-      userId: dto.userId || req.user.sub,
+      userId: targetUserId,
     });
   }
 
@@ -47,7 +72,7 @@ export class NotificationsController {
   findAll(@Request() req: any, @Query() query: QueryNotificationsDto) {
     return this.notificationsService.findAll(
       req.user.organisationId,
-      req.user.sub,
+      req.user.id,
       query,
     );
   }
@@ -61,7 +86,7 @@ export class NotificationsController {
     return this.notificationsService.markRead(
       id,
       req.user.organisationId,
-      req.user.sub,
+      req.user.id,
     );
   }
 
@@ -74,7 +99,7 @@ export class NotificationsController {
     return this.notificationsService.markUnread(
       id,
       req.user.organisationId,
-      req.user.sub,
+      req.user.id,
     );
   }
 
@@ -85,7 +110,7 @@ export class NotificationsController {
   getUnreadCount(@Request() req: any) {
     return this.notificationsService.getUnreadCount(
       req.user.organisationId,
-      req.user.sub,
+      req.user.id,
     );
   }
 
@@ -96,7 +121,7 @@ export class NotificationsController {
   markAllRead(@Request() req: any) {
     return this.notificationsService.markAllRead(
       req.user.organisationId,
-      req.user.sub,
+      req.user.id,
     );
   }
 }

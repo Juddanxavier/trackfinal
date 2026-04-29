@@ -9,7 +9,9 @@ const isProduction = process.env.NODE_ENV === 'production';
 @Injectable()
 export class NotificationQueueService {
   constructor(
-    @Optional() @InjectQueue('notifications') private notificationQueue: Queue | undefined,
+    @Optional()
+    @InjectQueue('notifications')
+    private notificationQueue: Queue | undefined,
     private notificationLogsService: NotificationLogsService,
   ) {}
 
@@ -20,8 +22,8 @@ export class NotificationQueueService {
       );
       await this.notificationLogsService.logQueued(
         jobData.organisationId,
-        jobData.userId,
-        jobData.shipmentId,
+        jobData.userId || '',
+        jobData.shipmentId || '',
         jobData.channel,
         jobData.titleKey,
         jobData.data,
@@ -41,15 +43,15 @@ export class NotificationQueueService {
 
     await this.notificationLogsService.logQueued(
       jobData.organisationId,
-      jobData.userId,
-      jobData.shipmentId,
+      jobData.userId || '',
+      jobData.shipmentId || '',
       jobData.channel,
       jobData.titleKey,
       jobData.data,
     );
 
     console.log(
-      `[NotificationQueueService] Queued ${jobData.channel} notification for user ${jobData.userId}`,
+      `[NotificationQueueService] Queued ${jobData.channel} notification`,
     );
   }
 

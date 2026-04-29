@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -13,13 +13,14 @@ import { UsersModule } from '../users/users.module';
 import { EmailModule } from '../email/email.module';
 import { EmailService } from './email.service';
 import { VerificationsService } from './verifications.service';
+import { InvitationsService } from './invitations.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule),
     EmailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -53,6 +54,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     TenantGuard,
     EmailService,
     VerificationsService,
+    InvitationsService,
   ],
   exports: [
     AuthService,
@@ -60,6 +62,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     JwtAuthGuard,
     RolesGuard,
     TenantGuard,
+    InvitationsService,
   ],
 })
 export class AuthModule {}

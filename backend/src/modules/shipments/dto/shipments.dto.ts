@@ -2,69 +2,38 @@ import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateShipmentDto {
-  @ApiProperty({ description: 'Tracking number from carrier' })
+  @ApiProperty({ description: 'Tracking number' })
   @IsString()
   @IsNotEmpty()
   trackingNumber: string;
 
-  @ApiProperty({ description: 'Carrier code' })
+  @ApiPropertyOptional({ description: 'Carrier code (auto-detected)' })
   @IsString()
-  @IsNotEmpty()
-  carrierCode: string;
+  @IsOptional()
+  carrierCode?: string;
 
-  @ApiProperty({
-    description: 'Sender email - notifications will be sent to this email',
-  })
-  @IsString()
-  @IsNotEmpty()
-  senderEmail: string;
-
-  @ApiProperty({ description: 'Recipient full name' })
+  @ApiProperty({ description: 'Recipient name' })
   @IsString()
   @IsNotEmpty()
   recipientName: string;
-
-  @ApiPropertyOptional({ description: 'Recipient phone number' })
-  @IsString()
-  @IsOptional()
-  recipientPhone?: string;
-
-  @ApiPropertyOptional({ description: 'Origin country code (from tracking)' })
-  @IsString()
-  @IsOptional()
-  originCountry?: string;
-
-  @ApiPropertyOptional({
-    description: 'Destination country code (from tracking)',
-  })
-  @IsString()
-  @IsOptional()
-  destinationCountry?: string;
-
-  @ApiPropertyOptional({ description: 'Type of goods (from tracking)' })
-  @IsString()
-  @IsOptional()
-  goodsType?: string;
-
-  @ApiPropertyOptional({ description: 'Package weight (from tracking)' })
-  @IsString()
-  @IsOptional()
-  weight?: string;
-}
-
-export class UpdateShipmentDto {
-  @ApiPropertyOptional({ description: 'Staff/admin ID to assign' })
-  @IsString()
-  @IsOptional()
-  assignedToId?: string;
 
   @ApiPropertyOptional({ description: 'Recipient email' })
   @IsString()
   @IsOptional()
   recipientEmail?: string;
 
-  @ApiPropertyOptional({ description: 'Recipient phone' })
+  @ApiProperty({ description: 'Recipient phone' })
+  @IsString()
+  @IsNotEmpty()
+  recipientPhone: string;
+
+  @ApiPropertyOptional({ description: 'Recipient country code' })
   @IsString()
   @IsOptional()
-  recipientPhone?: string;
+  recipientCountry?: string;
+
+  @ApiPropertyOptional({ description: 'User ID if recipient is a known user' })
+  @IsString()
+  @IsOptional()
+  userId?: string;
 }
