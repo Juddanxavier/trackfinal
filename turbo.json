@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT_RUNTIME", "apps/*/package.json", "apps/*/next.config.mjs", "apps/*/tsconfig.json"],
-      "outputs": ["apps/*/.next/**", "apps/*/dist/**", "apps/*/build/**"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
       "env": ["NODE_ENV"]
     },
     "dev": {
