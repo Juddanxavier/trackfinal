@@ -38,7 +38,12 @@ pnpm typecheck
 pnpm clean
 ```
 
-## Adding New Apps
+## Shared Packages
+
+| Package | Description |
+|---------|-------------|
+| `@repo/utils` | Shared utilities (cn, format, date) |
+| `@repo/config` | ESLint & TypeScript configs |
 
 1. Create app in `apps/` directory
 2. Add package.json with name `@track/<app-name>`
