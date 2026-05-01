@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
 import { MoreHorizontalIcon, PlusIcon, RefreshCwIcon, BanIcon, EditIcon, Trash2Icon, PackageCheckIcon } from "lucide-react"
+import { ShipmentStatsCards } from "@/components/shipment-stats-cards"
 import {
   Table,
   TableBody,
@@ -100,99 +101,6 @@ interface Stats {
   pendingChange?: number
   inTransitChange?: number
   deliveredChange?: number
-}
-
-interface StatCardProps {
-  title: string
-  value: number
-  icon: React.ReactNode
-  iconBg: string
-  iconColor: string
-  change?: number
-  subtitle?: string
-  total?: number
-}
-
-function StatCard({ title, value, icon, iconBg, iconColor, change, subtitle, total }: StatCardProps) {
-  const isPositive = change !== undefined && change >= 0
-  const changeColor = isPositive ? "text-emerald-600" : "text-red-600"
-
-  return (
-    <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-      <CardContent className="px-4 py-3 relative z-10">
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold tracking-tight">{value.toLocaleString()}</p>
-            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-            {change !== undefined && (
-              <div className="flex items-center gap-1 text-sm font-medium mt-1">
-                <span className={changeColor}>{isPositive ? "↑" : "↓"}</span>
-                <span className={changeColor}>{Math.abs(change)}%</span>
-                <span className="text-xs text-muted-foreground ml-1">vs last 7 days</span>
-              </div>
-            )}
-          </div>
-          <div className={`p-3 rounded-xl ${iconBg} group-hover:scale-110 transition-transform duration-300`}>
-            <span className={iconColor}>{icon}</span>
-          </div>
-        </div>
-        <div className="mt-4 h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
-          <div className={`h-full ${iconBg.replace("100", "500").replace("950/30", "600")} rounded-full transition-all duration-500`} style={{ width: `${Math.min((value / Math.max(total || 1, 1)) * 100, 100)}%` }} />
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">{Math.round((value / Math.max(total || 1, 1)) * 100)}% of total</p>
-      </CardContent>
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-muted/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className={`absolute -right-8 -bottom-8 w-24 h-24 rounded-full ${iconBg} opacity-20 group-hover:opacity-40 group-hover:scale-150 transition-all duration-500 blur-sm`} />
-    </Card>
-  )
-}
-
-function ShipmentStatsCards({ stats }: { stats: Stats }) {
-  return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <StatCard 
-        title="Total Shipments" 
-        value={stats.total} 
-        icon={<PackageCheckIcon className="h-6 w-6" />} 
-        iconBg="bg-blue-100 dark:bg-blue-900/30" 
-        iconColor="text-blue-600 dark:text-blue-400" 
-        change={stats.totalChange}
-        subtitle="All time shipments"
-        total={stats.total}
-      />
-      <StatCard 
-        title="Pending" 
-        value={stats.pending} 
-        icon={<ClockIcon className="h-6 w-6" />} 
-        iconBg="bg-amber-100 dark:bg-amber-900/30" 
-        iconColor="text-amber-600 dark:text-amber-400" 
-        change={stats.pendingChange}
-        subtitle="Awaiting processing"
-        total={stats.total}
-      />
-      <StatCard 
-        title="In Transit" 
-        value={stats.inTransit} 
-        icon={<PackageIcon className="h-6 w-6" />} 
-        iconBg="bg-purple-100 dark:bg-purple-900/30" 
-        iconColor="text-purple-600 dark:text-purple-400" 
-        change={stats.inTransitChange}
-        subtitle="On the way"
-        total={stats.total}
-      />
-      <StatCard 
-        title="Delivered" 
-        value={stats.delivered} 
-        icon={<CheckCircleIcon className="h-6 w-6" />} 
-        iconBg="bg-emerald-100 dark:bg-emerald-900/30" 
-        iconColor="text-emerald-600 dark:text-emerald-400" 
-        change={stats.deliveredChange}
-        subtitle="Successfully delivered"
-        total={stats.total}
-      />
-    </div>
-  )
 }
 
 const statusVariants: Record<ShipmentStatus, string> = {

@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Build outputs
+backend/dist/
+backend/build/
+admin/.next/
+admin/out/
+admin/build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+backend/.env
+admin/.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+.playwright-mcp/
+
+# Coverage
+coverage/
+
+# Temporary files
+.temp/
+.tmp/
+*.tmp
+
+# Backup
+backup/
+*.backup
+
+# AI generated
+ai/
+
+# Misc
+*.pem
+*.log

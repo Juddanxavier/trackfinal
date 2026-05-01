@@ -1,25 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import { NotificationService } from './notification.service';
-import {
-  NotificationChannel,
-  NotificationPayload,
-  NotificationResult,
-} from './channels/notification.channel';
-
-const mockChannel = (
-  name: string,
-  canSendFn: (p: NotificationPayload) => boolean,
-) => {
-  return {
-    channelName: name,
-    canSend: jest.fn().mockImplementation(canSendFn),
-    send: jest.fn().mockResolvedValue({
-      success: true,
-      channel: name,
-      messageId: `${name}-123`,
-    } as NotificationResult),
-  } as unknown as NotificationChannel;
-};
+import { NotificationLogsService } from './notification-logs.service';
+import { NotificationPreferencesService } from './notification-preferences.service';
+import { UsersService } from '../users/services';
+import { EmailChannel } from './channels/email.channel';
+import { WhatsAppChannel } from './channels/whatsapp.channel';
+import { InAppChannel } from './channels/in-app.channel';
 
 describe('NotificationService', () => {
   let service: NotificationService;
@@ -34,15 +20,22 @@ describe('NotificationService', () => {
       }),
     } as unknown as ConfigService;
 
-    const emailChannel = mockChannel('email', (p) => !!p.recipientEmail);
-    const whatsAppChannel = mockChannel('whatsapp', (p) => !!p.recipientPhone);
-    const inAppChannel = mockChannel('in_app', (p) => !!p.userId);
+    const mockLogsService = {} as NotificationLogsService;
+    const mockPrefsService = {} as NotificationPreferencesService;
+    const mockUsersService = {} as UsersService;
+
+    const emailChannel = { channelName: 'email' } as EmailChannel;
+    const whatsAppChannel = { channelName: 'whatsapp' } as WhatsAppChannel;
+    const inAppChannel = { channelName: 'in_app' } as InAppChannel;
 
     service = new NotificationService(
       emailChannel,
       whatsAppChannel,
       inAppChannel,
       mockConfigService,
+      mockLogsService,
+      mockPrefsService,
+      mockUsersService,
     );
   });
 

@@ -315,18 +315,20 @@ export class ShipmentsService {
       .limit(limit)
       .offset(offset);
 
-    const enrichedResult = await Promise.all(
-      result.map(async (shipment) => {
-        let carrierName: string | null = null;
-        if (shipment.carrierCode) {
-          const carrier = await this.carriersService.getCarrierByKey(
-            shipment.carrierCode,
-          );
-          carrierName = carrier?.name_en || null;
-        }
-        return { ...shipment, carrierName };
-      }),
-    );
+    const carrierCodes = [
+      ...new Set(result.map((s) => s.carrierCode).filter(Boolean)),
+    ];
+    const carriers =
+      carrierCodes.length > 0
+        ? await this.carriersService.getCarriersByKeys(carrierCodes)
+        : [];
+
+    const carrierMap = new Map(carriers.map((c) => [c.key, c.name_en]));
+
+    const enrichedResult = result.map((shipment) => ({
+      ...shipment,
+      carrierName: carrierMap.get(shipment.carrierCode) || null,
+    }));
 
     return {
       data: enrichedResult,
@@ -481,7 +483,7 @@ export class ShipmentsService {
           ? 'shipment.delivered'
           : status === 'in_transit'
             ? 'shipment.in_transit'
-            : 'shipment.created';
+            : `shipment.${status}`;
 
       this.logger.debug(
         `Sending notification for shipment ${updated.trackingNumber}, status: ${status}`,

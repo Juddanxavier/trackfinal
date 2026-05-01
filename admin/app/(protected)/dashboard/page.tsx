@@ -9,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineCh
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Package, FileText, Truck, CheckCircle, TrendingUp, TrendingDown, ArrowUpRight } from "lucide-react"
+import { DashboardStatsCards } from "@/components/dashboard-stats-cards"
 
 interface Stats {
   total: number
@@ -27,81 +28,12 @@ interface QuoteStats extends Stats {
 
 const CHART_CONFIG = {
   visitors: { label: "Visitors" },
-  shipments: { label: "Shipments", color: "hsl(var(--primary))" },
-  quotes: { label: "Quotes", color: "hsl(var(--accent))" },
+  shipments: { label: "Shipments", color: "#3b82f6" },
+  quotes: { label: "Quotes", color: "#22c55e" },
 } satisfies Record<string, { label?: string; color?: string }>
 
-const BLUE = "hsl(var(--primary))"
-const PURPLE = "hsl(var(--accent))"
-const GREEN = "hsl(142.1 76.2% 36.3%)"
-const AMBER = "hsl(48 96% 53%)"
-const RED = "hsl(0 84.2% 60.2%)"
-
-const SHIPMENT_COLORS = [AMBER, BLUE, GREEN, RED]
-const QUOTE_COLORS = [AMBER, PURPLE, GREEN, RED]
-
-const generateSparklineData = (value: number) => {
-  const base = Math.max(1, Math.floor(value / 3))
-  return Array.from({ length: 7 }, () => ({
-    value: Math.max(0, base + Math.floor(Math.random() * base) - Math.floor(base / 2))
-  }))
-}
-
-interface StatCardProps {
-  title: string
-  value: number
-  subtitle?: string
-  icon: React.ReactNode
-  color: string
-  borderColor: string
-  sparkData?: { value: number }[]
-}
-
-function StatCard({ title, value, subtitle, icon, color, borderColor, sparkData }: StatCardProps) {
-  const addAlpha = (hex: string, alpha: number) => {
-    return `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`
-  }
-
-  return (
-    <Card className={`p-5 border-t-4 ${borderColor} shadow-sm`}>
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
-          <p className="text-2xl font-bold mt-1">{value}</p>
-        </div>
-        <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: addAlpha(color, 0.15) }}>
-          <span style={{ color }}>{icon}</span>
-        </div>
-      </div>
-      {subtitle && (
-        <div className="mt-2 flex items-center text-xs text-muted-foreground">
-          {subtitle}
-        </div>
-      )}
-      {sparkData && (
-        <div className="mt-3 -mx-2">
-          <ResponsiveContainer width="100%" height={40}>
-            <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-              <defs>
-                <linearGradient id={`sp-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={color} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={color}
-                strokeWidth={2}
-                fill={`url(#sp-${title.replace(/\s/g, '')})`}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </Card>
-  )
-}
+const SHIPMENT_COLORS = ["#f59e0b", "#3b82f6", "#22c55e", "#ef4444"]
+const QUOTE_COLORS = ["#f59e0b", "#22c55e", "#a855f7", "#ef4444"]
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -230,44 +162,7 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground mt-1">Overview of your logistics activity</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Shipments"
-          value={shipmentStats?.total || 0}
-          subtitle={`${shipmentStats?.recent || 0} new this week`}
-          icon={<Package className="h-5 w-5" />}
-          color="#3b82f6"
-          borderColor="border-t-blue-500"
-          sparkData={generateSparklineData(shipmentStats?.total || 0)}
-        />
-        <StatCard
-          title="In Transit"
-          value={shipmentStats?.in_transit || 0}
-          subtitle="Active shipments"
-          icon={<Truck className="h-5 w-5" />}
-          color="#6366f1"
-          borderColor="border-t-indigo-500"
-          sparkData={generateSparklineData(shipmentStats?.in_transit || 0)}
-        />
-        <StatCard
-          title="Total Quotes"
-          value={quoteStats?.total || 0}
-          subtitle={`${quoteStats?.recent || 0} new this week`}
-          icon={<FileText className="h-5 w-5" />}
-          color="#a855f7"
-          borderColor="border-t-purple-500"
-          sparkData={generateSparklineData(quoteStats?.total || 0)}
-        />
-        <StatCard
-          title="Accepted"
-          value={quoteStats?.accepted || 0}
-          subtitle={`${quoteStats?.rejected || 0} rejected`}
-          icon={<CheckCircle className="h-5 w-5" />}
-          color="#22c55e"
-          borderColor="border-t-green-500"
-          sparkData={generateSparklineData(quoteStats?.accepted || 0)}
-        />
-      </div>
+      <DashboardStatsCards shipmentStats={shipmentStats} quoteStats={quoteStats} />
 
       <Card className="pt-0">
         <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
@@ -286,15 +181,15 @@ export default function DashboardPage() {
               <AreaChart data={activityData}>
                 <defs>
                   <linearGradient id="gradientShipments" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
                   </linearGradient>
                   <linearGradient id="gradientQuotes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} className="stroke-muted/50" />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
                 <XAxis
                   dataKey="date"
                   tickLine={false}
@@ -306,32 +201,29 @@ export default function DashboardPage() {
                     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
                   }}
                 />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
                 <ChartTooltip
-                  cursor={false}
                   content={
                     <ChartTooltipContent
                       labelFormatter={(value) => {
                         return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })
                       }}
-                      indicator="dot"
                     />
                   }
                 />
                 <Area
                   type="monotone"
                   dataKey="shipments"
-                  fill="url(#gradientShipments)"
-                  stroke="var(--primary)"
+                  stroke="#3b82f6"
                   strokeWidth={2}
-                  dot={false}
+                  fill="url(#gradientShipments)"
                 />
                 <Area
                   type="monotone"
                   dataKey="quotes"
-                  fill="url(#gradientQuotes)"
-                  stroke="var(--accent)"
+                  stroke="#22c55e"
                   strokeWidth={2}
-                  dot={false}
+                  fill="url(#gradientQuotes)"
                 />
                 <ChartLegend content={<ChartLegendContent />} />
               </AreaChart>

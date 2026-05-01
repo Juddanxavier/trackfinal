@@ -66,11 +66,14 @@ export class NotificationPreferencesService {
         .returning();
       return updated[0];
     } else {
-      const created = await db.insert(notificationPreferences).values({
-        organisationId,
-        userId,
-        ...data,
-      }).returning();
+      const created = await db
+        .insert(notificationPreferences)
+        .values({
+          organisationId,
+          userId,
+          ...data,
+        })
+        .returning();
       return created[0];
     }
   }

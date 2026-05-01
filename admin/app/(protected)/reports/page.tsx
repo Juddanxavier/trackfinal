@@ -13,6 +13,7 @@ import { DownloadIcon, Loader2Icon, PackageCheckIcon, PackageIcon, FileTextIcon,
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegendContent } from "@/components/ui/chart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { ExportButton } from "@/components/export-button"
+import { ReportStatsCards } from "@/components/report-stats-cards"
 
 type DateRange = "7d" | "30d" | "90d"
 
@@ -31,34 +32,6 @@ const chartConfig = {
 }
 
 const PIE_COLORS = ["hsl(38 92% 50%)", "hsl(245 58% 51%)", "hsl(142 71% 45%)", "hsl(0 84% 58%)"]
-
-function StatCard({ title, value, icon, iconBg, iconColor, subtitle }: {
-  title: string
-  value: number
-  icon: React.ReactNode
-  iconBg: string
-  iconColor: string
-  subtitle?: string
-}) {
-  return (
-    <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-      <CardContent className="px-4 py-3 relative z-10">
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold tracking-tight">{value.toLocaleString()}</p>
-            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-          </div>
-          <div className={`p-3 rounded-xl ${iconBg} group-hover:scale-110 transition-transform duration-300`}>
-            <span className={iconColor}>{icon}</span>
-          </div>
-        </div>
-      </CardContent>
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-muted/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className={`absolute -right-8 -bottom-8 w-24 h-24 rounded-full ${iconBg} opacity-20 group-hover:opacity-40 group-hover:scale-150 transition-all duration-500 blur-sm`} />
-    </Card>
-  )
-}
 
 export default function ReportsPage() {
   const { selectedOrganisation } = useAuth()
@@ -134,12 +107,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard title="Total Shipments" value={stats?.shipments.total ?? 0} icon={<TruckIcon className="h-6 w-6" />} iconBg="bg-blue-100 dark:bg-blue-900/30" iconColor="text-blue-600 dark:text-blue-400" />
-          <StatCard title="Delivered" value={stats?.shipments.delivered ?? 0} icon={<CheckCircleIcon className="h-6 w-6" />} iconBg="bg-emerald-100 dark:bg-emerald-900/30" iconColor="text-emerald-600 dark:text-emerald-400" subtitle={`${stats?.shipments.avgTransitDays?.toFixed(1)} days avg`} />
-          <StatCard title="Delivery Rate" value={Math.round((stats?.shipments.deliveryRate ?? 0) * 100)} icon={<CircleDotIcon className="h-6 w-6" />} iconBg="bg-amber-100 dark:bg-amber-900/30" iconColor="text-amber-600 dark:text-amber-400" subtitle={stats?.shipments.avgTransitDays ? `${stats.shipments.avgTransitDays.toFixed(1)} days avg` : undefined} />
-          <StatCard title="Total Quotes" value={stats?.quotes.total ?? 0} icon={<FileTextIcon className="h-6 w-6" />} iconBg="bg-purple-100 dark:bg-purple-900/30" iconColor="text-purple-600 dark:text-purple-400" subtitle={`${((stats?.quotes.conversionRate ?? 0) * 100).toFixed(0)}% conversion`} />
-        </div>
+        <ReportStatsCards stats={stats} />
 
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">

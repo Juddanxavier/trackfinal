@@ -12,17 +12,15 @@ RUN npm ci
 
 FROM base AS backend-builder
 WORKDIR /app/backend
-COPY backend/package*.json ./backend/
-WORKDIR /app
-COPY backend/ ./backend/
-RUN npm run build --prefix backend
+COPY --from=backend-deps /app/backend/node_modules ./node_modules
+COPY backend/ ./
+RUN npm run build
 
 FROM base AS admin-builder
 WORKDIR /app/admin
-COPY admin/package*.json ./admin/
-WORKDIR /app
-COPY admin/ ./admin/
-RUN npm run build --prefix admin
+COPY --from=admin-deps /app/admin/node_modules ./node_modules
+COPY admin/ ./
+RUN npm run build
 
 FROM base AS backend-runner
 WORKDIR /app/backend
@@ -33,12 +31,14 @@ COPY --from=backend-builder --chown=nestjs:nodejs /app/backend/dist ./dist
 COPY --from=backend-builder --chown=nestjs:nodejs /app/backend/package*.json ./
 USER nestjs
 EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:4000/api || exit 1
 CMD ["node", "dist/main"]
 
 FROM nginx:alpine AS admin-runner
-COPY --from=admin-builder --chown=nginx:nginx /app/admin/.next/standalone ./
-COPY --from=admin-builder --chown=nginx:nginx /app/admin/.next/static ./.next/static
-COPY --from=admin-builder --chown=nginx:nginx /app/admin/public ./public
+COPY --from=admin-builder /app/admin/.next/standalone ./
+COPY --from=admin-builder /app/admin/.next/static ./.next/static
+COPY --from=admin-builder /app/admin/public ./public
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 CMD ["nginx", "-g", "daemon off;"]

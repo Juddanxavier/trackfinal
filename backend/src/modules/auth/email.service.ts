@@ -1,25 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
-const APP_NAME = process.env.APP_NAME || 'GT Express';
 const APP_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@gtexpress.com';
 
 const c = {
-  primary: '#2563eb',
-  primaryDark: '#1d4ed8',
-  primaryLight: '#dbeafe',
-  success: '#059669',
-  successLight: '#d1fae5',
-  warning: '#d97706',
-  warningLight: '#fef3c7',
-  danger: '#dc2626',
-  dangerLight: '#fee2e2',
-  bg: '#f8fafc',
-  surface: '#ffffff',
-  text: '#0f172a',
-  textMuted: '#64748b',
-  border: '#e2e8f0',
+  primary: '#7FEE64', // main brand blue (Modal style)
+  primaryDark: '#1E7FA3', // darker shade for gradients
+  primaryLight: '#E6F6FB', // soft background tint
+
+  success: '#22C55E', // keep modern green
+  successLight: '#DCFCE7',
+
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+
+  danger: '#EF4444',
+  dangerLight: '#FEE2E2',
+
+  bg: '#F9FBFC', // very light bluish background
+  surface: '#FFFFFF',
+
+  text: '#0B1F2A', // slightly bluish dark (not pure black)
+  textMuted: '#6B8A99', // cool gray-blue
+
+  border: '#E2EEF3', // subtle blue border
 };
 
 function wrapper(content: string): string {
@@ -28,7 +33,7 @@ function wrapper(content: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${APP_NAME}</title>
+  <title>Email Notification</title>
   <style>
     body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: ${c.bg}; color: ${c.text}; line-height: 1.6; }
     @media (max-width: 480px) {
@@ -42,15 +47,12 @@ function wrapper(content: string): string {
   <table width="100%" cellpadding="0" cellspacing="0" style="background: ${c.bg};">
     <tr><td class="container" style="padding: 48px 20px;">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; margin: 0 auto;">
-        <tr><td style="text-align: center; padding-bottom: 24px;">
-          <span style="display: inline-block; background: linear-gradient(135deg, ${c.primary} 0%, ${c.primaryDark} 100%); color: #fff; padding: 12px 28px; border-radius: 8px; font-size: 20px; font-weight: 700;">${APP_NAME}</span>
-        </td></tr>
         <tr><td style="background: ${c.surface}; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${c.border};">
           ${content}
         </td></tr>
         <tr><td class="footer" style="text-align: center; padding: 24px 0;">
           <p style="margin: 0 0 8px; font-size: 13px; color: ${c.textMuted};">Need help? <a href="mailto:${SUPPORT_EMAIL}" style="color: ${c.primary}; text-decoration: none;">${SUPPORT_EMAIL}</a></p>
-          <p style="margin: 0; font-size: 12px; color: ${c.textMuted};">&copy; ${new Date().getFullYear()} ${APP_NAME}. All rights reserved.</p>
+          <p style="margin: 0; font-size: 12px; color: ${c.textMuted};">&copy; ${new Date().getFullYear()}. All rights reserved.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -128,34 +130,49 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
   private fromAddress: string;
 
-  constructor() {
+constructor() {
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'localhost',
-      port: parseInt(process.env.SMTP_PORT || '1025'),
-      secure: process.env.SMTP_PORT === '465',
-      auth: process.env.SMTP_USER
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        : undefined,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: parseInt(process.env.SMTP_PORT || '587') === 465,
+      requireTLS: true,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: true,
+        minVersion: 'TLSv1.2',
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
-    this.fromAddress =
-      process.env.SMTP_FROM || process.env.SMTP_USER || APP_NAME;
+    this.fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@example.com';
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
-    if (!process.env.SMTP_HOST) {
-      console.log('[DEV] Email:', options.subject, 'to', options.to);
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('[EMAIL] SMTP not configured. Skipping email to:', options.to);
       return;
     }
+    console.log('[SMTP] Sending email to', options.to, 'via', process.env.SMTP_HOST + ':' + process.env.SMTP_PORT);
     try {
-      await this.transporter.sendMail({
-        from: `${this.fromAddress} <${this.fromAddress}>`,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-      });
-      console.log('Email sent:', options.subject, 'to', options.to);
+      const info = await Promise.race([
+        this.transporter.sendMail({
+          from: `"${process.env.SMTP_FROM_NAME || 'GT Express'}" <${this.fromAddress}>`,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP timeout after 10s')), 10000),
+        ),
+      ]);
+      console.log('Email sent:', options.subject, 'to', options.to, '| MessageId:', info.messageId);
     } catch (error) {
       console.error('Email send failed:', error);
+      throw error;
     }
   }
 
@@ -170,7 +187,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: `Verify your email - ${APP_NAME}`,
+      subject: 'Verify your email',
       html: wrapper(
         header(
           'Verify Your Email',
@@ -211,7 +228,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: `Reset Your Password - ${APP_NAME}`,
+      subject: 'Reset Your Password',
       html: wrapper(
         header(
           'Reset Your Password',
@@ -261,7 +278,7 @@ export class EmailService {
       html: wrapper(
         header(
           "You're Invited!",
-          `${inviterName} invited you to join ${organisationName} on ${APP_NAME}.`,
+          `${inviterName} invited you to join ${organisationName}.`,
         ) +
           body(
             `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
@@ -315,7 +332,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: `Welcome to ${APP_NAME}`,
+      subject: 'Welcome!',
       html: wrapper(
         header(
           `Welcome, ${name}!`,
@@ -473,7 +490,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: `${title} - ${APP_NAME}`,
+      subject: title,
       html: wrapper(header(title, subtitle) + body(contentHtml)),
     });
   }

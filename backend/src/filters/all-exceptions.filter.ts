@@ -18,8 +18,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    const correlationId = request.correlationId || 'unknown';
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
+    let message = 'An unexpected error occurred';
     let error = 'Internal Server Error';
 
     if (exception instanceof HttpException) {
@@ -34,21 +36,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     } else if (exception instanceof Error) {
       message = exception.message;
       this.logger.error(
-        `Unhandled exception: ${exception.message}`,
+        `Unhandled exception [${correlationId}]: ${exception.message}`,
         exception.stack,
       );
-      Sentry.captureException(exception);
+      Sentry.captureException(exception, {
+        extra: { correlationId, path: request.url },
+      });
     } else {
-      this.logger.error(`Unknown exception: ${JSON.stringify(exception)}`);
-      Sentry.captureException(exception);
+      this.logger.error(`Unknown exception [${correlationId}]: ${JSON.stringify(exception)}`);
+      Sentry.captureException(exception as Error, {
+        extra: { correlationId, path: request.url },
+      });
     }
 
-    response.status(status).json({
+    const errorResponse = {
       statusCode: status,
       message,
       error,
       timestamp: new Date().toISOString(),
       path: request.url,
-    });
+      correlationId,
+    };
+
+    response.status(status).json(errorResponse);
   }
 }

@@ -6,7 +6,6 @@ import {
   NotificationPayload,
   NotificationResult,
 } from './notification.channel';
-import { WhatsAppService } from '../whatsapp.service';
 
 const USE_QUEUE = process.env.NOTIFICATION_USE_QUEUE !== 'false';
 
@@ -15,7 +14,6 @@ export class WhatsAppChannel implements NotificationChannel {
   readonly channelName = 'whatsapp';
 
   constructor(
-    private whatsAppService: WhatsAppService,
     @InjectQueue('notifications')
     private notificationQueue: Queue,
   ) {}
@@ -33,12 +31,13 @@ export class WhatsAppChannel implements NotificationChannel {
       };
     }
 
-    const templateData = this.buildTemplateData(payload.titleKey, payload.data);
+    // Derive status from titleKey (e.g., "shipment.delivered" -> "delivered")
+    const status = payload.titleKey.replace('shipment.', '');
 
     if (!USE_QUEUE || !this.notificationQueue) {
       console.log(
         '[WhatsAppChannel DEV] Would send WhatsApp:',
-        templateData.templateName,
+        status,
         'to',
         payload.recipientPhone,
       );
@@ -53,12 +52,11 @@ export class WhatsAppChannel implements NotificationChannel {
       await this.notificationQueue.add('send-whatsapp', {
         channel: 'whatsapp',
         phone: payload.recipientPhone,
-        templateName: templateData.templateName,
-        variables: templateData.variables,
+        status,
+        data: payload.data,
         organisationId: payload.organisationId,
         userId: payload.userId,
         titleKey: payload.titleKey,
-        data: payload.data,
         shipmentId: payload.shipmentId,
       });
 
@@ -74,66 +72,6 @@ export class WhatsAppChannel implements NotificationChannel {
         error:
           error instanceof Error ? error.message : 'Failed to queue WhatsApp',
       };
-    }
-  }
-
-  private buildTemplateData(
-    titleKey: string,
-    data: Record<string, any>,
-  ): { templateName: string; variables: string[] } {
-    const getStr = (key: string): string => {
-      const val: unknown = data[key];
-      if (typeof val === 'string') return val;
-      if (typeof val === 'number') return String(val);
-      return '';
-    };
-
-    const getOrDefault = (key: string, defaultVal: string): string => {
-      const val: unknown = data[key];
-      if (typeof val === 'string' && val !== '') return val;
-      if (typeof val === 'number') return String(val);
-      return defaultVal;
-    };
-
-    const statusLabel =
-      titleKey === 'shipment.created'
-        ? 'Created'
-        : titleKey === 'shipment.in_transit'
-          ? 'In Transit'
-          : titleKey === 'shipment.delivered'
-            ? 'Delivered'
-            : 'Update';
-
-    const name = getStr('recipientName') || 'Customer';
-    const whiteLabelCode =
-      getStr('whiteLabelCode') || getStr('trackingNumber') || '';
-    const destination = getOrDefault(
-      'destinationCountry',
-      getStr('location') || 'Unknown',
-    );
-    const status = getOrDefault('status', statusLabel);
-
-    switch (titleKey) {
-      case 'shipment.created':
-        return {
-          templateName: 'shipment_created',
-          variables: [status, name, whiteLabelCode, destination],
-        };
-      case 'shipment.in_transit':
-        return {
-          templateName: 'shipment_in_transit',
-          variables: [status, name, whiteLabelCode, destination],
-        };
-      case 'shipment.delivered':
-        return {
-          templateName: 'shipment_delivered',
-          variables: [status, name, whiteLabelCode, destination],
-        };
-      default:
-        return {
-          templateName: 'shipment_update',
-          variables: [status, name, whiteLabelCode, destination],
-        };
     }
   }
 }

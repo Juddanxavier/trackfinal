@@ -1,7 +1,6 @@
 "use client"
 
-import { FileText, Clock, DollarSign, CheckCircle2, XCircle, TrendingUp, TrendingDown } from "lucide-react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { FileText, Clock, DollarSign, CheckCircle2, XCircle } from "lucide-react"
 import { Area, AreaChart, ResponsiveContainer } from "recharts"
 
 interface QuoteStatsCardsProps {
@@ -12,19 +11,40 @@ interface QuoteStatsCardsProps {
   rejected: number
 }
 
-interface SparklineProps {
-  data: { value: number }[]
-  color: string
+interface StatConfig {
+  title: string
+  key: keyof QuoteStatsCardsProps
+  icon: React.ComponentType<{ className?: string }>
+  bg: string
+  text: string
+  chartColor: string
 }
 
-function Sparkline({ data, color }: SparklineProps) {
-  if (!data || data.length === 0) return null
+const statsConfig: StatConfig[] = [
+  { title: "Total", key: "total", icon: FileText, bg: "bg-blue-50 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400", chartColor: "#22c55e" },
+  { title: "Pending", key: "pending", icon: Clock, bg: "bg-yellow-50 dark:bg-yellow-900/30", text: "text-yellow-600 dark:text-yellow-400", chartColor: "#eab308" },
+  { title: "Quoted", key: "quoted", icon: DollarSign, bg: "bg-purple-50 dark:bg-purple-900/30", text: "text-purple-600 dark:text-purple-400", chartColor: "#a855f7" },
+  { title: "Accepted", key: "accepted", icon: CheckCircle2, bg: "bg-green-50 dark:bg-green-900/30", text: "text-green-600 dark:text-green-400", chartColor: "#22c55e" },
+  { title: "Rejected", key: "rejected", icon: XCircle, bg: "bg-red-50 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400", chartColor: "#ef4444" },
+]
+
+function generateSparklineData(value: number) {
+  const base = Math.max(1, Math.floor(value / 3))
+  return Array.from({ length: 7 }, (_, i) => ({
+    value: Math.max(0, base + Math.floor(Math.random() * base) - Math.floor(base / 2))
+  }))
+}
+
+function MiniSparkline({ color }: { color: string }) {
+  const data = Array.from({ length: 7 }, (_, i) => ({
+    value: Math.floor(Math.random() * 50) + 25
+  }))
 
   return (
-    <ResponsiveContainer width="100%" height={32}>
+    <ResponsiveContainer width="100%" height={24}>
       <AreaChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
         <defs>
-          <linearGradient id={`spark-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`spark-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.3} />
             <stop offset="100%" stopColor={color} stopOpacity={0.02} />
           </linearGradient>
@@ -34,81 +54,48 @@ function Sparkline({ data, color }: SparklineProps) {
           dataKey="value"
           stroke={color}
           strokeWidth={1.5}
-          fill={`url(#spark-${color.replace('#', '')})`}
+          fill={`url(#spark-${color.replace("#", "")})`}
         />
       </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-const generateSparklineData = (value: number): { value: number }[] => {
-  const base = Math.max(1, Math.floor(value / 3))
-  return Array.from({ length: 7 }, (_, i) => ({
-    value: Math.max(0, base + Math.floor(Math.random() * base) - Math.floor(base / 2))
-  }))
-}
-
-export function QuoteStatsCards({
-  total,
-  pending,
-  quoted,
-  accepted,
-  rejected,
-}: QuoteStatsCardsProps) {
-  const stats = [
-    {
-      title: "Total",
-      value: total,
-      icon: FileText,
-      color: "#22c55e",
-      sparkData: generateSparklineData(total),
-    },
-    {
-      title: "Pending",
-      value: pending,
-      icon: Clock,
-      color: "#eab308",
-      sparkData: generateSparklineData(pending),
-    },
-    {
-      title: "Quoted",
-      value: quoted,
-      icon: DollarSign,
-      color: "#a855f7",
-      sparkData: generateSparklineData(quoted),
-    },
-    {
-      title: "Accepted",
-      value: accepted,
-      icon: CheckCircle2,
-      color: "#22c55e",
-      sparkData: generateSparklineData(accepted),
-    },
-    {
-      title: "Rejected",
-      value: rejected,
-      icon: XCircle,
-      color: "#ef4444",
-      sparkData: generateSparklineData(rejected),
-    },
-  ]
-
+export function QuoteStatsCards(props: QuoteStatsCardsProps) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-      {stats.map((stat) => (
-        <Card key={stat.title} className="p-4">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {stat.title}
-            </p>
-            <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${stat.color}15` }}>
-              <stat.icon className="h-3.5 w-3.5" style={{ color: stat.color }} />
+      {statsConfig.map((stat) => {
+        const value = props[stat.key] as number
+        const pct = props.total > 0 ? Math.round((value / props.total) * 100) : 0
+        
+        let subtitle = ""
+        switch (stat.key) {
+          case "total": subtitle = "All quotes"; break
+          case "pending": subtitle = `${pct}% of total`; break
+          case "quoted": subtitle = `${pct}% of total`; break
+          case "accepted": subtitle = `${pct}% success rate`; break
+          case "rejected": subtitle = `${pct}% of total`; break
+        }
+
+        return (
+          <div
+            key={stat.key}
+            className="group relative overflow-hidden rounded-lg border bg-card p-4 transition-all duration-200 hover:border-gray-300"
+          >
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {stat.title}
+              </p>
+              <div className={`rounded-md p-1.5 ${stat.bg}`}>
+                <stat.icon className={`h-4 w-4 ${stat.text}`} />
+              </div>
             </div>
+            <p className="mt-2 text-2xl font-bold">{value.toLocaleString()}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+            <MiniSparkline color={stat.chartColor} />
           </div>
-          <p className="text-2xl font-bold mb-2">{stat.value.toLocaleString()}</p>
-          <Sparkline data={stat.sparkData} color={stat.color} />
-        </Card>
-      ))}
+        )
+      })}
     </div>
   )
 }

@@ -88,12 +88,16 @@ export class UsersController {
           ? undefined
           : userOrgId;
 
+    // Staff can only see customers, not admins or other staff
+    const excludeRoles = !isAdmin ? [Role.ADMIN, Role.STAFF] : undefined;
+
     const result = await this.usersService.findWithPagination({
       organisationId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 10,
       search: query.search,
       role: query.role as Role | undefined,
+      excludeRoles,
       sortBy: query.sortBy || 'createdAt',
       sortOrder: query.sortOrder || 'desc',
     });

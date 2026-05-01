@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/nestjs';
 import { AppModule } from './app.module';
 import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -16,6 +17,8 @@ Sentry.init({
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(new RequestLoggingMiddleware().use);
 
   // Cookies
   app.use(cookieParser());

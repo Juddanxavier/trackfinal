@@ -1,4 +1,10 @@
-import { Controller, Post, Body, UseGuards, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Public } from '../../common/decorators/public.decorator';
 import { TrackingSyncService } from './tracking-sync.service';
@@ -21,7 +27,10 @@ export class SeventeenTrackWebhookController {
     );
     const providedToken = payload[0]?.token || payload[0]?.webhook_token;
 
-    if (webhookToken && (!providedToken || !timingSafeEqual(providedToken, webhookToken))) {
+    if (
+      webhookToken &&
+      (!providedToken || !timingSafeEqual(providedToken, webhookToken))
+    ) {
       throw new UnauthorizedException('Invalid webhook token');
     }
 

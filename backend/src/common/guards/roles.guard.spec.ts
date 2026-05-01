@@ -6,13 +6,14 @@ import { Role } from '../../common/enums/role.enum';
 
 describe('RolesGuard', () => {
   let guard: RolesGuard;
-  let reflector: jest.Mocked<Reflector>;
 
   const mockReflector = {
     getAllAndOverride: jest.fn(),
   };
 
-  const createMockExecutionContext = (user: any): ExecutionContext => {
+  const createMockExecutionContext = (
+    user: { role?: string } | null,
+  ): ExecutionContext => {
     return {
       switchToHttp: () => ({
         getRequest: () => ({ user }),
@@ -28,7 +29,6 @@ describe('RolesGuard', () => {
     }).compile();
 
     guard = module.get<RolesGuard>(RolesGuard);
-    reflector = module.get(Reflector);
     jest.clearAllMocks();
   });
 
@@ -89,7 +89,7 @@ describe('RolesGuard', () => {
 
     it('should throw UnauthorizedException if user is undefined', () => {
       mockReflector.getAllAndOverride.mockReturnValue([Role.ADMIN]);
-      const context = createMockExecutionContext(undefined as any);
+      const context = createMockExecutionContext(null);
 
       expect(() => guard.canActivate(context)).toThrow(
         'Authentication required',

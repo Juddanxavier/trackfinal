@@ -5,11 +5,12 @@ import { eq, like, or, and, desc, asc, lt, ne, sql } from 'drizzle-orm';
 import { Role } from '../../common/enums/role.enum';
 
 export interface FindWithPaginationParams {
-  organisationId: string;
+  organisationId?: string;
   page: number;
   limit: number;
   search?: string;
   role?: Role;
+  excludeRoles?: Role[];
   sortBy?: string;
   sortOrder?: string;
 }
@@ -130,6 +131,7 @@ export class UsersService {
       limit = 10,
       search,
       role,
+      excludeRoles,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = params;
@@ -147,6 +149,13 @@ export class UsersService {
 
     if (role) {
       conditions.push(eq(users.role, role));
+    }
+
+    if (excludeRoles && excludeRoles.length > 0) {
+      // Exclude users with these roles using AND with ne for each
+      for (const excludedRole of excludeRoles) {
+        conditions.push(ne(users.role, excludedRole));
+      }
     }
 
     const whereClause =
@@ -167,7 +176,10 @@ export class UsersService {
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(whereClause),
     ]);
 
     const total = Number(countResult[0]?.count || 0);

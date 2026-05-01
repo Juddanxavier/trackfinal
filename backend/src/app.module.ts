@@ -15,6 +15,7 @@ import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { CarriersModule } from './modules/carriers/carriers.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 @Module({
   imports: [
@@ -33,7 +34,7 @@ import { TrackingModule } from './modules/tracking/tracking.module';
       {
         name: 'long',
         ttl: 60000,
-        limit: 100,
+        limit: parseInt(process.env.THROTTLE_LIMIT || '100'),
       },
     ]),
     ScheduleModule.forRoot(),
@@ -50,6 +51,6 @@ import { TrackingModule } from './modules/tracking/tracking.module';
     TrackingModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, RequestLoggingMiddleware],
 })
 export class AppModule {}

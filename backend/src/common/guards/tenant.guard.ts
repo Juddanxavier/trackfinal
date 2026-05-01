@@ -12,7 +12,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 export class TenantGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -22,8 +22,11 @@ export class TenantGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const httpRequest = context.switchToHttp().getRequest();
+
+    const user = httpRequest?.user as
+      | { organisationId?: string; role?: string }
+      | undefined;
 
     if (!user) {
       throw new UnauthorizedException('Authentication required');
@@ -34,9 +37,9 @@ export class TenantGuard implements CanActivate {
     }
 
     const requestedTenantId =
-      request.params.tenantId ||
-      request.query.organisationId ||
-      request.body?.organisationId;
+      httpRequest?.params?.tenantId ||
+      httpRequest?.query?.organisationId ||
+      httpRequest?.body?.organisationId;
 
     if (requestedTenantId && requestedTenantId !== user.organisationId) {
       if (user.role !== 'admin') {

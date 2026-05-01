@@ -10,6 +10,7 @@ import { WhatsAppChannel } from './channels/whatsapp.channel';
 import { InAppChannel } from './channels/in-app.channel';
 import { NotificationLogsService } from './notification-logs.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
+import { UsersService } from '../users/services';
 
 export type ChannelType = 'email' | 'whatsapp' | 'in_app';
 
@@ -18,6 +19,10 @@ export interface NotificationConfig {
   whatsappEnabled: boolean;
   inAppEnabled: boolean;
   rateLimitPerDay: number;
+  notifyOnInTransit: boolean;
+  notifyOnDelivered: boolean;
+  notifyOnCancelled: boolean;
+  notifyOnException: boolean;
 }
 
 @Injectable()
@@ -33,6 +38,7 @@ export class NotificationService {
     private configService: ConfigService,
     private notificationLogsService: NotificationLogsService,
     private notificationPreferencesService: NotificationPreferencesService,
+    private usersService: UsersService,
   ) {
     const envTrue = (key: string, defaultVal: boolean = true) => {
       const val = configService.get(key);
@@ -46,6 +52,10 @@ export class NotificationService {
       rateLimitPerDay: parseInt(
         configService.get('NOTIFICATION_RATE_LIMIT') || '2',
       ),
+      notifyOnInTransit: envTrue('NOTIFY_ON_IN_TRANSIT', true),
+      notifyOnDelivered: envTrue('NOTIFY_ON_DELIVERED', true),
+      notifyOnCancelled: envTrue('NOTIFY_ON_CANCELLED', false),
+      notifyOnException: envTrue('NOTIFY_ON_EXCEPTION', false),
     };
 
     if (this.config.emailEnabled) this.channels.set('email', emailChannel);
@@ -57,6 +67,24 @@ export class NotificationService {
       `Channels enabled: ${this.getAvailableChannels().join(', ')}`,
     );
     this.logger.log(`Rate limit: ${this.config.rateLimitPerDay} per day`);
+    this.logger.log(
+      `Status triggers: inTransit=${this.config.notifyOnInTransit}, delivered=${this.config.notifyOnDelivered}, cancelled=${this.config.notifyOnCancelled}, exception=${this.config.notifyOnException}`,
+    );
+  }
+
+  shouldNotifyForStatus(status: string): boolean {
+    switch (status) {
+      case 'in_transit':
+        return this.config.notifyOnInTransit;
+      case 'delivered':
+        return this.config.notifyOnDelivered;
+      case 'cancelled':
+        return this.config.notifyOnCancelled;
+      case 'exception':
+        return this.config.notifyOnException;
+      default:
+        return false;
+    }
   }
 
   getConfig(): NotificationConfig {
@@ -242,16 +270,25 @@ export class NotificationService {
   private async getUserEmail(
     userId: string,
   ): Promise<{ email?: string } | null> {
-    return { email: undefined };
+    const user = await this.usersService.findById(userId);
+    return user ? { email: user.email } : null;
   }
 
   private async getUserPhone(
     userId: string,
   ): Promise<{ phone?: string } | null> {
-    return { phone: undefined };
+    const user = await this.usersService.findById(userId);
+    return user ? { phone: user.phoneNumber || undefined } : null;
   }
 
   async sendToAll(payload: NotificationPayload): Promise<NotificationResult[]> {
+    // Check if this status should trigger notification (from .env config)
+    const status = payload.titleKey.replace('shipment.', '');
+    if (!this.shouldNotifyForStatus(status)) {
+      this.logger.debug(`Notifications disabled for status: ${status}`);
+      return [];
+    }
+
     const activeChannels: ChannelType[] = [];
 
     let pref = {
@@ -268,29 +305,31 @@ export class NotificationService {
       );
     }
 
+    const isInTransit = payload.titleKey === 'shipment.in_transit';
+    const isDelivered = payload.titleKey === 'shipment.delivered';
+    const shouldNotify = isInTransit
+      ? pref.inTransitNotifications
+      : isDelivered
+        ? pref.deliveredNotifications
+        : true;
+
     if (
       this.config.emailEnabled &&
       payload.recipientEmail &&
-      pref.emailEnabled
+      pref.emailEnabled &&
+      shouldNotify
     ) {
-      if (pref.inTransitNotifications || pref.deliveredNotifications) {
-        activeChannels.push('email');
-      }
+      activeChannels.push('email');
     }
     if (
       this.config.whatsappEnabled &&
       payload.recipientPhone &&
-      pref.whatsappEnabled
+      pref.whatsappEnabled &&
+      shouldNotify
     ) {
-      if (pref.inTransitNotifications || pref.deliveredNotifications) {
-        activeChannels.push('whatsapp');
-      }
+      activeChannels.push('whatsapp');
     }
-    if (
-      this.config.inAppEnabled &&
-      payload.userId &&
-      pref.inTransitNotifications
-    ) {
+    if (this.config.inAppEnabled && payload.userId && shouldNotify) {
       activeChannels.push('in_app');
     }
 

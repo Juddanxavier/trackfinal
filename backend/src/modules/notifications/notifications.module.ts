@@ -13,9 +13,12 @@ import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationPreferencesController } from './notification-preferences.controller';
 import { NotificationsController } from './notifications.controller';
+import { TestNotificationsController } from './test-notifications.controller';
 import { EmailChannel } from './channels/email.channel';
 import { WhatsAppChannel } from './channels/whatsapp.channel';
 import { InAppChannel } from './channels/in-app.channel';
+import { MSG91Module } from './msg91.module';
+import { MSG91Service } from './msg91.service';
 
 @Module({
   imports: [
@@ -31,8 +34,13 @@ import { InAppChannel } from './channels/in-app.channel';
     EmailModule,
     EventsModule,
     UsersModule,
+    MSG91Module,
   ],
-  controllers: [NotificationPreferencesController, NotificationsController],
+  controllers: [
+    NotificationPreferencesController,
+    NotificationsController,
+    TestNotificationsController,
+  ],
   providers: [
     NotificationProcessor,
     NotificationQueueService,
@@ -45,6 +53,7 @@ import { InAppChannel } from './channels/in-app.channel';
     EmailChannel,
     WhatsAppChannel,
     InAppChannel,
+    MSG91Service,
   ],
   exports: [
     NotificationsService,
@@ -57,6 +66,7 @@ import { InAppChannel } from './channels/in-app.channel';
     EmailChannel,
     WhatsAppChannel,
     InAppChannel,
+    MSG91Service,
   ],
 })
 export class NotificationsModule {}

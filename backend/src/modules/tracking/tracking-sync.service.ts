@@ -251,7 +251,7 @@ export class TrackingSyncService {
             ? 'shipment.delivered'
             : status === 'in_transit'
               ? 'shipment.in_transit'
-              : 'shipment.created';
+              : `shipment.${status}`;
 
         try {
           await this.notificationService.sendToAll({
@@ -267,6 +267,7 @@ export class TrackingSyncService {
               recipientName: shipment.recipientName,
               destinationCountry: shipment.destinationCountry,
               whiteLabelCode: shipment.whiteLabelTrackingCode,
+              location: latestEvent?.location || null,
             },
           });
           this.logger.log(`[Webhook] Notification sent for ${trackingNumber}`);
@@ -405,7 +406,7 @@ export class TrackingSyncService {
             ? 'shipment.delivered'
             : status === 'in_transit'
               ? 'shipment.in_transit'
-              : 'shipment.created';
+              : `shipment.${status}`;
 
         try {
           await this.notificationService.sendToAll({

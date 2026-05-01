@@ -29,10 +29,18 @@ export class QuoteCleanupService implements OnModuleInit {
     console.log('[QuoteCleanup] Running retention policy...');
     const now = new Date();
 
-    const rejectedDays = parseInt(process.env.QUOTE_RETENTION_REJECTED_DAYS || '30');
-    const pendingDays = parseInt(process.env.QUOTE_RETENTION_PENDING_DAYS || '45');
-    const acceptedArchiveDays = parseInt(process.env.QUOTE_RETENTION_ACCEPTED_ARCHIVE_DAYS || '30');
-    const acceptedDeleteDays = parseInt(process.env.QUOTE_RETENTION_ACCEPTED_DELETE_DAYS || '365');
+    const rejectedDays = parseInt(
+      process.env.QUOTE_RETENTION_REJECTED_DAYS || '30',
+    );
+    const pendingDays = parseInt(
+      process.env.QUOTE_RETENTION_PENDING_DAYS || '45',
+    );
+    const acceptedArchiveDays = parseInt(
+      process.env.QUOTE_RETENTION_ACCEPTED_ARCHIVE_DAYS || '30',
+    );
+    const acceptedDeleteDays = parseInt(
+      process.env.QUOTE_RETENTION_ACCEPTED_DELETE_DAYS || '365',
+    );
 
     try {
       const rejectedCutoff = new Date(now);
@@ -42,10 +50,14 @@ export class QuoteCleanupService implements OnModuleInit {
       pendingCutoff.setDate(pendingCutoff.getDate() - pendingDays);
 
       const acceptedArchiveCutoff = new Date(now);
-      acceptedArchiveCutoff.setDate(acceptedArchiveCutoff.getDate() - acceptedArchiveDays);
+      acceptedArchiveCutoff.setDate(
+        acceptedArchiveCutoff.getDate() - acceptedArchiveDays,
+      );
 
       const acceptedDeleteCutoff = new Date(now);
-      acceptedDeleteCutoff.setDate(acceptedDeleteCutoff.getDate() - acceptedDeleteDays);
+      acceptedDeleteCutoff.setDate(
+        acceptedDeleteCutoff.getDate() - acceptedDeleteDays,
+      );
 
       const rejectedDeleted = await db
         .delete(quotes)

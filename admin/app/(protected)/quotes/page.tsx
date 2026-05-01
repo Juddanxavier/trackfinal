@@ -265,9 +265,23 @@ export default function QuotesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Quote Management</h1>
-        <p className="text-sm text-muted-foreground mt-1">View and manage all quote requests</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Quote Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">View and manage all quote requests</p>
+        </div>
+        <ExportButton
+          data={quotes}
+          columns={[
+            { key: "email", header: "Email" },
+            { key: "originCountry", header: "Origin" },
+            { key: "destinationCountry", header: "Destination" },
+            { key: "status", header: "Status" },
+            { key: "price", header: "Price" },
+            { key: "createdAt", header: "Created" },
+          ]}
+          filename="quotes"
+        />
       </div>
 
       {stats && <QuoteStatsCards {...stats} />}
@@ -286,21 +300,6 @@ export default function QuotesPage() {
           { value: "rejected", label: "Rejected" },
         ]}
       />
-
-      <div className="flex justify-end mb-4">
-        <ExportButton
-          data={quotes}
-          columns={[
-            { key: "email", header: "Email" },
-            { key: "originCountry", header: "Origin" },
-            { key: "destinationCountry", header: "Destination" },
-            { key: "status", header: "Status" },
-            { key: "price", header: "Price" },
-            { key: "createdAt", header: "Created" },
-          ]}
-          filename="quotes"
-        />
-      </div>
 
       <div className="border rounded-lg bg-card">
         <Table>

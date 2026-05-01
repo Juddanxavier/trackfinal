@@ -61,6 +61,13 @@ export class CarriersService {
     return this.carriers.find((c) => c.key === key);
   }
 
+  async getCarriersByKeys(keys: string[]): Promise<Carrier[]> {
+    if (this.carriers.length === 0) {
+      await this.loadCarriers();
+    }
+    return this.carriers.filter((c) => keys.includes(c.key));
+  }
+
   async isValidCarrier(key: string): Promise<boolean> {
     if (this.carriers.length === 0) {
       await this.loadCarriers();
