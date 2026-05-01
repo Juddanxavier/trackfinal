@@ -25,7 +25,8 @@
 ### Build Settings
 ```
 Build Pack: Nixpacks
-Start Command: npm run start:prod
+Start Command: pnpm turbo build && pnpm --filter @track/api start:prod
+Working Directory: /app
 ```
 
 ### Environment Variables

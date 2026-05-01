@@ -4,11 +4,10 @@ node_modules/
 .pnp.*
 
 # Build outputs
-backend/dist/
-backend/build/
-admin/.next/
-admin/out/
-admin/build/
+apps/*/.next/
+apps/*/dist/
+apps/*/build/
+apps/*/out/
 
 # Logs
 *.log
@@ -20,8 +19,8 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
-backend/.env
-admin/.env.local
+apps/*/.env
+apps/*/.env.local
 
 # IDE
 .idea/
@@ -51,6 +50,8 @@ backup/
 # AI generated
 ai/
 
+# Turbo
+.turbo/
+
 # Misc
 *.pem
-*.log
