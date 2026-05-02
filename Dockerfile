@@ -27,6 +27,8 @@ COPY . .
 
 RUN npm install -g turbo @nestjs/cli
 
+RUN pnpm install --frozen-lockfile --prod=false
+
 RUN pnpm run build
 
 # ===========================
