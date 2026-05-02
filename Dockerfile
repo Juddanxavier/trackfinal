@@ -62,11 +62,9 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
-COPY --from=builder /app/apps/admin/.next/standalone ./
-COPY --from=builder /app/apps/admin/.next/static ./.next/static
-COPY --from=builder /app/apps/admin/public ./public
+COPY --from=builder /app/apps/admin ./
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "apps/admin/server.js"]
+CMD ["node", "apps/admin/node_modules/next/dist/bin/next", "start"]
