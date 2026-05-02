@@ -17,17 +17,17 @@ FROM base AS builder
 
 WORKDIR /app
 
-ENV NODE_ENV=development
-
 COPY apps/admin/package.json apps/admin/
+COPY apps/admin/pnpm-lock.yaml apps/admin/
 COPY apps/api/package.json apps/api/
+COPY apps/api/pnpm-lock.yaml apps/api/
 
 RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
     pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm run build
+RUN NODE_ENV=production pnpm run build
 
 # ===========================
 # API Runner - NestJS
