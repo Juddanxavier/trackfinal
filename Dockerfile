@@ -25,6 +25,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
 
 COPY . .
 
+RUN npm install -g turbo
+
 RUN pnpm run build
 
 # ===========================
