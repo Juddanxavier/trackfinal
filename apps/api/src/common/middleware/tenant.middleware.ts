@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 
 export interface TenantRequest extends Request {
   tenantId?: string;
+  user?: unknown;
 }
 
 @Injectable()
