@@ -17,15 +17,11 @@ FROM base AS builder
 
 WORKDIR /app
 
-COPY apps/admin/package.json apps/admin/
-COPY apps/api/package.json apps/api/
-
-RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
-    pnpm install
-
 COPY . .
 
 RUN npm install -g turbo @nestjs/cli
+
+RUN pnpm install
 
 RUN pnpm run build
 
