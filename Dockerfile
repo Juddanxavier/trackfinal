@@ -31,7 +31,7 @@ COPY . .
 
 RUN npm install -g turbo @nestjs/cli
 
-RUN pnpm run build
+RUN NODE_ENV=production pnpm run build
 
 # ===========================
 # API Runner - NestJS
