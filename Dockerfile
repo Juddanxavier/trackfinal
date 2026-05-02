@@ -6,7 +6,7 @@ FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # ===========================================
-# Stage 2: Install dependencies
+# Stage 2: Install dependencies (all deps for build)
 # ===========================================
 FROM base AS deps
 WORKDIR /app
@@ -19,7 +19,7 @@ COPY packages/utils/package.json packages/utils/
 COPY packages/config/eslint/package.json packages/config/eslint/
 COPY packages/config/typescript/package.json packages/config/typescript/
 
-RUN pnpm install --prod
+RUN pnpm install
 
 # ===========================================
 # Stage 3: Build API
