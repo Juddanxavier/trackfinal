@@ -124,7 +124,7 @@ export class InvitationsService {
       .where(isNull(invitationStatuses.acceptedAt));
   }
 
-  async delete(invitationId: string) {
+  async delete(invitationId: string): Promise<number> {
     return db
       .delete(invitationStatuses)
       .where(eq(invitationStatuses.id, invitationId));
