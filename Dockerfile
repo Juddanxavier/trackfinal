@@ -12,13 +12,14 @@ FROM base AS deps
 WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
 COPY packages/utils/package.json packages/utils/
 COPY packages/config/eslint/package.json packages/config/eslint/
 COPY packages/config/typescript/package.json packages/config/typescript/
 
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --prod
 
 # ===========================================
 # Stage 3: Build API

@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Build outputs
+apps/*/dist/
+apps/*/.next/
+apps/*/build/
+apps/*/out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files (keep lock files)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.github/
+
+# Temporary
+.temp/
+.tmp/
+
+# Playwright
+.playwright-mcp/
