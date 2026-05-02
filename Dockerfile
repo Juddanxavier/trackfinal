@@ -25,7 +25,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
 
 COPY . .
 
-RUN npm install -g turbo
+RUN npm install -g turbo @nestjs/cli
 
 RUN pnpm run build
 
