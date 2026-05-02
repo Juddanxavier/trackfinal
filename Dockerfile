@@ -17,6 +17,8 @@ FROM base AS builder
 
 WORKDIR /app
 
+ENV NODE_ENV=development
+
 COPY apps/admin/package.json apps/admin/
 COPY apps/api/package.json apps/api/
 
