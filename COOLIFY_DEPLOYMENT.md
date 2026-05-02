@@ -2,7 +2,8 @@
 
 ## Prerequisites
 - Coolify instance with PostgreSQL and Redis already running
-- Git repository with TurboRepo structure
+- Git repository pushed to GitHub/GitLab/Bitbucket
+- TurboRepo monorepo structure
 
 ## Architecture
 
@@ -12,23 +13,23 @@ apps/
 └── api/       # NestJS (Port 4000)
 ```
 
-## Deploy API (NestJS)
+## Step 1: Create API Resource
 
-### Create New Application
-1. In Coolify, click "Create New Resource" → "Application"
-2. Select Git provider and your repository
-3. Choose "Dockerfile" as build method
-4. Set build target: `api-runner`
+1. In Coolify, click **Create New Resource** → **Application**
+2. Select your Git provider and repository
+3. Choose **Dockerfile** as build method
+4. Set **Build Target**: `api-runner`
+5. Set **Port**: `4000`
 
-### Environment Variables
+### API Environment Variables
 ```env
 NODE_ENV=production
 PORT=4000
-DATABASE_URL=postgresql://user:pass@host:5432/gtexpress
-REDIS_HOST=redis-host-ip
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+REDIS_HOST=<redis-ip>
 REDIS_PORT=6379
-JWT_SECRET=<generate-64-char>
-JWT_REFRESH_SECRET=<generate-64-char>
+JWT_SECRET=<generate-64-char-secret>
+JWT_REFRESH_SECRET=<generate-64-char-secret>
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 BCRYPT_ROUNDS=12
@@ -38,56 +39,38 @@ SMTP_USER=your-smtp-user
 SMTP_PASS=your-smtp-password
 SMTP_FROM=noreply@yourdomain.com
 SMTP_FROM_NAME=GT Express
-FRONTEND_URL=https://your-domain.com
-CORS_ORIGIN=https://your-domain.com
+FRONTEND_URL=https://your-admin-domain.com
+CORS_ORIGIN=https://your-admin-domain.com
 ```
 
-## Deploy Admin (Next.js)
+## Step 2: Create Admin Resource
 
-### Create New Application
-1. Click "Create New Resource" → "Application"
-2. Select Git provider
-3. Choose "Dockerfile" as build method
-4. Set build target: `admin-runner`
+1. Click **Create New Resource** → **Application**
+2. Select your Git provider and repository
+3. Choose **Dockerfile** as build method
+4. Set **Build Target**: `admin-runner`
+5. Set **Port**: `3000`
 
-### Environment Variables
+### Admin Environment Variables
 ```env
 NODE_ENV=production
 NEXT_PUBLIC_API_URL=https://your-api-domain.com/api
-NEXT_PUBLIC_APP_URL=https://your-domain.com
+NEXT_PUBLIC_APP_URL=https://your-admin-domain.com
 ```
 
-## Docker Compose (Alternative)
+## Domain Setup
 
-For Docker Compose deployments, use:
-
-```yaml
-services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: api-runner
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_HOST=redis
-      # ... other env vars
-
-  admin:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: admin-runner
-    environment:
-      - NEXT_PUBLIC_API_URL=http://api:4000/api
-```
+| Resource | Domain | Points To |
+|----------|--------|-----------|
+| API | api.yourdomain.com | Port 4000 |
+| Admin | yourdomain.com | Port 3000 |
 
 ## Health Endpoints
 
-| Service | Health Check |
-|---------|---------------|
-| API | `GET http://localhost:4000/api` |
-| Admin | `GET http://localhost:3000/health` |
+| Service | Health Check URL |
+|---------|------------------|
+| API | `GET https://api.yourdomain.com/api` |
+| Admin | `https://yourdomain.com` |
 
 ## Troubleshooting
 
@@ -97,8 +80,18 @@ services:
 
 ### Database connection
 - Verify `DATABASE_URL` format
-- Check PostgreSQL is accessible
+- Check PostgreSQL is accessible from Coolify
 
 ### CORS errors
 - Set `CORS_ORIGIN` to exact frontend URL
 - Include protocol (https://)
+
+## Quick Reference
+
+| Item | Value |
+|------|-------|
+| Node Version | 20.x |
+| Package Manager | pnpm 9.0.0 |
+| Build Command | `pnpm run build` |
+| API Entry | `node dist/main.js` |
+| Admin Entry | `node server.js` |
