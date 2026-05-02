@@ -18,9 +18,7 @@ FROM base AS builder
 WORKDIR /app
 
 COPY apps/admin/package.json apps/admin/
-COPY apps/admin/pnpm-lock.yaml apps/admin/
 COPY apps/api/package.json apps/api/
-COPY apps/api/pnpm-lock.yaml apps/api/
 
 RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
     pnpm install --frozen-lockfile
