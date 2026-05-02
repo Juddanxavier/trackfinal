@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto';
 import { EmailService } from './email.service';
 import { UsersService } from '../users/services';
 import { Role } from '../../common/enums/role.enum';
+import type { QueryResult } from 'pg';
 
 export interface CreateInvitationDto {
   email: string;
@@ -124,7 +125,7 @@ export class InvitationsService {
       .where(isNull(invitationStatuses.acceptedAt));
   }
 
-  async delete(invitationId: string): Promise<number> {
+  async delete(invitationId: string): Promise<QueryResult<never>> {
     return db
       .delete(invitationStatuses)
       .where(eq(invitationStatuses.id, invitationId));
