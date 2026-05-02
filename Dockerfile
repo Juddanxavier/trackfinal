@@ -64,15 +64,11 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 COPY --from=builder /app/apps/admin/.next ./apps/admin/.next
 COPY --from=builder /app/apps/admin/public ./apps/admin/public
-COPY pnpm-lock.yaml ./
-COPY apps/admin/package.json apps/admin/
-
-WORKDIR /app/apps/admin
-RUN pnpm install
+COPY --from=builder /app/apps/admin/node_modules ./apps/admin/node_modules
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["pnpm", "exec", "next", "start"]
+CMD ["node", "apps/admin/node_modules/next/dist/bin/next", "start"]
