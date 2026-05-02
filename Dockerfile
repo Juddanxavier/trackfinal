@@ -73,6 +73,8 @@ CMD ["node", "dist/main"]
 # ===========================================
 FROM nginx:alpine AS admin-runner
 
+ENV API_URL=${API_URL:-http://localhost:4000}
+
 COPY --from=admin-builder /app/apps/admin/.next/standalone ./
 COPY --from=admin-builder /app/apps/admin/.next/static ./.next/static
 COPY --from=admin-builder /app/apps/admin/public ./public

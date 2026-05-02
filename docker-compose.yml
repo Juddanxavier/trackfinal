@@ -59,6 +59,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - API_URL=http://api:4000
       - NEXT_PUBLIC_API_URL=http://api:4000/api
       - NEXT_PUBLIC_APP_URL=${FRONTEND_URL:-http://localhost:3000}
     depends_on:
