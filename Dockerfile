@@ -25,7 +25,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
 
 COPY . .
 
-RUN NODE_ENV=production pnpm run build
+RUN pnpm run build
 
 # ===========================
 # API Runner - NestJS
