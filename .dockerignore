@@ -39,3 +39,13 @@ Thumbs.db
 
 # Playwright
 .playwright-mcp/
+
+# Planning
+.planning/
+
+# Docs (optional - reduces build size)
+docs/
+*.md
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
