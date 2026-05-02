@@ -17,6 +17,8 @@ FROM base AS builder
 
 WORKDIR /app
 
+ENV NODE_ENV=development
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY apps/admin/package.json apps/admin/
