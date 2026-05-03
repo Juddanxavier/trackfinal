@@ -34,6 +34,8 @@ async function bootstrap() {
     'http://localhost:5173',
     'https://track.corncob.my',
     'http://127.0.0.1:3000',
+    'https://admin.gajantraders.com',
+    'https://api.gajantraders.com',
   ];
   if (process.env.CORS_ORIGIN) {
     corsOrigins.push(...process.env.CORS_ORIGIN.split(','));
