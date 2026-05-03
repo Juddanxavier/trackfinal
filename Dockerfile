@@ -54,7 +54,7 @@ RUN pnpm install --prod --no-optional
 
 RUN apk add --no-cache postgresql-client
 
-RUN for f in /app/drizzle/*.sql; do psql "$DATABASE_URL" -f "$f" || true; done
+RUN psql "$DATABASE_URL" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" | grep -q "0" && for f in /app/drizzle/*.sql; do psql "$DATABASE_URL" -f "$f"; done || echo "Tables already exist, skipping migration"
 
 EXPOSE 4000
 
