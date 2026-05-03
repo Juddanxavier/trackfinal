@@ -54,7 +54,18 @@ RUN pnpm install --prod --no-optional
 
 RUN apk add --no-cache postgresql-client
 
-RUN psql "$DATABASE_URL" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" | grep -q "0" && for f in /app/drizzle/*.sql; do psql "$DATABASE_URL" -f "$f"; done || echo "Tables already exist, skipping migration"
+RUN psql "$DATABASE_URL" -c "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)" && \
+  for f in /app/drizzle/*.sql; do \
+    filename=$(basename "$f"); \
+    applied=$(psql "$DATABASE_URL" -t -c "SELECT name FROM _migrations WHERE name='$filename'"); \
+    if [ -z "$applied" ]; then \
+      echo "Running migration: $filename"; \
+      psql "$DATABASE_URL" -f "$f"; \
+      psql "$DATABASE_URL" -c "INSERT INTO _migrations (name) VALUES ('$filename')"; \
+    else \
+      echo "Skipping $filename (already applied)"; \
+    fi \
+  done
 
 EXPOSE 4000
 
