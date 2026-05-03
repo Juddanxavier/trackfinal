@@ -62,8 +62,7 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
-COPY --from=builder /app/apps/admin/.next/standalone ./.next/standalone
-COPY --from=builder /app/apps/admin/.next/static ./.next/static
+COPY --from=builder /app/apps/admin/.next ./.next
 COPY --from=builder /app/apps/admin/public ./public
 
 COPY --from=builder /app/apps/admin/package.json ./
@@ -77,4 +76,4 @@ ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["node", ".next/standalone/server.js"]
+CMD ["npx", "next", "start"]
