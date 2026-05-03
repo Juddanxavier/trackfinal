@@ -53,6 +53,8 @@ COPY --from=builder /app/apps/api/drizzle ./drizzle
 
 RUN pnpm install --prod --no-optional
 
+RUN npm install drizzle-kit
+
 RUN npx drizzle-kit push
 
 EXPOSE 4000
