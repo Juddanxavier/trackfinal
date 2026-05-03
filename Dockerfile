@@ -62,15 +62,18 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
-COPY --from=builder /app/apps/admin/.next ./.next
-COPY --from=builder /app/apps/admin/public ./public
-
-COPY --from=builder /app/apps/admin/package.json ./
-
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
+COPY apps/admin/package.json apps/admin/
+COPY apps/admin/next.config.mjs apps/admin/
 
-RUN pnpm install --prod
+COPY apps/admin/ ./apps/admin/
+
+WORKDIR /app/apps/admin
+
+RUN pnpm install
+
+WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
