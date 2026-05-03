@@ -74,6 +74,7 @@ COPY packages/ ./packages/
 RUN pnpm install --prod
 
 ENV NODE_ENV=production
+ENV PORT=3000
 EXPOSE 3000
 
 CMD ["node", ".next/standalone/server.js"]
