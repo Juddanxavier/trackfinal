@@ -62,10 +62,10 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
-COPY --from=builder /app/apps/admin/.next ./apps/admin/.next
-COPY --from=builder /app/apps/admin/public ./apps/admin/public
+COPY --from=builder /app/apps/admin ./apps/admin
 
 WORKDIR /app/apps/admin
+
 ENV NODE_ENV=production
 EXPOSE 3000
 
