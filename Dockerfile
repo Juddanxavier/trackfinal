@@ -62,19 +62,18 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
-COPY --from=builder /app/apps/admin/.next ./apps/admin/.next
-COPY --from=builder /app/apps/admin/public ./apps/admin/public
+COPY --from=builder /app/apps/admin/.next/standalone ./.next/standalone
+COPY --from=builder /app/apps/admin/.next/static ./.next/static
+COPY --from=builder /app/apps/admin/public ./public
+
+COPY --from=builder /app/apps/admin/package.json ./
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
-COPY apps/admin/package.json apps/admin/
 
-WORKDIR /app/apps/admin
-RUN pnpm install
-
-WORKDIR /app
+RUN pnpm install --prod
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "apps/admin/node_modules/next/dist/bin/next", "start"]
+CMD ["node", ".next/standalone/server.js"]
