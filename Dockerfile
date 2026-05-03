@@ -44,11 +44,16 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 ENV NODE_ENV=production
 ENV PORT=4000
+ENV DATABASE_URL=${DATABASE_URL}
 
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
+COPY --from=builder /app/apps/api/drizzle.config.ts ./
+COPY --from=builder /app/apps/api/drizzle ./drizzle
 
 RUN pnpm install --prod --no-optional
+
+RUN npx drizzle-kit push
 
 EXPOSE 4000
 
