@@ -67,16 +67,13 @@ COPY packages/ ./packages/
 COPY apps/admin/package.json apps/admin/
 COPY apps/admin/next.config.mjs apps/admin/
 
-COPY apps/admin/ ./apps/admin/
-
-WORKDIR /app/apps/admin
-
 RUN pnpm install
 
-WORKDIR /app
+COPY --from=builder /app/apps/admin/.next ./apps/admin/.next
+COPY --from=builder /app/apps/admin/public ./apps/admin/public
 
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["pnpm", "exec", "next", "start"]
+CMD ["node", "/app/node_modules/next/dist/bin/next", "start"]
