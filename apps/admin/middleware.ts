@@ -27,14 +27,10 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const refreshToken = request.cookies.get('refresh_token')?.value;
-  const hasSession = !!refreshToken;
+  // Skip auth check in middleware - let frontend handle it
+  // Cookie check disabled for now
 
   if (pathname === '/login' || pathname === '/register') {
-    if (hasSession) {
-      const response = NextResponse.redirect(new URL('/dashboard', request.url));
-      return addSecurityHeaders(response);
-    }
     const response = NextResponse.next();
     return addSecurityHeaders(response);
   }
@@ -44,13 +40,7 @@ export async function middleware(request: NextRequest) {
     return addSecurityHeaders(response);
   }
 
-  if (!hasSession) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    const response = NextResponse.redirect(loginUrl);
-    return addSecurityHeaders(response);
-  }
-
+  // Let frontend handle auth - allow all requests through
   const nextResponse = NextResponse.next();
   return addSecurityHeaders(nextResponse);
 }
