@@ -1,5 +1,9 @@
 "use client"
 
+export const metadata = {
+  title: 'Reset Password - GT Express',
+}
+
 import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
