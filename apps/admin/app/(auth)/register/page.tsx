@@ -1,9 +1,5 @@
 "use client"
 
-export const metadata = {
-  title: 'Register - GT Express',
-}
-
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"

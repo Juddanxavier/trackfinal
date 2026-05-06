@@ -5,10 +5,6 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { CommandIcon, Truck, Package, BarChart3, Users, Globe, Shield } from "lucide-react"
 
-export const metadata = {
-  title: 'GT Express - Admin',
-}
-
 const features = [
   {
     icon: Truck,
