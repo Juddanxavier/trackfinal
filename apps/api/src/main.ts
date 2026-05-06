@@ -51,6 +51,7 @@ async function bootstrap() {
       'X-CSRF-Token',
       'Cookie',
     ],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   // Validation
