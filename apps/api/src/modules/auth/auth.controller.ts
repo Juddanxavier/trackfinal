@@ -44,17 +44,9 @@ import { hashPassword } from '../../common/utils/hash-password';
 import { validatePassword } from '../../common/validators/password.validator';
 import { ConfigService } from '@nestjs/config';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
-const REFRESH_COOKIE_OPTIONS: {
-  httpOnly: boolean;
-  secure: boolean;
-  sameSite: 'lax';
-  path: string;
-  maxAge: number;
-} = {
+const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: false,
+  secure: true,
   sameSite: 'lax',
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000,
