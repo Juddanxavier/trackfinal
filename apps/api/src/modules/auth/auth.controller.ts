@@ -77,6 +77,7 @@ export class AuthController {
   }
 
   private setRefreshCookie(res: Response, refreshToken: string) {
+    console.log('Setting cookie with options:', REFRESH_COOKIE_OPTIONS);
     res.cookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTIONS);
   }
 
