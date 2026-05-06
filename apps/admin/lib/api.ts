@@ -4,7 +4,7 @@ const DEFAULT_TIMEOUT = 10000;
 const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
 
 const AUTH_STATE_KEY = '__track_auth_state';
-const TOKEN_KEY = 'access_token';
+const TOKEN_KEY = 'track_access_token';
 
 function getGlobalAuthState(): { accessToken: string | null; expiresAt: number | null } {
   if (typeof window === 'undefined') {
