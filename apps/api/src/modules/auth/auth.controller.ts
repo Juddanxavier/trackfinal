@@ -49,13 +49,13 @@ const isProduction = process.env.NODE_ENV === 'production';
 const REFRESH_COOKIE_OPTIONS: {
   httpOnly: boolean;
   secure: boolean;
-  sameSite: 'none' | 'lax';
+  sameSite: 'lax';
   path: string;
   maxAge: number;
 } = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: isProduction ? 'none' : 'lax',
+  sameSite: 'lax',
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
