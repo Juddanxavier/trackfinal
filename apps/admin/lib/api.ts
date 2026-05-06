@@ -4,13 +4,18 @@ const DEFAULT_TIMEOUT = 10000;
 const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
 
 const AUTH_STATE_KEY = '__track_auth_state';
+const TOKEN_KEY = 'access_token';
 
 function getGlobalAuthState(): { accessToken: string | null; expiresAt: number | null } {
   if (typeof window === 'undefined') {
     return { accessToken: null, expiresAt: null };
   }
   if (!(window as any)[AUTH_STATE_KEY]) {
-    (window as any)[AUTH_STATE_KEY] = { accessToken: null, expiresAt: null };
+    let storedToken: string | null = null;
+    try {
+      storedToken = localStorage.getItem(TOKEN_KEY);
+    } catch {}
+    (window as any)[AUTH_STATE_KEY] = { accessToken: storedToken, expiresAt: null };
   }
   return (window as any)[AUTH_STATE_KEY];
 }
@@ -50,6 +55,18 @@ export function setAccessToken(token: string | null, expiresInSeconds?: number) 
   state.expiresAt = expiresInSeconds
     ? Date.now() + expiresInSeconds * 1000 - TOKEN_EXPIRY_BUFFER_MS
     : null;
+  
+  // Store in localStorage for persistence
+  if (typeof window !== 'undefined') {
+    try {
+      if (token) {
+        localStorage.setItem(TOKEN_KEY, token);
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+      }
+    } catch {}
+  }
+  
   notifyAuthChange();
 }
 
@@ -60,6 +77,7 @@ export function clearAuth() {
   notifyAuthChange();
   if (typeof window !== 'undefined') {
     try {
+      localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem('selectedOrganisationId');
     } catch {}
   }
@@ -313,6 +331,17 @@ export async function getMe(): Promise<AuthUser | null> {
 }
 
 export async function restoreSession(): Promise<AuthUser | null> {
+  // First try localStorage token
+  try {
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    if (storedToken) {
+      setAccessToken(storedToken);
+      const user = await api.get<AuthUser>('auth/me');
+      if (user) return user;
+    }
+  } catch {}
+
+  // Fall back to cookie-based refresh
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
