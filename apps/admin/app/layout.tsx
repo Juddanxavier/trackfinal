@@ -12,6 +12,11 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
+export const metadata = {
+  title: 'GT Express',
+  robots: 'noindex, nofollow',
+}
+
 export default function RootLayout({
   children,
 }: {

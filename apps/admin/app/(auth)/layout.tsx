@@ -1,4 +1,5 @@
 import { AuthProvider } from "@/components/auth-context"
+import { ThemeProvider } from "@/components/theme-provider"
 
 export default function AuthLayout({
   children,
@@ -6,8 +7,10 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <AuthProvider>
-      {children}
-    </AuthProvider>
+    <ThemeProvider defaultTheme="dark" attribute="class" enableSystem={false}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

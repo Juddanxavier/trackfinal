@@ -15,6 +15,7 @@ import { SessionsService } from '../users/services';
 export interface JwtPayload {
   sub: string;
   email: string;
+  name?: string;
   role: string;
   organisationId: string | null;
   type: 'access';
@@ -50,12 +51,14 @@ export class TokenService {
   generateAccessToken(user: {
     id: string;
     email: string;
+    name: string;
     role: string;
     organisationId: string | null;
   }): string {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      name: user.name,
       role: user.role,
       organisationId: user.organisationId,
       type: 'access',

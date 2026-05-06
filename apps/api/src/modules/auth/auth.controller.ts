@@ -76,13 +76,7 @@ export class AuthController {
   }
 
   private setRefreshCookie(res: Response, refreshToken: string) {
-    try {
-      console.log('Setting cookie with options:', JSON.stringify(REFRESH_COOKIE_OPTIONS));
-      res.cookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTIONS);
-      console.log('Cookie set successfully');
-    } catch (err) {
-      console.error('Error setting cookie:', err);
-    }
+    res.cookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTIONS);
   }
 
   private clearRefreshCookie(res: Response) {

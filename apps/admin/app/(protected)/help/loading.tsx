@@ -1,13 +1,11 @@
 'use client'
 
-import { Skeleton } from "@/components/ui/skeleton"
+import { Loader2 } from "lucide-react"
 
 export default function Loading() {
   return (
-    <div className="flex-1 space-y-4 p-8">
-      <Skeleton className="h-10 w-48" />
-      <Skeleton className="h-12 w-96" />
-      <Skeleton className="h-96 w-full rounded-lg" />
+    <div className="flex h-[50vh] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   )
 }

@@ -27,7 +27,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Security
-  // app.use(helmet()); // Temporarily disabled for cookie testing
+  app.use(helmet());
   const corsOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
