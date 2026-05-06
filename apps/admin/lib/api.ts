@@ -10,12 +10,7 @@ function getGlobalAuthState(): { accessToken: string | null; expiresAt: number |
     return { accessToken: null, expiresAt: null };
   }
   if (!(window as any)[AUTH_STATE_KEY]) {
-    // Try to restore from localStorage
-    let storedToken: string | null = null;
-    try {
-      storedToken = localStorage.getItem('accessToken');
-    } catch {}
-    (window as any)[AUTH_STATE_KEY] = { accessToken: storedToken, expiresAt: null };
+    (window as any)[AUTH_STATE_KEY] = { accessToken: null, expiresAt: null };
   }
   return (window as any)[AUTH_STATE_KEY];
 }
@@ -55,18 +50,6 @@ export function setAccessToken(token: string | null, expiresInSeconds?: number) 
   state.expiresAt = expiresInSeconds
     ? Date.now() + expiresInSeconds * 1000 - TOKEN_EXPIRY_BUFFER_MS
     : null;
-  
-  // Persist to localStorage for session restoration
-  if (typeof window !== 'undefined') {
-    try {
-      if (token) {
-        localStorage.setItem('accessToken', token);
-      } else {
-        localStorage.removeItem('accessToken');
-      }
-    } catch {}
-  }
-  
   notifyAuthChange();
 }
 
@@ -330,17 +313,6 @@ export async function getMe(): Promise<AuthUser | null> {
 }
 
 export async function restoreSession(): Promise<AuthUser | null> {
-  // First try localStorage token
-  try {
-    const storedToken = localStorage.getItem('accessToken');
-    if (storedToken) {
-      setAccessToken(storedToken);
-      const user = await api.get<AuthUser>('auth/me');
-      if (user) return user;
-    }
-  } catch {}
-
-  // Fall back to cookie-based refresh
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
