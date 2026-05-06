@@ -50,6 +50,7 @@ const REFRESH_COOKIE_OPTIONS = {
   sameSite: 'lax',
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000,
+  domain: '.gajantraders.com',
 };
 
 @ApiTags('auth')
