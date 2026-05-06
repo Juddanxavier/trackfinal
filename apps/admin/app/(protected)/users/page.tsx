@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Pagination } from "@/components/ui/pagination"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
 import { ExportButton } from "@/components/export-button"
+import { AnimatedPage } from "@/components/animated-page"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -217,7 +218,7 @@ export default function UsersPage() {
   const isLastPage = page === totalPages
 
 return (
-    <div className="p-6 space-y-6">
+    <AnimatedPage className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">User Management</h1>
@@ -450,6 +451,6 @@ return (
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AnimatedPage>
   )
 }

@@ -129,3 +129,15 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  .btn-hover-scale {
+    transition: transform 0.15s ease;
+  }
+  .btn-hover-scale:hover {
+    transform: scale(1.02);
+  }
+  .btn-hover-scale:active {
+    transform: scale(0.98);
+  }
+}

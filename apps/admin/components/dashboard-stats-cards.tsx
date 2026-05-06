@@ -1,5 +1,6 @@
 "use client"
 
+import { motion } from "framer-motion"
 import { Package, Truck, FileText, CheckCircle } from "lucide-react"
 import { Area, AreaChart, ResponsiveContainer } from "recharts"
 
@@ -95,9 +96,12 @@ export function DashboardStatsCards({ shipmentStats, quoteStats }: DashboardStat
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      {stats.map((stat) => (
-        <div
+      {stats.map((stat, index) => (
+        <motion.div
           key={stat.title}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: index * 0.1, ease: "easeOut" }}
           className="group relative overflow-hidden rounded-lg border bg-card p-4 transition-all duration-200 hover:border-gray-300"
         >
           <div className="flex items-start justify-between">
@@ -111,7 +115,7 @@ export function DashboardStatsCards({ shipmentStats, quoteStats }: DashboardStat
           <p className="mt-2 text-2xl font-bold">{stat.value.toLocaleString()}</p>
           <p className="mt-1 text-xs text-muted-foreground">{stat.subtitle}</p>
           <MiniSparkline color={stat.chartColor} />
-        </div>
+        </motion.div>
       ))}
     </div>
   )

@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
 import { ExportButton } from "@/components/export-button"
+import { AnimatedPage } from "@/components/animated-page"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -264,7 +265,7 @@ export default function QuotesPage() {
   const isLastPage = page === totalPages
 
   return (
-    <div className="p-6 space-y-6">
+    <AnimatedPage className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Quote Management</h1>
@@ -573,6 +574,6 @@ export default function QuotesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AnimatedPage>
   )
 }

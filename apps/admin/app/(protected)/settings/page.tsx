@@ -28,6 +28,7 @@ import {
   SaveIcon,
   Loader2Icon,
 } from "lucide-react"
+import { AnimatedPage } from "@/components/animated-page"
 
 interface OrganisationSettings {
   id: string
@@ -137,7 +138,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <AnimatedPage className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -296,6 +297,6 @@ export default function SettingsPage() {
           </Button>
         </div>
       </Tabs>
-    </div>
+    </AnimatedPage>
   )
 }

@@ -56,6 +56,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { ExportButton } from "@/components/export-button"
+import { AnimatedPage, AnimatedCard, AnimatedList, AnimatedListItem } from "@/components/animated-page"
 
 type ShipmentStatus = "pending" | "in_transit" | "delivered" | "exception"
 
@@ -513,7 +514,7 @@ const fetchStats = async () => {
   }, [openCreateDialog])
 
   return (
-    <div className="space-y-6 p-6">
+    <AnimatedPage className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -1068,6 +1069,6 @@ const fetchStats = async () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AnimatedPage>
   )
 }

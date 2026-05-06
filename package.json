@@ -18,5 +18,9 @@
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
+  },
+  "dependencies": {
+    "framer-motion": "^12.38.0",
+    "primer-avatars": "^2.0.0"
   }
 }
