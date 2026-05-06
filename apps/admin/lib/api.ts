@@ -1,3 +1,5 @@
+import { jwtDecode } from 'jwt-decode';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -327,7 +329,23 @@ export interface AuthUser {
 }
 
 export async function getMe(): Promise<AuthUser | null> {
-  return api.get<AuthUser>('auth/me');
+  const token = getGlobalAuthState().accessToken;
+  if (!token) return null;
+  
+  try {
+    const decoded = jwtDecode<any>(token);
+    return {
+      id: decoded.sub,
+      email: decoded.email,
+      name: decoded.name || decoded.email,
+      role: decoded.role,
+      organisationId: decoded.organisationId,
+      emailVerified: decoded.email_verified || true,
+      avatar: '',
+    };
+  } catch {
+    return api.get<AuthUser>('auth/me');
+  }
 }
 
 export async function restoreSession(): Promise<AuthUser | null> {
@@ -336,8 +354,7 @@ export async function restoreSession(): Promise<AuthUser | null> {
     const storedToken = localStorage.getItem(TOKEN_KEY);
     if (storedToken) {
       setAccessToken(storedToken);
-      const user = await api.get<AuthUser>('auth/me');
-      if (user) return user;
+      return await getMe();
     }
   } catch {}
 
