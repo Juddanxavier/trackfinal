@@ -10,13 +10,20 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 async function migrateCarriers() {
-  const db = await import('./database/index.js').then((m) => m.db);
-  const { carriers } = await import('./database/schema/carriers.js');
-  const fs = await import('fs');
-  const path = await import('path');
-
   try {
-    console.log('Ensuring carriers are loaded...');
+    const db = await import('./database/index.js').then((m) => m.db);
+    const { carriers } = await import('./database/schema/carriers.js');
+
+    try {
+      const [existing] = await db.select({ key: carriers.key }).from(carriers).limit(1);
+      if (existing) {
+        console.log('Carriers already loaded, skipping migration');
+        return;
+      }
+    } catch {
+      // Table doesn't exist yet, will create it below
+    }
+
     await db.execute(`
       CREATE TABLE IF NOT EXISTS carriers (
         key VARCHAR(20) PRIMARY KEY,
@@ -27,6 +34,8 @@ async function migrateCarriers() {
       )
     `);
 
+    const fs = await import('fs');
+    const path = await import('path');
     const csvPath = path.join(__dirname, '..', '..', 'carriers.csv');
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n').slice(1);
