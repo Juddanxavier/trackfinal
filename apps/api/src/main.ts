@@ -78,6 +78,23 @@ async function migrateCarriers() {
   }
 }
 
+async function migrateAdditionalColumns() {
+  console.log('[Additional Columns Migration] Starting...');
+  try {
+    const db = await import('./database/index.js').then((m) => m.db);
+    
+    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_on_update JSONB DEFAULT '{"email":true,"sms":false}'`);
+    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_email TEXT`);
+    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_phone TEXT`);
+    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`);
+    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+    
+    console.log('[Additional Columns Migration] Complete');
+  } catch (err) {
+    console.error('[Additional Columns Migration] FAILED:', err);
+  }
+}
+
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV,
@@ -86,6 +103,7 @@ Sentry.init({
 
 async function bootstrap() {
   await migrateCarriers();
+  await migrateAdditionalColumns();
 
   const app = await NestFactory.create(AppModule);
 
