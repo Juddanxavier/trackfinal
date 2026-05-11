@@ -220,9 +220,10 @@ export class QuotesController {
     return this.quotesService.delete(id, userId, body?.reason);
   }
 
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
   @Get('stats')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get quote statistics' })
   @ApiResponse({ status: 200, description: 'Quote statistics' })
   async getStats(
