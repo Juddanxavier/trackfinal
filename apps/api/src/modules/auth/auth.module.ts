@@ -34,7 +34,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
         return {
           secret,
           signOptions: {
-            expiresIn: '15m',
+            expiresIn: '1h',
           },
         };
       },
