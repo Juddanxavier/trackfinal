@@ -55,10 +55,17 @@ export class ShipmentsController {
         'User must be assigned to an organisation to create shipments. Please contact an administrator.',
       );
     }
+    
+    let carrierCode = dto.carrierCode;
+    if (!carrierCode) {
+      const detected = await this.carriersService.detectByTrackingNumber(dto.trackingNumber);
+      carrierCode = detected?.key || 'unknown';
+    }
+    
     return this.shipmentsService.create({
       organisationId,
       trackingNumber: dto.trackingNumber,
-      carrierCode: dto.carrierCode || 'unknown',
+      carrierCode,
       recipientName: dto.recipientName,
       recipientEmail: dto.recipientEmail,
       recipientPhone: dto.recipientPhone,
