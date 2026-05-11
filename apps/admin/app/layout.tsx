@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { CsrfProvider } from "@csrf-armor/nextjs/client"
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'})
-const fontMono = Geist_Mono({
+const inter = Inter({subsets:['latin'],variable:'--font-sans'})
+const fontMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
@@ -25,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}>
+      <body className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}>
         <ErrorBoundary>
           <CsrfProvider>
             <ThemeProvider>
