@@ -9,6 +9,55 @@ import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
+async function migrateCarriers() {
+  const db = await import('./database').then((m) => m.db);
+  const { carriers } = await import('./database/schema/carriers');
+  const fs = await import('fs');
+  const path = await import('path');
+
+  try {
+    console.log('Ensuring carriers are loaded...');
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS carriers (
+        key VARCHAR(20) PRIMARY KEY,
+        name_en VARCHAR(255) NOT NULL,
+        name_cn VARCHAR(255),
+        name_hk VARCHAR(255),
+        url VARCHAR(500)
+      )
+    `);
+
+    const csvPath = path.join(__dirname, '..', '..', 'carriers.csv');
+    const content = fs.readFileSync(csvPath, 'utf-8');
+    const lines = content.split('\n').slice(1);
+
+    let inserted = 0;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const [key, name_en, name_cn, name_hk, url] = trimmed.split(',');
+      if (key && name_en) {
+        await db
+          .insert(carriers)
+          .values({
+            key,
+            nameEn: name_en,
+            nameCn: name_cn || null,
+            nameHk: name_hk || null,
+            url: url || null,
+          })
+          .onConflictDoNothing({
+            target: carriers.key,
+          });
+        inserted++;
+      }
+    }
+    console.log(`Carriers migration complete: ${inserted} carriers`);
+  } catch (err) {
+    console.error('Carriers migration failed:', err);
+  }
+}
+
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV,
@@ -16,6 +65,8 @@ Sentry.init({
 });
 
 async function bootstrap() {
+  await migrateCarriers();
+
   const app = await NestFactory.create(AppModule);
 
   app.use(new RequestLoggingMiddleware().use);
