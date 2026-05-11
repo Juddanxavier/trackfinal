@@ -23,7 +23,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
-COPY apps/gajantraders/package.json apps/gajantraders/
 
 RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
     pnpm install
@@ -32,7 +31,7 @@ COPY . .
 
 RUN npm install -g turbo
 
-RUN NODE_ENV=production pnpm turbo run build
+RUN NODE_ENV=production pnpm turbo run build --filter=@track/api --filter=@track/admin
 
 # ===========================
 # API Runner (NestJS)
