@@ -36,7 +36,7 @@ async function migrateCarriers() {
 
     const fs = await import('fs');
     const path = await import('path');
-    const csvPath = path.join(__dirname, '..', '..', 'carriers.csv');
+    const csvPath = path.join(__dirname, '..', 'carriers.csv');
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n').slice(1);
 

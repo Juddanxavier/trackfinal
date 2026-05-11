@@ -49,6 +49,7 @@ ENV DATABASE_URL=${DATABASE_URL}
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
 COPY --from=builder /app/apps/api/drizzle ./drizzle
+COPY --from=builder /app/apps/api/carriers.csv ./carriers.csv
 
 RUN pnpm install --prod --no-optional
 
