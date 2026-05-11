@@ -10,8 +10,8 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 async function migrateCarriers() {
-  const db = await import('./database').then((m) => m.db);
-  const { carriers } = await import('./database/schema/carriers');
+  const db = await import('./database/index.js').then((m) => m.db);
+  const { carriers } = await import('./database/schema/carriers.js');
   const fs = await import('fs');
   const path = await import('path');
 
