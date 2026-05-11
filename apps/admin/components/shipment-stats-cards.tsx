@@ -94,7 +94,7 @@ export function ShipmentStatsCards({ stats }: { stats: Stats }) {
             </div>
             <p className="mt-2 text-2xl font-bold">{value.toLocaleString()}</p>
             <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-            <MiniSparkline color={stat.chartColor} />
+            <MiniSparkline color={stat.chartColor} value={value} />
           </div>
         )
       })}
