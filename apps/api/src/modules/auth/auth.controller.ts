@@ -50,16 +50,17 @@ import { ConfigService } from '@nestjs/config';
 const REFRESH_COOKIE_OPTIONS: {
   httpOnly: boolean;
   secure: boolean;
-  sameSite: 'lax';
+  sameSite: 'none';
   path: string;
   maxAge: number;
   domain?: string;
 } = {
   httpOnly: true,
   secure: true,
-  sameSite: 'lax',
+  sameSite: 'none',
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000,
+  domain: '.gajantraders.com',
 };
 
 @ApiTags('auth')
