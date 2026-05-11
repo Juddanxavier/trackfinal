@@ -23,6 +23,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
+COPY apps/gajantraders/package.json apps/gajantraders/
 
 RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
     pnpm install
