@@ -313,15 +313,19 @@ export class ShipmentsService {
       .limit(limit)
       .offset(offset);
 
-    const carrierCodes = [
-      ...new Set(result.map((s) => s.carrierCode).filter(Boolean)),
-    ];
-    const carriers =
-      carrierCodes.length > 0
-        ? await this.carriersService.getCarriersByKeys(carrierCodes)
-        : [];
-
-    const carrierMap = new Map(carriers.map((c) => [c.key, c.name_en]));
+    let carrierMap = new Map<string, string>();
+    try {
+      const carrierCodes = [
+        ...new Set(result.map((s) => s.carrierCode).filter(Boolean)),
+      ];
+      const carriers =
+        carrierCodes.length > 0
+          ? await this.carriersService.getCarriersByKeys(carrierCodes)
+          : [];
+      carrierMap = new Map(carriers.map((c) => [c.key, c.name_en]));
+    } catch (err) {
+      console.warn('Failed to load carrier names:', err);
+    }
 
     const enrichedResult = result.map((shipment) => ({
       ...shipment,
