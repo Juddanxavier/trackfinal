@@ -42,8 +42,20 @@ interface PaginationQuery {
 
 function sanitizeUser(user: any) {
   if (!user) return null;
-  const { passwordHash, googleId, ...sanitized } = user;
-  return sanitized;
+  // Explicitly include only safe fields (whitelist approach is more secure)
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    organisationId: user.organisationId,
+    isActive: user.isActive,
+    emailVerified: user.emailVerified,
+    phoneNumber: user.phoneNumber,
+    avatar: user.avatar,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 }
 
 @ApiTags('users')
@@ -252,8 +264,10 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
+    // Check organisation boundary - users can only update users in their own organisation
+    // Super admins (no organisationId) can update users in any organisation
     if (
-      req.user.role === Role.ADMIN &&
+      req.user.organisationId &&
       user.organisationId !== req.user.organisationId
     ) {
       throw new ForbiddenException(
@@ -284,7 +298,12 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    if (user.organisationId !== req.user.organisationId) {
+    // Check organisation boundary - users can only delete users in their own organisation
+    // Super admins (no organisationId) can delete users in any organisation
+    if (
+      req.user.organisationId &&
+      user.organisationId !== req.user.organisationId
+    ) {
       throw new ForbiddenException(
         'You can only delete users in your organisation',
       );

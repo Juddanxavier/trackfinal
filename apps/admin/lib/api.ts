@@ -2,24 +2,56 @@ import { jwtDecode } from 'jwt-decode';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+// Log the API URL for debugging
+if (typeof window !== 'undefined') {
+  console.log('[API] Base URL:', API_BASE_URL);
+}
+
 const DEFAULT_TIMEOUT = 10000;
 const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
 
-const AUTH_STATE_KEY = '__track_auth_state';
 const TOKEN_KEY = 'track_access_token';
+const CSRF_TOKEN_KEY = 'csrf_token';
 
-function getGlobalAuthState(): { accessToken: string | null; expiresAt: number | null } {
-  if (typeof window === 'undefined') {
-    return { accessToken: null, expiresAt: null };
+// CSRF Token management
+let csrfToken: string | null = null;
+
+export async function fetchCsrfToken(): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/csrf/token`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    }
+  } catch (error) {
+    console.error('[API] Failed to fetch CSRF token:', error);
   }
-  if (!(window as any)[AUTH_STATE_KEY]) {
-    let storedToken: string | null = null;
-    try {
-      storedToken = localStorage.getItem(TOKEN_KEY);
-    } catch {}
-    (window as any)[AUTH_STATE_KEY] = { accessToken: storedToken, expiresAt: null };
+  return null;
+}
+
+// Simple token storage - always read from localStorage directly
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
   }
-  return (window as any)[AUTH_STATE_KEY];
+}
+
+function setToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {}
 }
 
 export class ApiError extends Error {
@@ -38,8 +70,6 @@ interface ApiOptions extends RequestInit {
 }
 
 let refreshPromise: Promise<string> | null = null;
-let refreshChannel: BroadcastChannel | null = null;
-
 const listeners: Set<() => void> = new Set();
 
 function notifyAuthChange() {
@@ -51,68 +81,6 @@ export function subscribeAuthChange(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
-export function setAccessToken(token: string | null, expiresInSeconds?: number) {
-  const state = getGlobalAuthState();
-  state.accessToken = token;
-  state.expiresAt = expiresInSeconds
-    ? Date.now() + expiresInSeconds * 1000 - TOKEN_EXPIRY_BUFFER_MS
-    : null;
-  
-  // Store in localStorage for persistence
-  if (typeof window !== 'undefined') {
-    try {
-      if (token) {
-        localStorage.setItem(TOKEN_KEY, token);
-      } else {
-        localStorage.removeItem(TOKEN_KEY);
-      }
-    } catch {}
-  }
-  
-  notifyAuthChange();
-}
-
-export function clearAuth() {
-  const state = getGlobalAuthState();
-  state.accessToken = null;
-  state.expiresAt = null;
-  notifyAuthChange();
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem('selectedOrganisationId');
-    } catch {}
-  }
-}
-
-export function hasValidSession(): boolean {
-  return !!getGlobalAuthState().accessToken;
-}
-
-function initBroadcastChannel() {
-  if (typeof window === 'undefined') return;
-  
-  if (refreshChannel) return;
-  
-  try {
-    refreshChannel = new BroadcastChannel('auth-logout');
-    refreshChannel.onmessage = (event) => {
-      if (event.data === 'logout') {
-        clearAuth();
-        window.location.href = '/login';
-      }
-    };
-  } catch {
-    // BroadcastChannel not supported
-  }
-}
-
-function broadcastLogout() {
-  if (refreshChannel) {
-    refreshChannel.postMessage('logout');
-  }
-}
-
 class ApiClient {
   private baseUrl: string;
 
@@ -122,34 +90,17 @@ class ApiClient {
 
   private getUrl(path: string): string {
     const prefix = path.startsWith('/') ? '' : '/';
-    return `${this.baseUrl}${prefix}${path}`;
-  }
-
-  private sanitizeError(message: string, statusCode?: number): string {
-    if (statusCode === 401) return 'Session expired - please log in again';
-    if (statusCode === 403) return 'Access denied';
-    if (statusCode === 404) return 'Resource not found';
-    if (statusCode === 422 || statusCode === 400) {
-      return message.includes('validation') ? 'Invalid input' : message;
+    const url = `${this.baseUrl}${prefix}${path}`;
+    
+    // Validate URL
+    try {
+      new URL(url);
+    } catch (e) {
+      console.error(`[API] Invalid URL constructed: ${url}`);
+      throw new Error(`Invalid API URL: ${url}`);
     }
-    if (statusCode && statusCode >= 500) return `Server error (${statusCode})`;
-
-    const lower = message.toLowerCase();
-    if (lower.includes('permission') || lower.includes('denied') || lower.includes('forbidden')) {
-      return 'Access denied';
-    }
-    if (lower.includes('not found')) return 'Resource not found';
-    if (lower.includes('validation')) return 'Invalid input';
-
-    return message.length > 5 && message.length < 100 ? message : 'Something went wrong';
-  }
-
-  private getAuthHeader(): string | null {
-    const token = getGlobalAuthState().accessToken;
-    if (token) {
-      return `Bearer ${token}`;
-    }
-    return null;
+    
+    return url;
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit, timeout: number): Promise<Response> {
@@ -157,7 +108,22 @@ class ApiClient {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      return await fetch(url, { ...options, signal: controller.signal });
+      console.log(`[API] Making request to: ${url}`, { method: options.method || 'GET' });
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      console.log(`[API] Response from ${url}:`, response.status);
+      return response;
+    } catch (error) {
+      console.error(`[API] Fetch failed for ${url}:`, error);
+      // Re-throw with more context
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        if (error.message.includes('fetch')) {
+          throw new Error(`Network error: Cannot connect to ${url}. Is the API server running?`);
+        }
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -170,6 +136,7 @@ class ApiClient {
 
     refreshPromise = (async () => {
       try {
+        console.log('[API] Attempting token refresh...');
         const res = await this.fetchWithTimeout(
           this.getUrl('auth/refresh'),
           {
@@ -184,12 +151,16 @@ class ApiClient {
         );
 
         if (!res.ok) {
-          clearAuth();
+          console.error('[API] Token refresh failed:', res.status);
+          setToken(null);
+          notifyAuthChange();
           throw new ApiError('Session expired', 401);
         }
 
         const data = await res.json();
-        setAccessToken(data.accessToken);
+        setToken(data.accessToken);
+        notifyAuthChange();
+        console.log('[API] Token refresh successful');
         return data.accessToken;
       } finally {
         refreshPromise = null;
@@ -203,20 +174,40 @@ class ApiClient {
     const { throwOnError = true, timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
     let hasRetried = false;
 
+    // Validate path
+    if (!path) {
+      console.error('[API] Error: path is empty or undefined');
+      if (!throwOnError) return {} as T;
+      throw new ApiError('Request path is empty', 400);
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(fetchOptions.headers as Record<string, string>),
     };
 
-    const authHeader = this.getAuthHeader();
-    if (authHeader) {
-      headers['Authorization'] = authHeader;
+    // Always get fresh token from localStorage
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Add CSRF token for mutating operations
+    const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (mutatingMethods.includes(fetchOptions.method || 'GET') && csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
     }
 
     let res: Response;
     try {
+      const url = this.getUrl(path);
+      console.log(`[API] Fetching: ${url}`, {
+        method: fetchOptions.method || 'GET',
+        hasAuth: !!token,
+        path: path
+      });
       res = await this.fetchWithTimeout(
-        this.getUrl(path),
+        url,
         { ...fetchOptions, credentials: 'include', headers },
         timeout
       );
@@ -224,10 +215,31 @@ class ApiClient {
       if (e instanceof Error && e.name === 'AbortError') {
         throw new ApiError('Request timed out', 408);
       }
-      throw e;
+      console.error(`[API] Fetch failed for ${path}:`, e);
+      throw new ApiError(e instanceof Error ? e.message : 'Network error', 0);
     }
 
-    if (res.status === 401 && !hasRetried && authHeader) {
+    // Handle 403 CSRF errors - fetch new CSRF token and retry
+    if (res.status === 403 && !hasRetried) {
+      const errorData = await res.json().catch(() => ({}));
+      if (errorData.message?.includes('CSRF') || errorData.error?.includes('CSRF')) {
+        console.log('[API] Got 403 CSRF error, fetching new token...');
+        hasRetried = true;
+        const newCsrfToken = await fetchCsrfToken();
+        if (newCsrfToken) {
+          headers['X-CSRF-Token'] = newCsrfToken;
+          res = await this.fetchWithTimeout(
+            this.getUrl(path),
+            { ...fetchOptions, credentials: 'include', headers },
+            timeout
+          );
+        }
+      }
+    }
+
+    // Handle 401 - try to refresh token
+    if (res.status === 401 && !hasRetried) {
+      console.log('[API] Got 401, attempting token refresh...');
       hasRetried = true;
       try {
         const newToken = await this.refreshAccessToken();
@@ -237,8 +249,11 @@ class ApiClient {
           { ...fetchOptions, credentials: 'include', headers },
           timeout
         );
-      } catch {
-        clearAuth();
+        console.log('[API] Retry after refresh successful:', res.status);
+      } catch (refreshError) {
+        console.error('[API] Token refresh failed:', refreshError);
+        setToken(null);
+        notifyAuthChange();
         if (typeof window !== 'undefined' && throwOnError) {
           window.location.href = '/login';
         }
@@ -247,13 +262,21 @@ class ApiClient {
     }
 
     if (!res.ok) {
-      if (!throwOnError) return {} as T;
       let message = 'An error occurred';
       try {
         const errorData = await res.json();
         message = errorData.message || `Request failed with status ${res.status}`;
       } catch {
         message = `Request failed with status ${res.status}`;
+      }
+      
+      if (!throwOnError) {
+        // Return error response as object for non-throwing calls
+        return { 
+          statusCode: res.status, 
+          message,
+          error: true 
+        } as unknown as T;
       }
       throw new ApiError(message, res.status);
     }
@@ -304,17 +327,15 @@ export async function logout() {
   try {
     await api.post('auth/logout');
   } finally {
-    clearAuth();
-    broadcastLogout();
+    setToken(null);
+    notifyAuthChange();
   }
 }
 
 export async function login(email: string, password: string) {
-  initBroadcastChannel();
-  
   const data = await api.post<{ accessToken: string; user: AuthUser }>('auth/login', { email, password });
-  setAccessToken(data.accessToken);
-  
+  setToken(data.accessToken);
+  notifyAuthChange();
   return data.user;
 }
 
@@ -328,8 +349,8 @@ export interface AuthUser {
   avatar: string;
 }
 
-export async function getMe(): Promise<AuthUser | null> {
-  const token = getGlobalAuthState().accessToken;
+export function getCurrentUser(): AuthUser | null {
+  const token = getToken();
   if (!token) return null;
   
   try {
@@ -344,43 +365,59 @@ export async function getMe(): Promise<AuthUser | null> {
       avatar: '',
     };
   } catch {
-    return api.get<AuthUser>('auth/me');
+    return null;
   }
 }
 
+export function hasValidSession(): boolean {
+  return !!getToken();
+}
+
 export async function restoreSession(): Promise<AuthUser | null> {
-  // First try localStorage token
-  try {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-    if (storedToken) {
-      setAccessToken(storedToken);
-      return await getMe();
-    }
-  } catch {}
+  // Check if we have a token
+  const token = getToken();
+  if (!token) {
+    console.log('[Auth] No token to restore');
+    return null;
+  }
 
-  // Fall back to cookie-based refresh
+  // Try to validate token by calling auth/me
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    });
+    console.log('[Auth] Validating token with auth/me...');
+    const user = await api.get<AuthUser>('auth/me');
+    console.log('[Auth] Token valid, user:', user.email);
+    return user;
+  } catch (error) {
+    console.log('[Auth] Token validation failed, trying refresh...');
+    
+    // Token might be expired, try to refresh
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
 
-    if (!res.ok) {
-      clearAuth();
+      if (!res.ok) {
+        console.log('[Auth] Refresh failed, clearing session');
+        setToken(null);
+        return null;
+      }
+
+      const data = await res.json();
+      setToken(data.accessToken);
+      console.log('[Auth] Refresh successful');
+      
+      // Get user info with new token
+      const user = await api.get<AuthUser>('auth/me');
+      return user;
+    } catch (refreshError) {
+      console.error('[Auth] Refresh error:', refreshError);
+      setToken(null);
       return null;
     }
-
-    const data = await res.json();
-    setAccessToken(data.accessToken);
-    
-    const user = await api.get<AuthUser>('auth/me');
-    return user;
-  } catch {
-    clearAuth();
-    return null;
   }
 }

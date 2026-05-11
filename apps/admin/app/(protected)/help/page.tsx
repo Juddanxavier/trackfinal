@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import {
   CircleHelpIcon,
@@ -21,38 +22,124 @@ import {
   ClockIcon,
   CheckCircleIcon,
   ArrowRightIcon,
+  PackageIcon,
+  TruckIcon,
+  QuoteIcon,
+  UserIcon,
+  BellIcon,
+  SettingsIcon,
+  GlobeIcon,
+  PhoneIcon,
+  MessageCircleIcon,
 } from "lucide-react"
 
 const FAQS = [
   {
-    question: "How do I create a new quote?",
-    answer:
-      "Go to the Quotes page and click the 'New Quote' button. Fill in the origin, destination, weight, and dimensions. Staff users can set the price after submission.",
+    category: "Getting Started",
+    questions: [
+      {
+        question: "How do I create a new shipment?",
+        answer: "Go to the Shipments page and click the 'New Shipment' button. Enter the tracking number, select a carrier, and fill in the recipient details. The system will automatically track the package."
+      },
+      {
+        question: "How do I get a shipping quote?",
+        answer: "Navigate to Quotes and click 'New Quote'. Enter origin, destination, package weight, and dimensions. Staff will review and provide pricing within 24 hours."
+      },
+      {
+        question: "How do I invite team members?",
+        answer: "Only admins can invite users. Go to Users > Invite User, enter the email and name, and select a role. An invitation email will be sent automatically."
+      },
+    ]
   },
   {
-    question: "How do I track a shipment?",
-    answer:
-      "Navigate to Shipments and click on any shipment to view its tracking details. You can also use the public tracking code to share with customers.",
+    category: "Tracking & Delivery",
+    questions: [
+      {
+        question: "How does tracking work?",
+        answer: "We integrate with 17Track to provide real-time tracking. Enter any tracking number on our platform, and you'll see the latest status, location updates, and estimated delivery time."
+      },
+      {
+        question: "Why is my shipment not updating?",
+        answer: "Tracking updates depend on the carrier. If no updates for 48+ hours, try clicking 'Sync' on the shipment page to force a refresh. Some carriers may have limited tracking visibility."
+      },
+      {
+        question: "Can I change the delivery address?",
+        answer: "Contact our support immediately if address changes are needed. We can attempt modifications before the package leaves our facility, though changes may incur additional fees."
+      },
+      {
+        question: "What happens if delivery fails?",
+        answer: "Failed deliveries are flagged as 'Exception'. Recipients can arrange redelivery or pickup from the carrier's local facility. Check the shipment details for specific carrier instructions."
+      },
+    ]
   },
   {
-    question: "Can I change my password?",
-    answer:
-      "Yes, go to Settings > Security to update your password. You'll need to enter your current password and then set a new one.",
+    category: "Billing & Payments",
+    questions: [
+      {
+        question: "How do I pay for shipments?",
+        answer: "We offer credit terms for approved businesses. Staff can generate invoices, and admins manage payment settings in the organisation profile."
+      },
+      {
+        question: "Can I get a refund for returned shipments?",
+        answer: "Refunds depend on the carrier's policy and where the shipment is in the delivery process. Contact support with your shipment ID to review options."
+      },
+    ]
   },
   {
-    question: "How do I invite new team members?",
-    answer:
-      "Only admins can invite users. Go to Users > Invite User and enter the email and name. An invitation email will be sent automatically.",
+    category: "Account & Settings",
+    questions: [
+      {
+        question: "How do I change my password?",
+        answer: "Go to Profile > Security. Enter your current password and set a new one. For admin accounts, you can also reset other users' passwords."
+      },
+      {
+        question: "How do notifications work?",
+        answer: "You receive in-app notifications for shipment updates. Go to Settings > Notifications to configure email, SMS, or WhatsApp alerts."
+      },
+      {
+        question: "Why can't I see all shipments?",
+        answer: "Customers see only their own shipments. Staff and admins can view all shipments in their organisation. Use organisation filters to see specific groups."
+      },
+    ]
+  },
+]
+
+const HELP_ARTICLES = [
+  {
+    icon: PackageIcon,
+    title: "Creating Shipments",
+    description: "Learn how to create, manage, and track shipments",
+    link: "/docs#shipments"
   },
   {
-    question: "Why can't I see all shipments?",
-    answer:
-      "Customers only see their own shipments. Staff and admins can see all shipments in their organisation. Use filters to narrow down results.",
+    icon: QuoteIcon,
+    title: "Managing Quotes",
+    description: "Request and manage shipping quotes",
+    link: "/docs#quotes"
   },
   {
-    question: "How do notifications work?",
-    answer:
-      "You receive in-app notifications for important updates. Go to Settings > Notifications to configure your preferences.",
+    icon: TruckIcon,
+    title: "Carrier Information",
+    description: "Supported carriers and their coverage",
+    link: "/docs#carriers"
+  },
+  {
+    icon: GlobeIcon,
+    title: "International Shipping",
+    description: " customs requirements and documentation",
+    link: "/docs#international"
+  },
+  {
+    icon: BellIcon,
+    title: "Notification Settings",
+    description: "Configure alerts for shipment updates",
+    link: "/docs#notifications"
+  },
+  {
+    icon: UserIcon,
+    title: "Team Management",
+    description: "Add users, set roles, and manage permissions",
+    link: "/docs#users"
   },
 ]
 
@@ -67,11 +154,14 @@ export default function HelpPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
-  const filteredFaqs = FAQS.filter(
-    (faq) =>
-      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredFaqs = FAQS.map(category => ({
+    ...category,
+    questions: category.questions.filter(
+      (faq) =>
+        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  })).filter(category => category.questions.length > 0)
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,8 +186,8 @@ export default function HelpPage() {
       <div className="space-y-2">
         <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl">
           <span className="flex items-center gap-3">
-            <CircleHelpIcon className="h-10 w-10" />
-            Get Help
+            <CircleHelpIcon className="h-10 w-10 text-primary" />
+            Help Center
           </span>
         </h1>
         <p className="text-xl text-muted-foreground">
@@ -115,50 +205,107 @@ export default function HelpPage() {
         <CircleHelpIcon className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <a href="/docs" className="block">
-          <Card className="cursor-pointer transition-colors hover:bg-muted/50 h-full">
-            <CardHeader className="space-y-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <BookOpenIcon className="h-6 w-6 text-primary" />
-              </div>
-              <CardTitle className="text-lg">Documentation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Browse detailed guides and tutorials for every feature.
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </a>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {HELP_ARTICLES.map((article, index) => (
+          <a key={index} href={article.link} className="block">
+            <Card className="cursor-pointer transition-all hover:bg-muted/50 hover:border-primary/50 h-full">
+              <CardHeader className="space-y-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <article.icon className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-lg">{article.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-base">
+                  {article.description}
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </a>
+        ))}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Frequently Asked Questions</CardTitle>
           <CardDescription>
-            Quick answers to common questions about the platform.
+            Quick answers to common questions about our services.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {filteredFaqs.length === 0 ? (
-            <p className="text-muted-foreground">No matching FAQs found.</p>
-          ) : (
-            filteredFaqs.map((faq, index) => (
-              <details
-                key={index}
-                className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-muted/50"
-              >
-                <summary className="flex list-none items-center justify-between font-medium">
-                  {faq.question}
-                  <ArrowRightIcon className="h-4 w-4 transition-transform group-open:rotate-90" />
-                </summary>
-                <p className="mt-3 text-muted-foreground">{faq.answer}</p>
-              </details>
-            ))
-          )}
+        <CardContent>
+          <Tabs defaultValue={filteredFaqs[0]?.category || "Getting Started"} className="w-full">
+            <TabsList className="flex flex-wrap gap-2 justify-start h-auto p-2 bg-transparent">
+              {filteredFaqs.map((category, idx) => (
+                <TabsTrigger 
+                  key={idx} 
+                  value={category.category}
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {category.category}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {filteredFaqs.map((category, catIdx) => (
+              <TabsContent key={catIdx} value={category.category} className="space-y-4 mt-6">
+                {category.questions.map((faq, index) => (
+                  <details
+                    key={index}
+                    className="cursor-pointer rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  >
+                    <summary className="flex list-none items-center justify-between font-medium">
+                      {faq.question}
+                      <ArrowRightIcon className="h-4 w-4 transition-transform group-open:rotate-90" />
+                    </summary>
+                    <p className="mt-3 text-muted-foreground leading-relaxed">{faq.answer}</p>
+                  </details>
+                ))}
+              </TabsContent>
+            ))}
+          </Tabs>
         </CardContent>
       </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageCircleIcon className="h-5 w-5" />
+              Live Chat
+            </CardTitle>
+            <CardDescription>
+              Chat with our support team in real-time
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="w-full" variant="outline">
+              Start Live Chat
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground text-center">
+              Available Mon-Fri 9AM-6PM IST
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PhoneIcon className="h-5 w-5" />
+              Phone Support
+            </CardTitle>
+            <CardDescription>
+              Speak directly with our support team
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="w-full" variant="outline">
+              Call +91 98765 43210
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground text-center">
+              Mon-Sat 9AM-8PM IST
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -170,13 +317,13 @@ export default function HelpPage() {
         <CardContent>
           {submitted ? (
             <div className="flex flex-col items-center justify-center space-y-4 py-8 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <CheckCircleIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold">Request Submitted</h3>
                 <p className="text-muted-foreground">
-                  We&apos;ll get back to you within 24 hours.
+                  We&apos;ll get back to you within 4 hours during business hours.
                 </p>
               </div>
               <Button
@@ -258,14 +405,18 @@ export default function HelpPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-        <span className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+        <a href="mailto:support@gajantraders.com" className="flex items-center gap-2 hover:text-primary transition-colors">
           <MailIcon className="h-4 w-4" />
-          support@track.com
+          support@gajantraders.com
+        </a>
+        <span className="flex items-center gap-2">
+          <PhoneIcon className="h-4 w-4" />
+          +91 98765 43210
         </span>
         <span className="flex items-center gap-2">
           <ClockIcon className="h-4 w-4" />
-          Mon-Fri 9AM-5PM
+          Mon-Sat 9AM-8PM IST
         </span>
       </div>
     </div>

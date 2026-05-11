@@ -52,11 +52,18 @@ export class RegisterDto {
   @Transform(({ value }) => value?.trim())
   name: string;
 
-  @ApiProperty({ example: 'My Company', description: 'Organisation name' })
+  @ApiPropertyOptional({ example: '+1234567890', description: 'Phone number' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phoneNumber?: string;
+
+  @ApiPropertyOptional({ example: 'My Company', description: 'Organisation name' })
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(200)
-  organisationName: string;
+  organisationName?: string;
 }
 
 export class ForgotPasswordDto {
@@ -94,9 +101,11 @@ export class RefreshTokenDto {
 }
 
 export class AuthResponseDto {
-  accessToken: string;
-  refreshToken: string;
-  user: {
+  accessToken?: string;
+  refreshToken?: string;
+  verificationToken?: string;
+  message?: string;
+  user?: {
     id: string;
     email: string;
     name: string;

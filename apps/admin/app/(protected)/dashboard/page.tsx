@@ -58,11 +58,9 @@ export default function DashboardPage() {
         ])
 
         if (shipRes) {
-          console.log("[Dashboard] Shipment stats:", shipRes)
           setShipmentStats(shipRes)
         }
         if (quoteRes) {
-          console.log("[Dashboard] Quote stats:", quoteRes)
           setQuoteStats(quoteRes)
         }
 
@@ -72,8 +70,7 @@ export default function DashboardPage() {
           api.get<{ country: string; count: number }[]>(`/shipments/destinations?organisationId=${selectedOrganisation}&limit=5`, { throwOnError: false }),
         ])
 
-        console.log("[Dashboard] Ship activity:", shipActivity)
-        console.log("[Dashboard] Quote activity:", quoteActivity)
+        // Activity data loaded
 
         let combined: { date: string; shipments: number; quotes: number }[] = []
 
@@ -88,7 +85,7 @@ export default function DashboardPage() {
         }
 
         shipActivity.forEach(s => {
-          const count = (s as any).shipments ?? (s as any).total ?? 0
+          const count = s.shipments ?? 0
           if (dateMap.has(s.date)) {
             dateMap.set(s.date, { ...dateMap.get(s.date)!, shipments: count })
           }
@@ -105,8 +102,6 @@ export default function DashboardPage() {
           shipments: data.shipments,
           quotes: data.quotes,
         })).sort((a, b) => a.date.localeCompare(b.date))
-
-        console.log("[Dashboard] Combined activity:", combined)
 
         setActivityData(combined)
         setDestinationData(destinations)

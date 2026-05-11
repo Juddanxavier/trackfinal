@@ -225,12 +225,13 @@ export class QuotesService {
       } as any)
       .where(eq(quotes.id, id));
 
+    // Delete related notifications - use SQL jsonb operator for proper matching
     await db
       .delete(notifications)
       .where(
         and(
           eq(notifications.titleKey, 'quote.assigned'),
-          eq(notifications.data, { quoteId: id } as any),
+          sql`${notifications.data}->>'quoteId' = ${id}`,
         ),
       );
 
@@ -295,7 +296,7 @@ export class QuotesService {
               : quotes.createdAt;
     const orderFn = sortOrder === 'asc' ? asc : desc;
 
-    const [data, allData] = await Promise.all([
+    const [data, countResult] = await Promise.all([
       db
         .select()
         .from(quotes)
@@ -303,10 +304,10 @@ export class QuotesService {
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select().from(quotes).where(whereClause),
+      db.select({ count: sql<number>`count(*)` }).from(quotes).where(whereClause),
     ]);
 
-    const total = allData.length;
+    const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
 
     return { data, total, page, limit, totalPages };

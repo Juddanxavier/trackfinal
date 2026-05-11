@@ -13,16 +13,19 @@ import {
   Query,
   Param,
   Delete,
+  Redirect,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
+  ApiResponseOptions,
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
+import { TokenService } from './token.service';
 import {
   LoginDto,
   RegisterDto,
@@ -69,6 +72,7 @@ export class AuthController {
     private readonly usersService: UsersService,
     private readonly organisationsService: OrganisationsService,
     private readonly configService: ConfigService,
+    private readonly tokenService: TokenService,
   ) {}
 
   private getRefreshToken(req: ExpressRequest) {
@@ -111,8 +115,28 @@ export class AuthController {
       dto.name,
       this.extractContext(req),
     );
-    this.setRefreshCookie(res, result.refreshToken);
+    if (result.refreshToken) {
+      this.setRefreshCookie(res, result.refreshToken);
+    }
     return { accessToken: result.accessToken, user: result.user };
+  }
+
+  @Public()
+  @Post('customer-register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Customer self-registration' })
+  async customerRegister(
+    @Body() dto: RegisterDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const result = await this.authService.customerRegister(
+      dto.email,
+      dto.password,
+      dto.name,
+      dto.phoneNumber,
+      this.extractContext(req),
+    );
+    return result;
   }
 
   @Public()
@@ -128,7 +152,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto, this.extractContext(req));
-    this.setRefreshCookie(res, result.refreshToken);
+    if (result.refreshToken) {
+      this.setRefreshCookie(res, result.refreshToken);
+    }
     return { accessToken: result.accessToken, user: result.user };
   }
 
@@ -151,8 +177,40 @@ export class AuthController {
       refreshToken,
       this.extractContext(req),
     );
-    this.setRefreshCookie(res, result.refreshToken);
+    if (result.refreshToken) {
+      this.setRefreshCookie(res, result.refreshToken);
+    }
     return { accessToken: result.accessToken, user: result.user };
+  }
+
+  @Public()
+  @Get('google')
+  async googleAuth(@Res() res: Response) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID || 'your-google-client-id'}&redirect_uri=${encodeURIComponent('http://localhost:4000/api/auth/google/callback')}&response_type=code&scope=openid%20email%20profile&access_type=offline`;
+    return res.redirect(authUrl);
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards()
+  async googleCallback(
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (!req.user) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    }
+
+    try {
+      const result = await this.authService.handleGoogleLogin(req.user);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/dashboard?token=${result.accessToken}`);
+    } catch (error) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    }
   }
 
   @UseGuards(JwtAuthGuard)
@@ -245,8 +303,12 @@ export class AuthController {
   @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify email address' })
-  async verifyEmail(@Body() dto: VerifyEmailDto) {
+  @ApiOperation({ summary: 'Verify email address and login' })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const userId = await this.verificationsService.verify(dto.token, 'email');
     if (!userId) {
       throw new HttpException(
@@ -254,8 +316,21 @@ export class AuthController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    await this.usersService.update(userId, { emailVerified: true });
-    return { message: 'Email verified successfully' };
+    await this.usersService.update(userId, { emailVerified: true, isActive: true });
+    
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    
+    const accessToken = this.tokenService.generateAccessToken(user);
+    const refreshToken = await this.tokenService.generateRefreshToken(
+      user.id,
+      this.extractContext(req),
+    );
+    
+    this.setRefreshCookie(res, refreshToken);
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role, organisationId: user.organisationId } };
   }
 
   @Public()

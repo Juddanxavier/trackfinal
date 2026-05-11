@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { CsrfProvider } from "@csrf-armor/nextjs/client"
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'})
 const fontMono = Geist_Mono({
@@ -26,11 +27,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="dark">
       <body className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}>
         <ErrorBoundary>
-          <ThemeProvider>
-            <TooltipProvider>
-              {children}
-            </TooltipProvider>
-          </ThemeProvider>
+          <CsrfProvider>
+            <ThemeProvider>
+              <TooltipProvider>
+                {children}
+              </TooltipProvider>
+            </ThemeProvider>
+          </CsrfProvider>
         </ErrorBoundary>
         <Toaster />
       </body>

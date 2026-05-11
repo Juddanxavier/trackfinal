@@ -7,62 +7,65 @@ import { notificationLogs } from '../../database/schema';
 export class NotificationLogsService {
   async logSuccess(
     organisationId: string,
-    userId: string,
-    shipmentId: string,
+    userId: string | null,
+    shipmentId: string | null,
     channel: 'email' | 'whatsapp' | 'in_app',
     titleKey: string,
     data: Record<string, any>,
   ) {
-    await db.insert(notificationLogs).values({
+    const insertData: any = {
       organisationId,
-      userId,
-      shipmentId: shipmentId || null,
       channel,
       titleKey,
       data,
       status: 'sent',
       sentAt: new Date(),
-    });
+    };
+    if (userId) insertData.userId = userId;
+    if (shipmentId) insertData.shipmentId = shipmentId;
+    await db.insert(notificationLogs).values(insertData);
   }
 
   async logFailure(
     organisationId: string,
-    userId: string,
-    shipmentId: string,
+    userId: string | null,
+    shipmentId: string | null,
     channel: 'email' | 'whatsapp' | 'in_app',
     titleKey: string,
     data: Record<string, any>,
     errorMessage: string,
   ) {
-    await db.insert(notificationLogs).values({
+    const insertData: any = {
       organisationId,
-      userId,
-      shipmentId: shipmentId || null,
       channel,
       titleKey,
       data,
       status: 'failed',
       errorMessage,
-    });
+    };
+    if (userId) insertData.userId = userId;
+    if (shipmentId) insertData.shipmentId = shipmentId;
+    await db.insert(notificationLogs).values(insertData);
   }
 
   async logQueued(
     organisationId: string,
-    userId: string,
-    shipmentId: string,
+    userId: string | null,
+    shipmentId: string | null,
     channel: 'email' | 'whatsapp' | 'in_app',
     titleKey: string,
     data: Record<string, any>,
   ) {
-    await db.insert(notificationLogs).values({
+    const insertData: any = {
       organisationId,
-      userId,
-      shipmentId: shipmentId || null,
       channel,
       titleKey,
       data,
       status: 'queued',
-    });
+    };
+    if (userId) insertData.userId = userId;
+    if (shipmentId) insertData.shipmentId = shipmentId;
+    await db.insert(notificationLogs).values(insertData);
   }
 
   async hasSentNotification(

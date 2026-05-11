@@ -57,6 +57,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { ExportButton } from "@/components/export-button"
 import { AnimatedPage, AnimatedCard, AnimatedList, AnimatedListItem } from "@/components/animated-page"
+import { z } from "zod"
+
+// Input validation schemas
+const emailSchema = z.string().email().max(255).optional()
+const phoneSchema = z.string().regex(/^[\d\s\-+()]+$/).max(20).optional()
+const trackingNumberSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9\-]+$/)
+const nameSchema = z.string().min(1).max(200)
 
 type ShipmentStatus = "pending" | "in_transit" | "delivered" | "exception"
 
@@ -113,7 +120,7 @@ const statusVariants: Record<ShipmentStatus, string> = {
 
 export default function ShipmentsPage() {
   const router = useRouter()
-  const { selectedOrganisation } = useAuth()
+  const { selectedOrganisation, isLoading: authLoading, user } = useAuth()
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [carriers, setCarriers] = useState<Carrier[]>([])
@@ -293,11 +300,25 @@ const fetchStats = async () => {
 
   const lookupUser = async (email?: string, phone?: string) => {
     if (!email && !phone) return null
+    
+    // Validate inputs before sending to API
+    try {
+      if (email) {
+        emailSchema.parse(email)
+      }
+      if (phone) {
+        phoneSchema.parse(phone)
+      }
+    } catch (validationErr) {
+      toast.error("Invalid input format")
+      return null
+    }
+    
     try {
       const params = new URLSearchParams()
       if (email) params.set("email", email)
       if (phone) params.set("phone", phone)
-      const res = (await api.get(`/users/lookup?${params}`, { throwOnError: false })) as any
+      const res = await api.get<{ id: string; name?: string; email?: string; phoneNumber?: string }>(`/users/lookup?${params}`, { throwOnError: false })
       if (res?.id) {
         setFormData((prev) => ({
           ...prev,
@@ -315,8 +336,21 @@ const fetchStats = async () => {
   }
 
   const handleCreateShipment = async () => {
+    // Validate inputs using Zod schemas
+    try {
+      trackingNumberSchema.parse(formData.trackingNumber)
+      nameSchema.parse(formData.recipientName)
+      if (formData.recipientEmail) {
+        emailSchema.parse(formData.recipientEmail)
+      }
+      phoneSchema.parse(formData.recipientPhone)
+    } catch (validationErr) {
+      toast.error("Please check your input values")
+      return
+    }
+    
     if (!formData.trackingNumber || !formData.recipientName || !formData.recipientPhone) {
-      alert("Please fill in tracking number, recipient name, and phone")
+      toast.error("Please fill in tracking number, recipient name, and phone")
       return
     }
     setCreating(true)
@@ -336,6 +370,7 @@ const fetchStats = async () => {
           recipientEmail: formData.recipientEmail || undefined,
           recipientPhone: phone,
           userId: formData.userId || undefined,
+          organisationId: selectedOrganisation,
         },
         { throwOnError: false, timeout: 30000 }
       )
@@ -466,11 +501,13 @@ const fetchStats = async () => {
   }
 
   useEffect(() => {
+    if (authLoading || !user) return
     setPage(1)
     fetchShipments()
-  }, [search])
+  }, [search, authLoading, user])
 
   useEffect(() => {
+    if (authLoading || !user) return
     fetchShipments()
   }, [
     page,
@@ -479,25 +516,41 @@ const fetchStats = async () => {
     selectedOrganisation,
     sortColumn,
     sortDirection,
+    authLoading,
+    user,
   ])
 
   useEffect(() => {
+    // Wait for auth to be initialized before making API calls
+    if (authLoading || !user) {
+      console.log('[Shipments] Waiting for auth...', { authLoading, hasUser: !!user })
+      return
+    }
+    
+    const abortController = new AbortController()
+    
+    console.log('[Shipments] Auth ready, fetching initial data')
     fetchStats()
     fetchCarriers()
     fetchQuota()
     const interval = setInterval(fetchQuota, 60 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [selectedOrganisation])
+    
+    return () => {
+      clearInterval(interval)
+      abortController.abort()
+    }
+  }, [selectedOrganisation, authLoading, user])
 
   useEffect(() => {
+    if (authLoading || !user) return
     if (selectedOrganisation) {
-      api.get(`/organisations/${selectedOrganisation}`).then((org: any) => {
+      api.get<{ countryCode?: string }>(`/organisations/${selectedOrganisation}`).then((org) => {
         setOrgCountry(org?.countryCode || "US")
       }).catch(() => setOrgCountry("US"))
     } else {
       setOrgCountry("US")
     }
-  }, [selectedOrganisation])
+  }, [selectedOrganisation, authLoading, user])
 
   useEffect(() => {
     if (!openCreateDialog) {

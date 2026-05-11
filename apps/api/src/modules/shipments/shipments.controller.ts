@@ -9,7 +9,11 @@ import {
   Query,
   UseGuards,
   Request,
+  BadRequestException,
+  ForbiddenException,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor } from '../../common/interceptors/cache.interceptor';
 import {
   ApiTags,
   ApiOperation,
@@ -43,8 +47,16 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Create new shipment' })
   @ApiResponse({ status: 201, description: 'Shipment created' })
   async create(@Body() dto: CreateShipmentDto, @Request() req: any) {
+    // Determine organisation ID: use DTO if provided (for admins), otherwise use user's org
+    const organisationId = dto.organisationId || req.user.organisationId;
+    
+    if (!organisationId) {
+      throw new BadRequestException(
+        'User must be assigned to an organisation to create shipments. Please contact an administrator.',
+      );
+    }
     return this.shipmentsService.create({
-      organisationId: req.user.organisationId,
+      organisationId,
       trackingNumber: dto.trackingNumber,
       carrierCode: dto.carrierCode || 'unknown',
       recipientName: dto.recipientName,
@@ -70,6 +82,11 @@ export class ShipmentsController {
     @Query('organisationId') organisationId?: string,
   ) {
     const orgId = organisationId || req.user.organisationId;
+    if (!orgId) {
+      throw new BadRequestException(
+        'User must be assigned to an organisation to view shipments.',
+      );
+    }
     return this.shipmentsService.findAll({
       organisationId: orgId,
       page: page ? parseInt(page) : 1,
@@ -79,6 +96,14 @@ export class ShipmentsController {
       archived: archived === 'true',
       deleted: deleted === 'true',
     });
+  }
+
+  @Get('my-shipments')
+  @ApiOperation({ summary: 'Get current user\'s shipments' })
+  @ApiResponse({ status: 200, description: 'User shipments list' })
+  async getMyShipments(@Request() req: any) {
+    const userId = req.user.sub;
+    return this.shipmentsService.findByUserId(userId);
   }
 
   @Get('carriers')
@@ -155,37 +180,62 @@ export class ShipmentsController {
   }
 
   @Get('stats')
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get shipment stats' })
   @ApiResponse({ status: 200, description: 'Shipment stats' })
-  async getStats(@Query('organisationId') organisationId?: string) {
-    return this.shipmentsService.getStats(organisationId || '');
+  async getStats(
+    @Request() req: any,
+    @Query('organisationId') organisationId?: string,
+  ) {
+    // Users can only access their own organisation's stats
+    // Admins without org can access any (for system-wide stats)
+    const requestedOrgId = organisationId || req.user.organisationId;
+    if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
+      throw new ForbiddenException('You can only access stats for your organisation');
+    }
+    return this.shipmentsService.getStats(requestedOrgId || '');
   }
 
   @Get('activity')
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: 'Get shipment activity history' })
   @ApiResponse({ status: 200, description: 'Activity data' })
   async getActivity(
+    @Request() req: any,
     @Query('organisationId') organisationId?: string,
     @Query('days') days?: string,
   ) {
+    // Users can only access their own organisation's activity
+    const requestedOrgId = organisationId || req.user.organisationId;
+    if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
+      throw new ForbiddenException('You can only access activity for your organisation');
+    }
     return this.shipmentsService.getActivity(
-      organisationId || '',
+      requestedOrgId || '',
       days ? parseInt(days) : 30,
     );
   }
 
   @Get('destinations')
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: 'Get top destinations' })
   @ApiResponse({ status: 200, description: 'Destination data' })
   async getDestinations(
+    @Request() req: any,
     @Query('organisationId') organisationId?: string,
     @Query('limit') limit?: string,
   ) {
+    // Users can only access their own organisation's destinations
+    const requestedOrgId = organisationId || req.user.organisationId;
+    if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
+      throw new ForbiddenException('You can only access destinations for your organisation');
+    }
     return this.shipmentsService.getDestinations(
-      organisationId || '',
+      requestedOrgId || '',
       limit ? parseInt(limit) : 6,
     );
   }
@@ -195,8 +245,15 @@ export class ShipmentsController {
   @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: 'Get shipment by ID' })
   @ApiResponse({ status: 200, description: 'Shipment details' })
-  async findOne(@Param('id') id: string) {
-    return this.shipmentsService.findOne(id);
+  async findOne(@Param('id') id: string, @Request() req: any) {
+    const shipment = await this.shipmentsService.findOne(id);
+    
+    // Check organisation boundary
+    if (req.user.organisationId && shipment.organisationId !== req.user.organisationId) {
+      throw new ForbiddenException('You can only access shipments in your organisation');
+    }
+    
+    return shipment;
   }
 
   @Patch(':id/status')
@@ -226,6 +283,11 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Archive shipment' })
   @ApiResponse({ status: 200, description: 'Shipment archived' })
   async archive(@Param('id') id: string, @Request() req: any) {
+    if (!req.user.organisationId) {
+      throw new BadRequestException(
+        'User must be assigned to an organisation to archive shipments.',
+      );
+    }
     return this.shipmentsService.archive(id, req.user.organisationId);
   }
 
@@ -235,6 +297,11 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Unarchive shipment' })
   @ApiResponse({ status: 200, description: 'Shipment unarchived' })
   async unarchive(@Param('id') id: string, @Request() req: any) {
+    if (!req.user.organisationId) {
+      throw new BadRequestException(
+        'User must be assigned to an organisation to unarchive shipments.',
+      );
+    }
     return this.shipmentsService.unarchive(id, req.user.organisationId);
   }
 
@@ -244,6 +311,11 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Soft delete shipment' })
   @ApiResponse({ status: 200, description: 'Shipment deleted' })
   async softDelete(@Param('id') id: string, @Request() req: any) {
+    if (!req.user.organisationId) {
+      throw new BadRequestException(
+        'User must be assigned to an organisation to delete shipments.',
+      );
+    }
     return this.shipmentsService.softDelete(id, req.user.organisationId);
   }
 
@@ -253,6 +325,11 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Restore soft-deleted shipment' })
   @ApiResponse({ status: 200, description: 'Shipment restored' })
   async restore(@Param('id') id: string, @Request() req: any) {
+    if (!req.user.organisationId) {
+      throw new BadRequestException(
+        'User must be assigned to an organisation to restore shipments.',
+      );
+    }
     return this.shipmentsService.restore(id, req.user.organisationId);
   }
 }

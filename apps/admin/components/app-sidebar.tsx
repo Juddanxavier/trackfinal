@@ -36,6 +36,12 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
+import { z } from "zod"
+
+// Input validation schemas
+const quickTrackingSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9\-]+$/)
+const quickNameSchema = z.string().min(1).max(200)
+const quickPhoneSchema = z.string().regex(/^[\d\s\-+()]+$/).max(20)
 import {
   LayoutDashboardIcon,
   UsersIcon,
@@ -159,8 +165,18 @@ export function AppSidebar({
   const [creating, setCreating] = useState(false)
 
   const handleQuickCreate = async () => {
-    if (!quickForm.trackingNumber || !quickForm.recipientName || !quickForm.recipientPhone) {
-      toast.error("Please fill in tracking number, recipient name, and phone")
+    // Validate inputs using Zod schemas
+    try {
+      quickTrackingSchema.parse(quickForm.trackingNumber)
+      quickNameSchema.parse(quickForm.recipientName)
+      quickPhoneSchema.parse(quickForm.recipientPhone)
+    } catch (validationErr) {
+      toast.error("Please check your input values")
+      return
+    }
+    
+    if (!selectedOrganisation) {
+      toast.error("Please select an organisation first")
       return
     }
     setCreating(true)
@@ -175,6 +191,7 @@ export function AppSidebar({
         recipientName: quickForm.recipientName,
         recipientEmail: quickForm.recipientEmail || undefined,
         recipientPhone: phone,
+        organisationId: selectedOrganisation,
       }, { throwOnError: false, timeout: 30000 })
       toast.success("Shipment created successfully")
       setOpenQuickCreate(false)
@@ -190,7 +207,8 @@ export function AppSidebar({
   const currentOrg = organisations.find(
     (org) => org.id === selectedOrganisation
   ) || organisations[0]
-  const showOrgSelector = isAdmin && organisations.length > 1
+  // Show org selector for admins if there are any organisations
+  const showOrgSelector = isAdmin && organisations.length > 0
 
   let displayName = currentOrg?.name
   if (!displayName && selectedOrganisation) {

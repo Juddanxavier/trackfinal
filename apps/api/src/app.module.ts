@@ -15,28 +15,16 @@ import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { CarriersModule } from './modules/carriers/carriers.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
+// import { SecurityModule } from './modules/security/security.module';
+import { MonitoringModule } from './modules/monitoring/monitoring.module';
+import { RedisCacheModule } from './modules/cache/cache.module';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
+
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 60000,
-        limit: 5,
-      },
-      {
-        name: 'medium',
-        ttl: 300000,
-        limit: 20,
-      },
-      {
-        name: 'long',
-        ttl: 60000,
-        limit: parseInt(process.env.THROTTLE_LIMIT || '100'),
-      },
-    ]),
+    ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
     AuthModule,
     UsersModule,
@@ -49,6 +37,8 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
     ReportsModule,
     CarriersModule,
     TrackingModule,
+    MonitoringModule,
+    RedisCacheModule,
   ],
   controllers: [AppController],
   providers: [AppService, RequestLoggingMiddleware],

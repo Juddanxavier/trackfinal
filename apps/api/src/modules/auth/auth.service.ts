@@ -125,6 +125,56 @@ export class AuthService {
     };
   }
 
+  async handleGoogleLogin(googleUser: {
+    googleId: string;
+    email: string;
+    name: string;
+  }): Promise<AuthResponseDto> {
+    let user = await this.usersService.findByGoogleId(googleUser.googleId);
+
+    if (!user && googleUser.email) {
+      user = await this.usersService.findByEmail(googleUser.email);
+      if (user) {
+        await this.usersService.update(user.id, { googleId: googleUser.googleId });
+      }
+    }
+
+    if (!user) {
+      const organisation = await this.organisationsService.findBySlug('gajan-traders');
+      if (!organisation) {
+        throw new BadRequestException('Organisation not found');
+      }
+
+      const passwordHash = await hashPassword(Math.random().toString(36), this.configService);
+
+      user = await this.usersService.create({
+        email: googleUser.email,
+        passwordHash,
+        name: googleUser.name,
+        role: Role.CUSTOMER,
+        organisationId: organisation.id,
+        googleId: googleUser.googleId,
+        emailVerified: true,
+      });
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    const accessToken = this.tokenService.generateAccessToken(user);
+    const refreshToken = await this.tokenService.generateRefreshToken(user.id, {
+      ip: 'unknown',
+      userAgent: 'google-oauth',
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.sanitizeUser(user),
+    };
+  }
+
   async register(
     registerDto: RegisterDto,
     context: RequestContext,
@@ -140,10 +190,18 @@ export class AuthService {
       throw new BadRequestException(passwordErrors.join('. '));
     }
 
-    const organisation = await this.organisationsService.create({
-      name: registerDto.organisationName,
-      slug: slugify(registerDto.organisationName),
-    });
+    let organisation;
+    if (registerDto.organisationName) {
+      organisation = await this.organisationsService.create({
+        name: registerDto.organisationName,
+        slug: slugify(registerDto.organisationName),
+      });
+    } else {
+      organisation = await this.organisationsService.findBySlug('gajan-traders');
+      if (!organisation) {
+        throw new BadRequestException('Organisation not found. Please contact support.');
+      }
+    }
 
     const configService = this.configService;
     const passwordHash = await hashPassword(
@@ -392,5 +450,63 @@ export class AuthService {
 
   async deleteInvitation(invitationId: string) {
     await this.invitationsService.delete(invitationId);
+  }
+
+  async customerRegister(
+    email: string,
+    password: string,
+    name: string,
+    phoneNumber: string | undefined,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
+    // Check for duplicate email
+    const existingUser = await this.usersService.findByEmail(email);
+    if (existingUser) {
+      throw new BadRequestException(
+        'An account already exists with this email. Please login instead.',
+      );
+    }
+
+    // Check for duplicate phone number if provided
+    if (phoneNumber) {
+      const existingPhone = await this.usersService.findByPhoneNumber(phoneNumber);
+      if (existingPhone) {
+        throw new BadRequestException(
+          'This phone number is already registered. Please use a different number.',
+        );
+      }
+    }
+
+    const passwordErrors = validatePassword(password);
+    if (passwordErrors.length > 0) {
+      throw new BadRequestException(passwordErrors.join('. '));
+    }
+
+    const passwordHash = await hashPassword(password, this.configService);
+
+    const organisation = await this.organisationsService.findBySlug('gajan-traders');
+    if (!organisation) {
+      throw new BadRequestException('Organisation not found. Please contact support.');
+    }
+
+    const user = await this.usersService.create({
+      email,
+      passwordHash,
+      name,
+      phoneNumber,
+      role: Role.CUSTOMER,
+      organisationId: organisation.id,
+      isActive: false,
+      emailVerified: false,
+    });
+
+    const verificationToken = await this.verificationsService.create(user.id, 'email');
+    
+    // Send verification email
+    await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    
+    return {
+      message: 'Registration successful. Please check your email to verify your account.',
+    };
   }
 }

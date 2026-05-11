@@ -36,4 +36,9 @@ export class CreateShipmentDto {
   @IsString()
   @IsOptional()
   userId?: string;
+
+  @ApiPropertyOptional({ description: 'Organisation ID (required for admins without assigned org)' })
+  @IsString()
+  @IsOptional()
+  organisationId?: string;
 }

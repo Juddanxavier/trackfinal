@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { api, clearAuth, subscribeAuthChange, getMe, logout as apiLogout, login as apiLogin, AuthUser, hasValidSession, restoreSession } from "@/lib/api"
+import { toast } from "sonner"
+import { api, subscribeAuthChange, restoreSession, login as apiLogin, logout as apiLogout, AuthUser, hasValidSession, getCurrentUser, fetchCsrfToken } from "@/lib/api"
 
 export type { AuthUser as User }
 
@@ -45,14 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [organisations, setOrganisations] = React.useState<Organisation[]>([])
   const [selectedOrganisation, setSelectedOrganisationState] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
+  const isInitialized = React.useRef(false)
 
   const logout = React.useCallback(async () => {
     try {
       await apiLogout()
     } catch (err) {
-      console.error('Logout API call failed:', err);
+      console.error('Logout API call failed:', err)
     } finally {
-      clearAuth()
       setUser(null)
       setOrganisations([])
       setSelectedOrganisationState(null)
@@ -62,34 +63,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = React.useCallback(async (): Promise<AuthUser | null> => {
     try {
-      const userData = await getMe()
-      setUser(userData)
+      // restoreSession validates the token with the server
+      const userData = await restoreSession()
+      if (userData) {
+        setUser(userData)
+      }
       return userData
     } catch (err) {
-      clearAuth()
+      console.error('Failed to refresh user:', err)
       setUser(null)
       return null
     }
   }, [])
 
   const fetchOrganisations = React.useCallback(async (userData: AuthUser): Promise<Organisation[]> => {
-    if (!userData.organisationId) {
-      return []
-    }
-
     try {
-      let orgs: Organisation[]
+      console.log('[AuthContext] Fetching organisations for:', userData.email, 'Role:', userData.role)
+      
+      let orgs: Organisation[] = []
+      
       if (userData.role === "admin") {
-        orgs = await api.get<Organisation[]>("/organisations")
-        if (!Array.isArray(orgs) || orgs.length === 0) {
-          orgs = [await api.get<Organisation>(`/organisations/${userData.organisationId}`)]
+        // Admins can see all organisations
+        const response = await api.get<Organisation[]>("/organisations", { throwOnError: false })
+        if (Array.isArray(response)) {
+          orgs = response
+        }
+        
+        // If no orgs found, try to fetch user's own org
+        if (orgs.length === 0 && userData.organisationId) {
+          const userOrg = await api.get<Organisation>(`/organisations/${userData.organisationId}`, { throwOnError: false })
+          if (userOrg && !('error' in userOrg)) {
+            orgs = [userOrg]
+          }
         }
       } else {
-        orgs = [await api.get<Organisation>(`/organisations/${userData.organisationId}`)]
+        // Non-admins: fetch their own organisation
+        if (userData.organisationId) {
+          const userOrg = await api.get<Organisation>("/organisations/me", { throwOnError: false })
+          if (userOrg && !('error' in userOrg)) {
+            orgs = [userOrg]
+          } else {
+            // Fallback to direct ID
+            const org = await api.get<Organisation>(`/organisations/${userData.organisationId}`, { throwOnError: false })
+            if (org && !('error' in org)) {
+              orgs = [org]
+            }
+          }
+        }
       }
+      
+      console.log('[AuthContext] Fetched organisations:', orgs.length)
       setOrganisations(orgs)
+      
+      if (orgs.length === 0) {
+        toast.error("Failed to load organisation data")
+      }
+      
       return orgs
-    } catch {
+    } catch (err) {
+      console.error('[AuthContext] Error fetching organisations:', err)
       setOrganisations([])
       return []
     }
@@ -97,98 +129,111 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = React.useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const user = await apiLogin(email, password)
-    setUser(user)
-    const orgs = await fetchOrganisations(user)
-    if (orgs.length > 0) {
-      if (user.organisationId) {
-        setSelectedOrganisationState(user.organisationId)
-        localStorage.setItem(STORAGE_KEY, user.organisationId)
-      }
-    } else if (user.organisationId) {
-      setSelectedOrganisationState(user.organisationId)
-      localStorage.setItem(STORAGE_KEY, user.organisationId)
+    
+    // Check if user is a customer - customers cannot access admin
+    if (user.role === "customer") {
+      await logout()
+      throw new Error("Access denied. Customers cannot access the admin portal.")
     }
+    
+    setUser(user)
+    
+    // Fetch new CSRF token after login
+    await fetchCsrfToken()
+    
+    const orgs = await fetchOrganisations(user)
+    
+    // Set selected organisation
+    const orgId = user.organisationId || (orgs.length > 0 ? orgs[0].id : null)
+    if (orgId) {
+      setSelectedOrganisationState(orgId)
+      localStorage.setItem(STORAGE_KEY, orgId)
+    }
+    
     return user
-  }, [fetchOrganisations])
+  }, [fetchOrganisations, logout])
 
+  // Initialize auth state
   React.useEffect(() => {
-    let isMounted = true
+    if (isInitialized.current) return
+    isInitialized.current = true
 
     const init = async () => {
-      try {
-        const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname.startsWith('/(auth)') || pathname.startsWith('/reset-password')
+      console.log('[AuthContext] Initializing...')
+      
+      // Fetch CSRF token early for state-changing operations
+      await fetchCsrfToken()
+      
+      const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].some(
+        path => pathname === path || pathname.startsWith(`${path}/`)
+      )
 
+      try {
         if (isAuthPage) {
+          // On auth pages, just check if already logged in
           if (hasValidSession()) {
             const userData = await refreshUser()
-            if (userData) {
+            if (userData && userData.role !== 'customer') {
               router.push('/dashboard')
               return
             }
           }
-          if (isMounted) setIsLoading(false)
+          setIsLoading(false)
           return
         }
 
-        let userData: AuthUser | null = null
-
-        if (hasValidSession()) {
-          userData = await refreshUser()
-        } else {
-          userData = await restoreSession()
-        }
-
+        // On protected pages, restore session
+        const userData = await restoreSession()
+        
         if (!userData) {
-          if (isMounted) {
-            clearAuth()
-            router.push('/login')
-          }
+          console.log('[AuthContext] No valid session, redirecting to login')
+          router.push('/login')
           return
         }
 
-        const orgs = await fetchOrganisations(userData)
-        if (!isMounted) return
-
-        if (orgs.length > 0) {
-          const stored = localStorage.getItem(STORAGE_KEY)
-          if (stored && orgs.some(o => o.id === stored)) {
-            setSelectedOrganisationState(stored)
-          } else if (userData.organisationId) {
-            setSelectedOrganisationState(userData.organisationId)
-            localStorage.setItem(STORAGE_KEY, userData.organisationId)
-          }
-        } else if (userData.organisationId) {
-          setSelectedOrganisationState(userData.organisationId)
-          localStorage.setItem(STORAGE_KEY, userData.organisationId)
+        // Check if customer
+        if (userData.role === 'customer') {
+          await logout()
+          return
         }
-      } catch {
-        clearAuth()
-        setUser(null)
+
+        setUser(userData)
+        const orgs = await fetchOrganisations(userData)
+
+        // Restore selected organisation from storage or use user's org
+        const storedOrgId = localStorage.getItem(STORAGE_KEY)
+        const validOrgId = storedOrgId && orgs.some(o => o.id === storedOrgId)
+          ? storedOrgId
+          : userData.organisationId || (orgs.length > 0 ? orgs[0].id : null)
+        
+        if (validOrgId) {
+          setSelectedOrganisationState(validOrgId)
+          localStorage.setItem(STORAGE_KEY, validOrgId)
+        }
+      } catch (err) {
+        console.error('[AuthContext] Initialization error:', err)
+        await logout()
       } finally {
-        if (isMounted) setIsLoading(false)
+        setIsLoading(false)
       }
     }
 
     init()
 
-    const unsubscribe = subscribeAuthChange(async () => {
-      if (!hasValidSession()) {
-        setUser(null)
+    // Listen for auth changes from other tabs
+    const unsubscribe = subscribeAuthChange(() => {
+      const currentUser = getCurrentUser()
+      setUser(currentUser)
+      if (!currentUser) {
         setOrganisations([])
         setSelectedOrganisationState(null)
-      } else if (!user) {
-        const userData = await refreshUser()
-        if (userData) {
-          await fetchOrganisations(userData)
-        }
       }
     })
 
     return () => {
-      isMounted = false
       unsubscribe()
     }
-  }, [refreshUser, fetchOrganisations])
+  }, [pathname, router, logout, refreshUser, fetchOrganisations])
 
   const setSelectedOrganisation = React.useCallback((orgId: string) => {
     setSelectedOrganisationState(orgId)

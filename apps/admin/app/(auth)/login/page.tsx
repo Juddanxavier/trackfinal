@@ -11,7 +11,8 @@ import { Eye, EyeOff, Loader2, CommandIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { api, setAccessToken } from "@/lib/api"
+import { login as apiLogin } from "@/lib/api"
+import { useRateLimiter } from "@/hooks/use-rate-limiter"
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -31,6 +32,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const rateLimiter = useRateLimiter({
+    maxAttempts: 5,
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    cooldownMs: 15 * 60 * 1000, // 15 minutes lock
+  })
+
   const {
     register,
     handleSubmit,
@@ -41,19 +48,30 @@ export default function LoginPage() {
   })
 
   const onSubmit = async (data: LoginFormData) => {
+    if (!rateLimiter.canAttempt) {
+      const minutes = Math.ceil(rateLimiter.remainingTime / 60000)
+      setError("password", { message: `Too many attempts. Please try again in ${minutes} minutes.` })
+      return
+    }
+
     setLoading(true)
     try {
-      const res = await api.post<{ accessToken: string }>("/auth/login", {
-        email: data.email,
-        password: data.password,
-      })
-      if (res.accessToken) {
-        setAccessToken(res.accessToken, 900)
-        window.location.href = redirect
+      const user = await apiLogin(data.email, data.password)
+      
+      // Check if user is a customer - customers cannot access admin
+      if (user.role === "customer") {
+        rateLimiter.recordAttempt(false)
+        setError("password", { message: "Access denied. Customers cannot access the admin portal." })
+        setLoading(false)
         return
       }
-    } catch (err: any) {
-      setError("password", { message: err.message || "Invalid credentials" })
+      
+      rateLimiter.recordAttempt(true)
+      window.location.href = redirect
+    } catch (err) {
+      rateLimiter.recordAttempt(false)
+      const errorMessage = err instanceof Error ? err.message : "Invalid credentials"
+      setError("password", { message: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -144,9 +162,9 @@ export default function LoginPage() {
               </a>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !rateLimiter.canAttempt}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Signing in..." : rateLimiter.isLocked ? `Locked (${Math.ceil(rateLimiter.remainingTime / 60000)}m)` : "Sign in"}
             </Button>
           </form>
 

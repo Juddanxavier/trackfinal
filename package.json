@@ -20,7 +20,10 @@
     "pnpm": ">=9"
   },
   "dependencies": {
+    "@csrf-armor/nextjs": "^1.4.4",
+    "@repo/auth": "workspace:*",
     "framer-motion": "^12.38.0",
+    "jwt-decode": "^4.0.0",
     "primer-avatars": "^2.0.0"
   }
 }

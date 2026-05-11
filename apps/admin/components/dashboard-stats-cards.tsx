@@ -28,10 +28,19 @@ interface StatConfig {
   chartColor: string
 }
 
-function MiniSparkline({ color }: { color: string }) {
-  const data = Array.from({ length: 7 }, () => ({
-    value: Math.floor(Math.random() * 50) + 25,
-  }))
+function MiniSparkline({ color, value = 0 }: { color: string; value?: number }) {
+  console.log('Sparkline value:', value, 'color:', color)
+  const data = value === 0 
+    ? Array.from({ length: 7 }, () => ({ value: 0 }))
+    : [
+        { value: 20 + Math.random() * 20 },
+        { value: 40 + Math.random() * 20 },
+        { value: 30 + Math.random() * 30 },
+        { value: 60 + Math.random() * 20 },
+        { value: 45 + Math.random() * 25 },
+        { value: 70 + Math.random() * 15 },
+        { value: 50 + Math.random() * 20 },
+      ]
 
   return (
     <ResponsiveContainer width="100%" height={24}>
@@ -114,7 +123,7 @@ export function DashboardStatsCards({ shipmentStats, quoteStats }: DashboardStat
           </div>
           <p className="mt-2 text-2xl font-bold">{stat.value.toLocaleString()}</p>
           <p className="mt-1 text-xs text-muted-foreground">{stat.subtitle}</p>
-          <MiniSparkline color={stat.chartColor} />
+          <MiniSparkline color={stat.chartColor} value={stat.value} />
         </motion.div>
       ))}
     </div>

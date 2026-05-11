@@ -65,10 +65,8 @@ export class ShipmentsService {
     const isValidCarrier = await this.carriersService.isValidCarrier(
       data.carrierCode,
     );
-    if (!isValidCarrier) {
-      throw new BadRequestException(
-        `Invalid carrier code: ${data.carrierCode}`,
-      );
+    if (!isValidCarrier && data.carrierCode !== 'unknown') {
+      this.logger.warn(`Invalid carrier code: ${data.carrierCode}, defaulting to unknown`);
     }
 
     const [existing] = await db
@@ -743,5 +741,23 @@ export class ShipmentsService {
       country: r.destinationCountry || 'Unknown',
       count: r.count,
     }));
+  }
+
+  async findByUserId(userId: string) {
+    this.logger.log(`[FIND BY USER] Fetching shipments for user: ${userId}`);
+    
+    const results = await db
+      .select()
+      .from(shipments)
+      .where(
+        and(
+          eq(shipments.userId, userId),
+          isNull(shipments.deletedAt),
+        ),
+      )
+      .orderBy(desc(shipments.createdAt));
+
+    this.logger.log(`[FIND BY USER] Found ${results.length} shipments for user ${userId}`);
+    return results;
   }
 }

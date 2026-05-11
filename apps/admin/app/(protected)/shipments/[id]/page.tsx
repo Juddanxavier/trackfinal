@@ -85,7 +85,19 @@ interface Shipment {
   recipientAddress?: string
   originCountry?: string
   destinationCountry?: string
-  track17Data?: any
+  track17Data?: {
+    origin_country?: string;
+    destination_country?: string;
+    tracking?: {
+      checkpoints?: Array<{
+        checkpoint_time?: string;
+        location?: string;
+        status?: string;
+        message?: string;
+      }>;
+    };
+    lastSync?: string;
+  }
   createdAt: string
   updatedAt: string
   deliveredAt?: string

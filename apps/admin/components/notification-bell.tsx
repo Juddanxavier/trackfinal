@@ -61,8 +61,8 @@ export function NotificationBell() {
     try {
       const data = await api.get<Notification[]>("/notifications?limit=5")
       setNotifications(data)
-    } catch (error: any) {
-      if (error?.statusCode === 401) return
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
       console.error("Failed to fetch notifications:", error)
     }
   }, [])
@@ -74,8 +74,8 @@ export function NotificationBell() {
     try {
       const count = await api.get<number>("/notifications/unread-count")
       setUnreadCount(count)
-    } catch (error: any) {
-      if (error?.statusCode === 401) return
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
       console.error("Failed to fetch unread count:", error)
     }
   }, [])
@@ -95,8 +95,8 @@ export function NotificationBell() {
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
-    } catch (error: any) {
-      if (error?.statusCode === 401) return
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
       console.error("Failed to mark as read:", error)
     }
   }
@@ -106,8 +106,8 @@ export function NotificationBell() {
       await api.patch("/notifications/read-all")
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
       setUnreadCount(0)
-    } catch (error: any) {
-      if (error?.statusCode === 401) return
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
       console.error("Failed to mark all as read:", error)
     }
   }

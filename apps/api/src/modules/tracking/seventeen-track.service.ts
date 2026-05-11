@@ -9,6 +9,10 @@ import {
   trackingTransLog,
 } from '../../database/schema/tracking';
 import { eq, and, gt, lt, asc, sql, or, isNull, count } from 'drizzle-orm';
+import {
+  CircuitBreaker,
+  CircuitBreakerRegistry,
+} from '../../common/utils/circuit-breaker';
 
 const logger = new Logger('SeventeenTrack');
 
@@ -130,6 +134,7 @@ const STATUS_MAP: Record<string, TrackingData['status']> = {
 export class SeventeenTrackService {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.17track.net/track/v2.4';
+  private circuitBreaker: CircuitBreaker;
 
   private rateLimits = {
     register: { maxRequests: 100, windowMs: 60000 },
@@ -144,6 +149,14 @@ export class SeventeenTrackService {
     if (!this.apiKey) {
       throw new Error('SEVENTEEN_API_KEY is required');
     }
+    
+    // Initialize circuit breaker for 17Track API
+    this.circuitBreaker = CircuitBreakerRegistry.getOrCreate('17track-api', {
+      failureThreshold: 5,
+      resetTimeout: 60000,
+      halfOpenMaxCalls: 3,
+      successThreshold: 2,
+    });
     this.loadRateLimitsFromDb();
   }
 
@@ -220,7 +233,20 @@ export class SeventeenTrackService {
     total: number;
     remaining: number;
   } | null> {
+    // Return mock data if no API key is configured
+    if (!this.apiKey || this.apiKey === 'your-17track-api-key') {
+      logger.warn('[17Track] No API key configured, returning mock quota data');
+      return {
+        used: 0,
+        total: 200,
+        remaining: 200,
+      };
+    }
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
       const response = await fetch(`${this.baseUrl}/getquota`, {
         method: 'POST',
         headers: {
@@ -228,7 +254,10 @@ export class SeventeenTrackService {
           '17token': this.apiKey,
         },
         body: JSON.stringify([]),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       const data = await response.json();
       logger.log('[17Track] getquota response:', JSON.stringify(data));
@@ -242,7 +271,12 @@ export class SeventeenTrackService {
       return null;
     } catch (error: any) {
       logger.error('[17Track] getquota failed:', error.message);
-      return null;
+      // Return default values on error
+      return {
+        used: 0,
+        total: 200,
+        remaining: 200,
+      };
     }
   }
 
@@ -280,16 +314,34 @@ export class SeventeenTrackService {
     logger.log(`[17Track] register request: ${JSON.stringify(requestData)}`);
 
     try {
-      const response = await fetch(`${this.baseUrl}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          '17token': this.apiKey,
+      // Use circuit breaker for external API call
+      const data = await this.circuitBreaker.execute(
+        async () => {
+          const response = await fetch(`${this.baseUrl}/register`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              '17token': this.apiKey,
+            },
+            body: JSON.stringify(requestData),
+          });
+          return (await response.json()) as RegisterResponse;
         },
-        body: JSON.stringify(requestData),
-      });
+        // Fallback when circuit is open
+        () => {
+          logger.warn('[17Track] Circuit open, using fallback');
+          return {
+            code: -1,
+            data: {
+              rejected: [{
+                number: trackingNumber,
+                error: { code: -1, message: 'Service temporarily unavailable' },
+              }],
+            },
+          } as RegisterResponse;
+        },
+      );
 
-      const data = (await response.json()) as RegisterResponse;
       console.log('[17Track] Register response:', JSON.stringify(data));
 
       if (data.code !== 0) {
@@ -364,16 +416,30 @@ export class SeventeenTrackService {
     logger.log(`[17Track] getTracking request: ${JSON.stringify(requestData)}`);
 
     try {
-      const response = await fetch(`${this.baseUrl}/gettrackinfo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          '17token': this.apiKey,
+      // Use circuit breaker for external API call
+      const data = await this.circuitBreaker.execute(
+        async () => {
+          const response = await fetch(`${this.baseUrl}/gettrackinfo`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              '17token': this.apiKey,
+            },
+            body: JSON.stringify(requestData),
+          });
+          return (await response.json()) as GetTrackacesResponse;
         },
-        body: JSON.stringify(requestData),
-      });
+        // Fallback when circuit is open
+        () => {
+          logger.warn('[17Track] Circuit open, getTracking unavailable');
+          return null;
+        },
+      );
 
-      const data = (await response.json()) as GetTrackacesResponse;
+      if (!data) {
+        return null;
+      }
+
       console.log('[17Track] GetTracking response:', JSON.stringify(data));
 
       if (data.code !== 0 || !data.data?.accepted?.[0]) {

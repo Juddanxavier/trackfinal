@@ -10,7 +10,7 @@ import { Eye, EyeOff, Loader2, ArrowLeft, CommandIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { api, setAccessToken, getMe } from "@/lib/api"
+import { api, restoreSession } from "@/lib/api"
 import bglogin from "@/public/bglogin.png"
 
 const registerSchema = z
@@ -51,7 +51,8 @@ export default function RegisterPage() {
     setLoading(true)
     setError("")
     try {
-      const res = await api.post<{ accessToken: string; user: any }>(
+      // Registration returns access token directly
+      const res = await api.post<{ accessToken: string; user: { role: string; organisationId?: string } }>(
         "/auth/register",
         {
           token,
@@ -59,23 +60,21 @@ export default function RegisterPage() {
           name: data.name,
         }
       )
+      
       if (res?.accessToken) {
-        setAccessToken(res.accessToken)
-        const user = await getMe()
+        // Store token and restore session to get user data
+        localStorage.setItem('track_access_token', res.accessToken)
+        const user = await restoreSession()
+        
         if (user?.organisationId) {
-          const org = await api.get<any>(
-            `/organisations/${user.organisationId}`
-          )
-          if (org?.name) {
-            localStorage.setItem("selectedOrganisationId", user.organisationId)
-            window.location.reload()
-            return
-          }
+          localStorage.setItem("selectedOrganisationId", user.organisationId)
         }
+        
         router.push("/dashboard")
       }
-    } catch (err: any) {
-      setError(err.message || "Registration failed")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Registration failed"
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

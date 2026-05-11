@@ -70,19 +70,25 @@ export class OrganisationsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user organisation' })
   @ApiResponse({ status: 200, description: 'Organisation details' })
-  getMyOrganisation(@Request() req: any) {
+  async getMyOrganisation(@Request() req: any) {
+    if (!req.user.organisationId) {
+      return null;
+    }
     return this.organisationsService.findById(req.user.organisationId);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get organisation by ID' })
   @ApiParam({ name: 'id', description: 'Organisation UUID' })
   @ApiResponse({ status: 200, description: 'Organisation found' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   findOne(@Param('id') id: string, @Request() req: any) {
+    // Users can only view their own organisation, admins can view any
+    if (req.user.role !== Role.ADMIN && req.user.organisationId !== id) {
+      return null;
+    }
     return this.organisationsService.findById(id);
   }
 

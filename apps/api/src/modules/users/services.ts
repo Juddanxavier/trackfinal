@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { db } from '../../database';
 import { users, organisations, sessions } from '../../database/schema';
-import { eq, like, or, and, desc, asc, lt, ne, sql } from 'drizzle-orm';
+import { eq, like, or, and, desc, asc, lt, ne, sql, isNotNull } from 'drizzle-orm';
 import { Role } from '../../common/enums/role.enum';
 
 export interface FindWithPaginationParams {
@@ -60,11 +60,25 @@ export class UsersService {
 
     const cleanedInput = phoneNumber.replace(/\D/g, '').slice(-10);
 
-    const allUsers = await db.select().from(users);
+    // Build conditions for more efficient query
+    const conditions: any[] = [isNotNull(users.phoneNumber)];
+    if (organisationId) {
+      conditions.push(eq(users.organisationId, organisationId));
+    }
+    if (excludeUserId) {
+      conditions.push(ne(users.id, excludeUserId));
+    }
 
+    // Query users with phone numbers (more efficient than fetching all)
+    const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
+    const potentialUsers = await db
+      .select()
+      .from(users)
+      .where(whereClause);
+
+    // Find matching user by last 10 digits
     return (
-      allUsers.find((u) => {
-        if (excludeUserId && u.id === excludeUserId) return false;
+      potentialUsers.find((u) => {
         if (!u.phoneNumber) return false;
         const cleanedUser = u.phoneNumber.replace(/\D/g, '').slice(-10);
         return cleanedUser === cleanedInput;
@@ -195,20 +209,31 @@ export class UsersService {
   }
 
   async getAllStats(organisationId?: string) {
-    let allUsers = await db.select().from(users);
+    const baseCondition = organisationId
+      ? eq(users.organisationId, organisationId)
+      : undefined;
 
-    if (organisationId) {
-      allUsers = allUsers.filter((u) => u.organisationId === organisationId);
-    }
+    const [totalResult, activeResult, customersResult, staffResult] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(users).where(baseCondition),
+      db.select({ count: sql<number>`count(*)` }).from(users).where(
+        baseCondition ? and(baseCondition, eq(users.isActive, true)) : eq(users.isActive, true)
+      ),
+      db.select({ count: sql<number>`count(*)` }).from(users).where(
+        baseCondition ? and(baseCondition, eq(users.role, Role.CUSTOMER)) : eq(users.role, Role.CUSTOMER)
+      ),
+      db.select({ count: sql<number>`count(*)` }).from(users).where(
+        baseCondition
+          ? and(baseCondition, or(eq(users.role, Role.STAFF), eq(users.role, Role.ADMIN)))
+          : or(eq(users.role, Role.STAFF), eq(users.role, Role.ADMIN))
+      ),
+    ]);
 
-    const total = allUsers.length;
-    const active = allUsers.filter((u) => u.isActive).length;
-    const customers = allUsers.filter((u) => u.role === Role.CUSTOMER).length;
-    const staff = allUsers.filter(
-      (u) => u.role === Role.STAFF || u.role === Role.ADMIN,
-    ).length;
-
-    return { total, active, customers, staff };
+    return {
+      total: Number(totalResult[0]?.count || 0),
+      active: Number(activeResult[0]?.count || 0),
+      customers: Number(customersResult[0]?.count || 0),
+      staff: Number(staffResult[0]?.count || 0),
+    };
   }
 
   async invite(data: {
@@ -246,9 +271,11 @@ export class UsersService {
     email: string;
     passwordHash?: string;
     name: string;
+    phoneNumber?: string;
     role?: Role;
     googleId?: string;
     organisationId?: string;
+    isActive?: boolean;
     emailVerified?: boolean;
   }) {
     const result = await db
@@ -257,9 +284,11 @@ export class UsersService {
         email: data.email,
         passwordHash: data.passwordHash,
         name: data.name,
+        phoneNumber: data.phoneNumber || null,
         role: data.role || Role.CUSTOMER,
         googleId: data.googleId,
         organisationId: data.organisationId,
+        isActive: data.isActive ?? false,
         emailVerified: data.emailVerified || false,
       })
       .returning();
