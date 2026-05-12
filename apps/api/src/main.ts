@@ -111,10 +111,54 @@ async function migrateQuotesColumns() {
   }
 }
 
+async function migrateTrackingTables() {
+  try {
+    const db = await import('./database/index.js').then((m) => m.db);
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS tracking_jobs (
+        id VARCHAR(36) PRIMARY KEY,
+        shipment_id VARCHAR(36),
+        tracking_number VARCHAR(100),
+        carrier_code VARCHAR(50),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        operation VARCHAR(50),
+        attempts INT DEFAULT 0,
+        max_attempts INT DEFAULT 3,
+        last_attempt_at TIMESTAMP,
+        next_attempt_at TIMESTAMP,
+        last_error TEXT,
+        priority INT DEFAULT 0,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP
+      )
+    `);
+    console.log('[Tracking Migration] tracking_jobs table ready');
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS tracking_api_rate_limits (
+        id SERIAL PRIMARY KEY,
+        api_key VARCHAR(255) NOT NULL,
+        endpoint VARCHAR(100),
+        request_count INT DEFAULT 0,
+        window_start TIMESTAMP,
+        window_end TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('[Tracking Migration] tracking_api_rate_limits table ready');
+  } catch (err) {
+    console.error('[Tracking Migration] FAILED:', err.message);
+  }
+}
+
 async function bootstrap() {
   await migrateCarriers();
   await migrateAdditionalColumns();
   await migrateQuotesColumns();
+  await migrateTrackingTables();
 
   const app = await NestFactory.create(AppModule);
 
