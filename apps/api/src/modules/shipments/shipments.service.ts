@@ -89,6 +89,7 @@ export class ShipmentsService {
       .from(organisations)
       .where(eq(organisations.id, data.organisationId));
     const orgCountry = org?.countryCode || 'Unknown';
+    const orgSlug = org?.slug || 'GT';
 
     const detectPhoneCountry = (phone: string): string => {
       const clean = phone.replace(/\D/g, '');
@@ -176,10 +177,11 @@ export class ShipmentsService {
       );
     }
 
-    const generateWhiteLabelCode = () => {
+    const generateWhiteLabelCode = (orgSlug: string) => {
+      const prefix = orgSlug.substring(0, 3).toUpperCase();
       const digits = '0123456789';
-      let code = '';
-      for (let i = 0; i < 14; i++) {
+      let code = prefix;
+      for (let i = 0; i < 11; i++) {
         code += digits.charAt(Math.floor(Math.random() * digits.length));
       }
       return code;
@@ -190,7 +192,7 @@ export class ShipmentsService {
       .values({
         organisationId: data.organisationId,
         trackingNumber: data.trackingNumber,
-        whiteLabelTrackingCode: generateWhiteLabelCode(),
+        whiteLabelTrackingCode: generateWhiteLabelCode(orgSlug),
         carrierCode,
         recipientName: data.recipientName,
         originCountry,
