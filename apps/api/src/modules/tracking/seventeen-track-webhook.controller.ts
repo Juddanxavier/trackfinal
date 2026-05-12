@@ -26,6 +26,8 @@ export class SeventeenTrackWebhookController {
   @Post()
   @Public()
   async handleWebhook(@Body() payload: any[]) {
+    console.log('[17Track Webhook] Received:', JSON.stringify(payload).slice(0, 200));
+    
     const webhookToken = this.configService.get<string>(
       'SEVENTEEN_WEBHOOK_TOKEN',
     );
@@ -35,17 +37,23 @@ export class SeventeenTrackWebhookController {
       webhookToken &&
       (!providedToken || !timingSafeEqual(providedToken, webhookToken))
     ) {
+      console.log('[17Track Webhook] Invalid token');
       throw new UnauthorizedException('Invalid webhook token');
     }
 
-    const cleanPayload = payload.map((item) => ({
-      number: item.number,
-      carrier: item.carrier,
-      tag: item.tag,
-      track_info: item.track_info,
-    }));
+    try {
+      const cleanPayload = payload.map((item) => ({
+        number: item.number,
+        carrier: item.carrier,
+        tag: item.tag,
+        track_info: item.track_info,
+      }));
 
-    return this.trackingSyncService.handleWebhook(cleanPayload);
+      return this.trackingSyncService.handleWebhook(cleanPayload);
+    } catch (err) {
+      console.error('[17Track Webhook] ERROR:', err);
+      throw err;
+    }
   }
 
   @Post('settings')
