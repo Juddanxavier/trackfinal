@@ -85,13 +85,12 @@ export class MSG91Service {
     const tracking = whiteLabelCode || trackingNumber || 'N/A';
     const destination = destinationCountry || 'N/A';
     const loc = location || 'N/A';
-    const carrier = carrierCode?.toUpperCase() || 'N/A';
     const messages: Record<string, string> = {
-      shipment_created: `Hi ${name}, your order has been created! Tracking Number: ${tracking} Destination: ${destination} Carrier: ${carrier}. We will notify you when there's an update.`,
-      shipment_in_transit: `Hi ${name}, your order has shipped! Tracking Number: ${tracking} Destination: ${destination} Current Status: ${currentStatus} Location: ${loc}. We will continue to provide updates until delivery.`,
-      shipment_delivered: `Hi ${name}, your order has been delivered! Tracking Number: ${tracking} Delivered To: ${destination} Status: ${currentStatus} Location: ${loc} Carrier: ${carrier}. Thank you for choosing us!`,
-      shipment_exception: `Hi ${name}, there is an issue with your order. Tracking Number: ${tracking} Location: ${loc}. Please contact support for assistance.`,
-      shipment_cancelled: `Hi ${name}, your order has been cancelled. Tracking Number: ${tracking}. If you have questions, contact support.`,
+      shipment_created: `Hi ${name}, your order has been created! Track: ${tracking} To: ${destination}. We will notify you when there's an update.`,
+      shipment_in_transit: `Hi ${name}, your order is in transit! Track: ${tracking} Location: ${loc}. We will continue to provide updates until delivery.`,
+      shipment_delivered: `Hi ${name}, your order has been delivered! Track: ${tracking} To: ${destination}. Thank you for choosing us!`,
+      shipment_exception: `Hi ${name}, there is an issue with your order. Track: ${tracking} Location: ${loc}. Please contact support for assistance.`,
+      shipment_cancelled: `Hi ${name}, your order has been cancelled. Track: ${tracking}. If you have questions, contact support.`,
     };
     return `[MSG91 WhatsApp] To: ${phone}\n${messages[status] || status}`;
   }
