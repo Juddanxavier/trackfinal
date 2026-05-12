@@ -314,6 +314,8 @@ export class QuotesService {
   }
 
   async getStats(organisationId?: string) {
+    console.log('[getStats] organisationId:', organisationId);
+    try {
     const allQuotes = await db
       .select()
       .from(quotes)
@@ -325,6 +327,7 @@ export class QuotesService {
             )
           : isNull(quotes.deletedAt),
       );
+      console.log('[getStats] Found quotes:', allQuotes.length);
 
     const total = allQuotes.length;
     const pending = allQuotes.filter((q) => q.status === 'pending').length;
@@ -339,6 +342,10 @@ export class QuotesService {
     ).length;
 
     return { total, pending, quoted, accepted, rejected, recent };
+    } catch (err) {
+      console.error('[getStats] ERROR:', err);
+      throw err;
+    }
   }
 
   async getActivityHistory(organisationId?: string, days: number = 30) {
