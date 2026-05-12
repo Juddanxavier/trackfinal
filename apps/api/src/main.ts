@@ -149,6 +149,22 @@ async function migrateTrackingTables() {
       )
     `);
     console.log('[Tracking Migration] tracking_api_rate_limits table ready');
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS tracking_settings (
+        id SERIAL PRIMARY KEY,
+        organisation_id VARCHAR(36),
+        webhook_enabled BOOLEAN DEFAULT true,
+        polling_enabled BOOLEAN DEFAULT true,
+        polling_interval_minutes INT DEFAULT 60,
+        retry_attempts INT DEFAULT 3,
+        retry_delay_seconds INT DEFAULT 60,
+        last_sync_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('[Tracking Migration] tracking_settings table ready');
   } catch (err) {
     console.error('[Tracking Migration] FAILED:', err.message);
   }
