@@ -27,6 +27,7 @@ import {
   PaletteIcon,
   SaveIcon,
   Loader2Icon,
+  BellIcon,
 } from "lucide-react"
 import { AnimatedPage } from "@/components/animated-page"
 
@@ -147,7 +148,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="organisation" className="w-full">
-        <TabsList className="grid w-full max-w-sm grid-cols-2">
+        <TabsList className="grid w-full max-w-sm grid-cols-3">
           <TabsTrigger value="organisation" className="gap-2">
             <Building2Icon className="h-4 w-4" />
             <span className="hidden sm:inline">Organisation</span>
@@ -155,6 +156,10 @@ export default function SettingsPage() {
           <TabsTrigger value="appearance" className="gap-2">
             <PaletteIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Appearance</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <BellIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Notifications</span>
           </TabsTrigger>
         </TabsList>
 
@@ -282,6 +287,85 @@ export default function SettingsPage() {
                 checked={theme === "dark"}
                 onCheckedChange={handleThemeChange}
               />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6">
+          <div className="rounded-lg border bg-card p-6">
+            <div className="flex flex-col space-y-1.5">
+              <h3 className="text-lg font-semibold">Notification Channels</h3>
+              <p className="text-sm text-muted-foreground">
+                Configure how you receive notifications
+              </p>
+            </div>
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Email Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive updates via email
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.emailNotifications}
+                  onCheckedChange={(checked) => 
+                    setSettings({ ...settings, emailNotifications: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Push Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive push notifications
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.pushNotifications}
+                  onCheckedChange={(checked) => 
+                    setSettings({ ...settings, pushNotifications: checked })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-card p-6">
+            <div className="flex flex-col space-y-1.5">
+              <h3 className="text-lg font-semibold">Status Notifications</h3>
+              <p className="text-sm text-muted-foreground">
+                Choose which shipment status changes to be notified about
+              </p>
+            </div>
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>In Transit</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Notify when shipment is in transit
+                  </p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Delivered</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Notify when shipment is delivered
+                  </p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Exceptions</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Notify on delivery exceptions
+                  </p>
+                </div>
+                <Switch defaultChecked />
+              </div>
             </div>
           </div>
         </TabsContent>
