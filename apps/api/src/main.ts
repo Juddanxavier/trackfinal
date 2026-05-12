@@ -165,6 +165,10 @@ async function migrateTrackingTables() {
       )
     `);
     console.log('[Tracking Migration] tracking_settings table ready');
+    
+    await db.execute(`ALTER TABLE organisations ADD COLUMN IF NOT EXISTS website_url TEXT`);
+    await db.execute(`ALTER TABLE organisations ADD COLUMN IF NOT EXISTS tracking_domain TEXT`);
+    console.log('[Org Migration] website_url and tracking_domain columns ready');
   } catch (err) {
     console.error('[Tracking Migration] FAILED:', err.message);
   }

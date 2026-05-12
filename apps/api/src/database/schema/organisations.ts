@@ -13,6 +13,8 @@ export const organisations = pgTable('organisations', {
   countryCode: text('country_code').default('US'),
   currency: text('currency').default('USD'),
   logoUrl: text('logo_url'),
+  websiteUrl: text('website_url'),
+  trackingDomain: text('tracking_domain'),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

@@ -57,6 +57,12 @@ export class MSG91Service {
       body_3: data.location
         ? { type: 'text', value: data.location }
         : undefined,
+      body_4: data.trackingUrl
+        ? { type: 'text', value: data.trackingUrl }
+        : undefined,
+      body_5: data.orgName
+        ? { type: 'text', value: data.orgName }
+        : undefined,
     };
   }
   private buildWhatsAppMessage(

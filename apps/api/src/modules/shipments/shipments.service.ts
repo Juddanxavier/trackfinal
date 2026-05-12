@@ -238,6 +238,12 @@ export class ShipmentsService {
       const titleKey =
         status === 'delivered' ? 'shipment.delivered' : 'shipment.in_transit';
 
+      const trackingUrl = org?.trackingDomain 
+        ? `${org.trackingDomain}/track/${shipment.whiteLabelTrackingCode}`
+        : org?.websiteUrl 
+          ? `${org.websiteUrl}/track/${shipment.whiteLabelTrackingCode}`
+          : `https://www.gajantraders.com/track/${shipment.whiteLabelTrackingCode}`;
+
       const results = await this.notificationService.sendToAll({
         organisationId: shipment.organisationId,
         userId: shipment.userId || undefined,
@@ -251,6 +257,8 @@ export class ShipmentsService {
           recipientName: shipment.recipientName,
           destinationCountry: shipment.destinationCountry,
           whiteLabelCode: shipment.whiteLabelTrackingCode,
+          trackingUrl,
+          orgName: org?.name,
         },
       });
 
@@ -455,6 +463,23 @@ export class ShipmentsService {
       throw new NotFoundException('Shipment not found');
     }
 
+    const [org] = await db
+      .select()
+      .from(organisations)
+      .where(eq(organisations.id, existing.organisationId));
+
+    const trackingUrl = org?.trackingDomain 
+      ? `${org.trackingDomain}/track/${existing.whiteLabelTrackingCode}`
+      : org?.websiteUrl 
+        ? `${org.websiteUrl}/track/${existing.whiteLabelTrackingCode}`
+        : `https://www.gajantraders.com/track/${existing.whiteLabelTrackingCode}`;
+      .from(shipments)
+      .where(eq(shipments.id, id));
+
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
+    }
+
     if (existing.status === status) {
       this.logger.debug(`Status unchanged (${status}), skipping notification`);
       return existing;
@@ -511,6 +536,8 @@ export class ShipmentsService {
           recipientName: existing.recipientName,
           destinationCountry: existing.destinationCountry,
           whiteLabelCode: existing.whiteLabelTrackingCode,
+          trackingUrl,
+          orgName: org?.name,
         },
       });
 
