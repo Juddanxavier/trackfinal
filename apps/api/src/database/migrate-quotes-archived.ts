@@ -1,16 +1,18 @@
-import { sql } from 'drizzle-orm';
-import { db } from './index';
+import { db } from './index.js';
 
 async function migrate() {
-  await db.execute(
-    sql`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`,
-  );
-  console.log('Added archived_at column to quotes');
+  console.log('[migrate] Adding archived_at to quotes...');
+  
+  try {
+    await db.execute(`
+      ALTER TABLE quotes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+    `);
+    console.log('[migrate] Done - archived_at column added');
+  } catch (err) {
+    console.error('[migrate] Error:', err.message);
+  }
+  
+  process.exit(0);
 }
 
-migrate()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+migrate();

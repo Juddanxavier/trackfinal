@@ -101,9 +101,20 @@ Sentry.init({
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
 });
 
+async function migrateQuotesColumns() {
+  try {
+    const db = await import('./database/index.js').then((m) => m.db);
+    await db.execute(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`);
+    console.log('[Quotes Migration] archived_at column ready');
+  } catch (err) {
+    console.error('[Quotes Migration] FAILED:', err.message);
+  }
+}
+
 async function bootstrap() {
   await migrateCarriers();
   await migrateAdditionalColumns();
+  await migrateQuotesColumns();
 
   const app = await NestFactory.create(AppModule);
 
