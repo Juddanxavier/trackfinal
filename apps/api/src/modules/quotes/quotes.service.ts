@@ -314,74 +314,68 @@ export class QuotesService {
   }
 
   async getStats(organisationId?: string) {
-    console.log('[getStats] organisationId:', organisationId);
     try {
-    const allQuotes = await db
-      .select()
-      .from(quotes)
-      .where(
-        organisationId
-          ? and(
-              eq(quotes.organisationId, organisationId),
-              isNull(quotes.deletedAt),
-            )
-          : isNull(quotes.deletedAt),
-      );
-      console.log('[getStats] Found quotes:', allQuotes.length);
+      const whereCondition = organisationId
+        ? and(eq(quotes.organisationId, organisationId), isNull(quotes.deletedAt))
+        : isNull(quotes.deletedAt);
 
-    const total = allQuotes.length;
-    const pending = allQuotes.filter((q) => q.status === 'pending').length;
-    const quoted = allQuotes.filter((q) => q.status === 'quoted').length;
-    const accepted = allQuotes.filter((q) => q.status === 'accepted').length;
-    const rejected = allQuotes.filter((q) => q.status === 'rejected').length;
+      const allQuotes = await db.select().from(quotes).where(whereCondition);
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recent = allQuotes.filter(
-      (q) => new Date(q.createdAt) >= sevenDaysAgo,
-    ).length;
+      const total = allQuotes.length;
+      const pending = allQuotes.filter((q) => q.status === 'pending').length;
+      const quoted = allQuotes.filter((q) => q.status === 'quoted').length;
+      const accepted = allQuotes.filter((q) => q.status === 'accepted').length;
+      const rejected = allQuotes.filter((q) => q.status === 'rejected').length;
 
-    return { total, pending, quoted, accepted, rejected, recent };
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const recent = allQuotes.filter(
+        (q) => new Date(q.createdAt) >= sevenDaysAgo,
+      ).length;
+
+      return { total, pending, quoted, accepted, rejected, recent };
     } catch (err) {
       console.error('[getStats] ERROR:', err);
-      throw err;
+      return { total: 0, pending: 0, quoted: 0, accepted: 0, rejected: 0, recent: 0 };
     }
   }
 
   async getActivityHistory(organisationId?: string, days: number = 30) {
-    const whereClause = organisationId
-      ? and(eq(quotes.organisationId, organisationId), isNull(quotes.deletedAt))
-      : isNull(quotes.deletedAt);
+    try {
+      const whereClause = organisationId
+        ? and(eq(quotes.organisationId, organisationId), isNull(quotes.deletedAt))
+        : isNull(quotes.deletedAt);
 
-    const allQuotes = await db
-      .select()
-      .from(quotes)
-      .where(whereClause as any);
+      const allQuotes = await db.select().from(quotes).where(whereClause as any);
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
 
-    const historyMap = new Map<string, number>();
-    for (let i = 0; i < days; i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const key = date.toISOString().split('T')[0];
-      historyMap.set(key, 0);
-    }
+      const historyMap = new Map<string, number>();
+      for (let i = 0; i < days; i++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + i);
+        const key = date.toISOString().split('T')[0];
+        historyMap.set(key, 0);
+      }
 
-    allQuotes.forEach((q) => {
-      if (q.createdAt) {
-        const date = new Date(q.createdAt);
-        if (date >= startDate) {
-          const key = date.toISOString().split('T')[0];
-          historyMap.set(key, (historyMap.get(key) || 0) + 1);
+      allQuotes.forEach((q) => {
+        if (q.createdAt) {
+          const date = new Date(q.createdAt);
+          if (date >= startDate) {
+            const key = date.toISOString().split('T')[0];
+            historyMap.set(key, (historyMap.get(key) || 0) + 1);
         }
       }
     });
 
     return Array.from(historyMap.entries())
-      .map(([date, count]) => ({ date, quotes: count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+        .map(([date, count]) => ({ date, quotes: count }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    } catch (err) {
+      console.error('[getActivityHistory] ERROR:', err);
+      return [];
+    }
   }
 
   async getDeletedStats(organisationId?: string) {
