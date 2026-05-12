@@ -6,6 +6,7 @@ import {
   NotificationPayload,
   NotificationResult,
 } from './notification.channel';
+import { getTemplate, parseTemplate } from '../notification-templates';
 
 const USE_QUEUE = process.env.NOTIFICATION_USE_QUEUE !== 'false';
 
@@ -31,13 +32,17 @@ export class WhatsAppChannel implements NotificationChannel {
       };
     }
 
-    // Derive status from titleKey (e.g., "shipment.delivered" -> "delivered")
-    const status = payload.titleKey.replace('shipment.', '');
+    const template = getTemplate(payload.titleKey);
+    const message = template?.whatsappTemplate
+      ? parseTemplate(template.whatsappTemplate, payload.data || {})
+      : template?.smsTemplate
+        ? parseTemplate(template.smsTemplate, payload.data || {})
+        : JSON.stringify(payload.data);
 
     if (!USE_QUEUE || !this.notificationQueue) {
       console.log(
         '[WhatsAppChannel DEV] Would send WhatsApp:',
-        status,
+        message,
         'to',
         payload.recipientPhone,
       );
@@ -52,7 +57,7 @@ export class WhatsAppChannel implements NotificationChannel {
       await this.notificationQueue.add('send-whatsapp', {
         channel: 'whatsapp',
         phone: payload.recipientPhone,
-        status,
+        message,
         data: payload.data,
         organisationId: payload.organisationId,
         userId: payload.userId,

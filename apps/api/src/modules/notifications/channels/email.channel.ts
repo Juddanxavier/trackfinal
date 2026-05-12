@@ -6,6 +6,7 @@ import {
   NotificationPayload,
   NotificationResult,
 } from './notification.channel';
+import { getTemplate, parseTemplate } from '../notification-templates';
 
 const USE_QUEUE = process.env.NOTIFICATION_USE_QUEUE !== 'false';
 
@@ -31,13 +32,18 @@ export class EmailChannel implements NotificationChannel {
       };
     }
 
-    // Extract status from titleKey
-    const status = payload.titleKey.replace('shipment.', '');
+    const template = getTemplate(payload.titleKey);
+    const subject = template 
+      ? parseTemplate(template.subject, payload.data || {})
+      : `Shipment Update: ${payload.titleKey}`;
+    const body = template 
+      ? parseTemplate(template.body, payload.data || {})
+      : JSON.stringify(payload.data);
 
     if (!USE_QUEUE || !this.notificationQueue) {
       console.log(
         '[EmailChannel DEV] Would send email:',
-        status,
+        subject,
         'to',
         payload.recipientEmail,
       );
@@ -52,7 +58,8 @@ export class EmailChannel implements NotificationChannel {
       await this.notificationQueue.add('send-email', {
         channel: 'email',
         to: payload.recipientEmail,
-        status,
+        subject,
+        body,
         data: payload.data,
         organisationId: payload.organisationId,
         userId: payload.userId,
