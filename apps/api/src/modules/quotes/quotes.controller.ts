@@ -251,8 +251,9 @@ export class QuotesController {
   }
 
   @Get('activity')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get quote activity history',
     description: 'Get daily quote creation counts for charting',
