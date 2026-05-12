@@ -238,11 +238,11 @@ export class ShipmentsService {
       const titleKey =
         status === 'delivered' ? 'shipment.delivered' : 'shipment.in_transit';
 
-      const trackingUrl = org?.trackingDomain 
-        ? `${org.trackingDomain}/track/${shipment.whiteLabelTrackingCode}`
-        : org?.websiteUrl 
-          ? `${org.websiteUrl}/track/${shipment.whiteLabelTrackingCode}`
-          : `https://www.gajantraders.com/track/${shipment.whiteLabelTrackingCode}`;
+      const trackingDomain = org?.trackingDomain 
+      || org?.websiteUrl 
+      || process.env.DEFAULT_TRACKING_DOMAIN 
+      || 'https://www.gajantraders.com';
+    const trackingUrl = `${trackingDomain}/track/${shipment.whiteLabelTrackingCode}`;
 
       const results = await this.notificationService.sendToAll({
         organisationId: shipment.organisationId,
@@ -468,11 +468,11 @@ export class ShipmentsService {
       .from(organisations)
       .where(eq(organisations.id, existing.organisationId));
 
-    const trackingUrl = org?.trackingDomain 
-      ? `${org.trackingDomain}/track/${existing.whiteLabelTrackingCode}`
-      : org?.websiteUrl 
-        ? `${org.websiteUrl}/track/${existing.whiteLabelTrackingCode}`
-        : `https://www.gajantraders.com/track/${existing.whiteLabelTrackingCode}`;
+    const trackingDomain = org?.trackingDomain 
+      || org?.websiteUrl 
+      || process.env.DEFAULT_TRACKING_DOMAIN 
+      || 'https://www.gajantraders.com';
+    const trackingUrl = `${trackingDomain}/track/${existing.whiteLabelTrackingCode}`;
       .from(shipments)
       .where(eq(shipments.id, id));
 
