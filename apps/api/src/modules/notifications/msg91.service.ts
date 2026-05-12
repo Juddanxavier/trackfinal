@@ -48,22 +48,14 @@ export class MSG91Service {
   }
   private mapComponents(data: Record<string, any>) {
     return {
-      body_1: data.recipientName
-        ? { type: 'text', value: data.recipientName }
+      body_1: data.whiteLabelCode
+        ? { type: 'text', value: data.whiteLabelCode }
         : undefined,
-      body_2:
-        data.whiteLabelCode || data.trackingNumber
-          ? { type: 'text', value: data.whiteLabelCode || data.trackingNumber }
-          : undefined,
-      body_3: data.destinationCountry
+      body_2: data.destinationCountry
         ? { type: 'text', value: data.destinationCountry }
         : undefined,
-      body_4: data.status ? { type: 'text', value: data.status } : undefined,
-      body_5: data.location
+      body_3: data.location
         ? { type: 'text', value: data.location }
-        : undefined,
-      body_6: data.carrierCode
-        ? { type: 'text', value: data.carrierCode.toUpperCase() }
         : undefined,
     };
   }
