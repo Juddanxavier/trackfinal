@@ -189,6 +189,8 @@ export default function ShipmentsPage() {
     userId: "",
   })
 
+  const [userLookupStatus, setUserLookupStatus] = useState<{email?: string; phone?: string}>({})
+
   const handleSort = (column: string, direction: "asc" | "desc") => {
     setSortColumn(column)
     setSortDirection(direction)
@@ -327,7 +329,10 @@ const fetchStats = async () => {
           recipientEmail: res.email || prev.recipientEmail || "",
           recipientPhone: res.phoneNumber || prev.recipientPhone || "",
         }))
+        toast.success("User found! Notifications will be sent to this user.")
         return res
+      } else {
+        toast.info("No user found with this email/phone. Notifications will be sent to recipient contact instead.")
       }
     } catch (err) {
       console.error("Failed to lookup user:", err)

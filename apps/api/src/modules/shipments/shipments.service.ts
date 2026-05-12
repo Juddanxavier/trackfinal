@@ -473,12 +473,6 @@ export class ShipmentsService {
       || process.env.DEFAULT_TRACKING_DOMAIN 
       || 'https://www.gajantraders.com';
     const trackingUrl = `${trackingDomain}/track/${existing.whiteLabelTrackingCode}`;
-      .from(shipments)
-      .where(eq(shipments.id, id));
-
-    if (!existing) {
-      throw new NotFoundException('Shipment not found');
-    }
 
     if (existing.status === status) {
       this.logger.debug(`Status unchanged (${status}), skipping notification`);
