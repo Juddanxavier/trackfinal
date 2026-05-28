@@ -3,12 +3,20 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #f0eeeb;
+  --background: #ffffff;
   --foreground: #131818;
-  --primary: #3bc864;
-  --primary-foreground: #131818;
-  --secondary: #c5e98a;
-  --secondary-foreground: #131818;
+  --primary: #1E3A8A;
+  --primary-foreground: #ffffff;
+  --secondary: #240F24;
+  --secondary-foreground: #ffffff;
+  --accent: #334155;
+  --accent-foreground: #ffffff;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --card: #ffffff;
+  --card-foreground: #131818;
+  --border: #e2e8f0;
+  --ring: #334155;
 }
 
 @theme inline {
@@ -18,21 +26,39 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-geist-mono);
+  --font-anek: var(--font-anek);
+  --font-dm-sans: var(--font-dm-sans);
+  --font-heading: var(--font-dm-sans);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a;
+    --foreground: #f8fafc;
+  --primary: #1E3A8A;
+    --primary-foreground: #ffffff;
+    --secondary: #1e293b;
+    --secondary-foreground: #f8fafc;
+    --card: #1e293b;
+    --card-foreground: #f8fafc;
+    --border: #334155;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
 @keyframes dash-travel {

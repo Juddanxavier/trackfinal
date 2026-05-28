@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+﻿import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { db } from '../../database';
@@ -15,6 +15,7 @@ const CRON_MAP: Record<CleanupPeriod, string> = {
 
 @Injectable()
 export class NotificationCleanupService implements OnModuleInit {
+  private readonly logger = new Logger(NotificationCleanupService.name);
   constructor(private schedulerRegistry: SchedulerRegistry) {}
 
   onModuleInit() {
@@ -32,22 +33,22 @@ export class NotificationCleanupService implements OnModuleInit {
     this.schedulerRegistry.addCronJob('notification-cleanup', job);
     job.start();
 
-    console.log(
+    this.logger.log(
       `[NotificationCleanup] Scheduled: ${period} (${cronExpression})`,
     );
   }
 
   private async handleExpiredNotifications() {
-    console.log(`[NotificationCleanup] Running cleanup...`);
+    this.logger.log(`[NotificationCleanup] Running cleanup...`);
 
     try {
       await db
         .delete(notifications)
         .where(lt(notifications.expiresAt, new Date()));
 
-      console.log(`[NotificationCleanup] Deleted expired notifications`);
+      this.logger.log(`[NotificationCleanup] Deleted expired notifications`);
     } catch (error) {
-      console.error('[NotificationCleanup] Error:', error);
+      this.logger.error('[NotificationCleanup] Error:', error);
     }
   }
 }

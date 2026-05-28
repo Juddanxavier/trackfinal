@@ -123,4 +123,18 @@ export class NotificationsService {
         ),
       );
   }
+
+  async delete(id: string, organisationId: string, userId: string) {
+    const [removed] = await db
+      .delete(notifications)
+      .where(
+        and(
+          eq(notifications.id, id),
+          eq(notifications.organisationId, organisationId),
+          eq(notifications.userId, userId),
+        ),
+      )
+      .returning();
+    return removed;
+  }
 }

@@ -1,4 +1,6 @@
-import { pgTable, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+import { branches } from './branches';
 
 export const organisations = pgTable('organisations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -15,7 +17,13 @@ export const organisations = pgTable('organisations', {
   logoUrl: text('logo_url'),
   websiteUrl: text('website_url'),
   trackingDomain: text('tracking_domain'),
-  isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
+
+export const organisationsRelations = relations(organisations, ({ many }) => ({
+  branches: many(branches),
+}));
+
+export type Organisation = typeof organisations.$inferSelect;
+export type NewOrganisation = typeof organisations.$inferInsert;

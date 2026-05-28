@@ -45,12 +45,13 @@ export class RegisterDto {
   @Validate(PasswordComplexity)
   password: string;
 
-  @ApiProperty({ example: 'John Doe', description: 'User full name' })
+  @ApiPropertyOptional({ example: 'John Doe', description: 'User full name' })
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
   @Transform(({ value }) => value?.trim())
-  name: string;
+  name?: string;
 
   @ApiPropertyOptional({ example: '+1234567890', description: 'Phone number' })
   @IsOptional()
@@ -58,12 +59,25 @@ export class RegisterDto {
   @MaxLength(20)
   phoneNumber?: string;
 
-  @ApiPropertyOptional({ example: 'My Company', description: 'Organisation name' })
+  @ApiPropertyOptional({
+    example: 'My Company',
+    description: 'Organisation name',
+  })
   @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(200)
   organisationName?: string;
+
+  @ApiPropertyOptional({
+    example: 'track-hq',
+    description: 'Organisation slug (for customer registration)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  organisationSlug?: string;
 }
 
 export class ForgotPasswordDto {
@@ -103,8 +117,11 @@ export class RefreshTokenDto {
 export class AuthResponseDto {
   accessToken?: string;
   refreshToken?: string;
+  sessionId?: string;
   verificationToken?: string;
   message?: string;
+  requiresTwoFactor?: boolean;
+  sessionToken?: string;
   user?: {
     id: string;
     email: string;
@@ -119,6 +136,32 @@ export class VerifyEmailDto {
   @IsString()
   @IsNotEmpty({ message: 'Token is required' })
   token: string;
+}
+
+export class TwoFactorChallengeDto {
+  @ApiProperty({ description: '2FA session token from login response' })
+  @IsString()
+  @IsNotEmpty()
+  sessionToken: string;
+
+  @ApiProperty({ description: 'Email verification code or backup code' })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+}
+
+export class TwoFactorVerifyDto {
+  @ApiProperty({ description: 'Email verification code' })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
+
+export class TwoFactorDisableDto {
+  @ApiProperty({ description: 'Current password for verification' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
 }
 
 export class InviteRegisterDto {

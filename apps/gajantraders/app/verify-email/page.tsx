@@ -63,7 +63,7 @@ function VerifyEmailContent() {
       }
 
       // Store auth data
-      localStorage.setItem('accessToken', result.accessToken);
+      localStorage.setItem('gt_access_token', result.accessToken);
       localStorage.setItem('user', JSON.stringify(result.user));
       
       // Clear pending verification data
@@ -73,7 +73,7 @@ function VerifyEmailContent() {
       setSuccess(true);
       
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/shipments');
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed');
@@ -166,7 +166,7 @@ function VerifyEmailContent() {
               <button
                 type='submit'
                 disabled={isLoading}
-                className='w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-[#4C833E] text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                className='w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-[#172554] text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
               >
                 {isLoading ? (
                   <div className='w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin' />

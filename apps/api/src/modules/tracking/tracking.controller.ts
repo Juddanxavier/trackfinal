@@ -6,17 +6,21 @@ import {
   Query,
   Body,
   UseGuards,
-  Request,
+  ParseUUIDPipe,
+  ParseArrayPipe,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { Public } from '../../common/decorators/public.decorator';
 import { TrackingSyncService } from './tracking-sync.service';
 import { SeventeenTrackService } from './seventeen-track.service';
+import {
+  TrackingNumberItem,
+  ChangeInfoItem,
+  ChangeCarrierItem,
+} from './dto/tracking-item.dto';
 import { db } from '../../database';
 import { shipments } from '../../database/schema/shipments';
 import { eq } from 'drizzle-orm';
@@ -31,17 +35,17 @@ export class TrackingController {
   ) {}
 
   @Post('sync/:shipmentId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync single shipment from 17TRACK' })
-  async syncShipment(@Param('shipmentId') shipmentId: string) {
+  async syncShipment(@Param('shipmentId', ParseUUIDPipe) shipmentId: string) {
     return this.trackingSyncService.triggerManualSync(shipmentId);
   }
 
   @Post('sync-all')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync all active shipments' })
   async syncAllShipments() {
@@ -49,11 +53,11 @@ export class TrackingController {
   }
 
   @Post('register/:shipmentId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register shipment with 17TRACK' })
-  async registerShipment(@Param('shipmentId') shipmentId: string) {
+  async registerShipment(@Param('shipmentId', ParseUUIDPipe) shipmentId: string) {
     const [shipment] = await db
       .select()
       .from(shipments)
@@ -121,22 +125,15 @@ export class TrackingController {
   }
 
   @Post('changeinfo')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update tracking info (tag, email, phone) on 17TRACK',
   })
   async changeInfo(
-    @Body()
-    body: Array<{
-      number: string;
-      carrier: number;
-      tag?: string;
-      email?: string;
-      phone?: string;
-      lang?: string;
-    }>,
+    @Body(new ParseArrayPipe({ items: ChangeInfoItem, whitelist: true, forbidNonWhitelisted: true }))
+    body: ChangeInfoItem[],
   ) {
     if (!body || body.length === 0) {
       return { accepted: [], rejected: [] };
@@ -145,11 +142,14 @@ export class TrackingController {
   }
 
   @Post('stoptrack')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Stop tracking on 17TRACK' })
-  async stopTrack(@Body() body: Array<{ number: string; carrier: number }>) {
+  async stopTrack(
+    @Body(new ParseArrayPipe({ items: TrackingNumberItem, whitelist: true, forbidNonWhitelisted: true }))
+    body: TrackingNumberItem[],
+  ) {
     if (!body || body.length === 0) {
       return { accepted: [], rejected: [] };
     }
@@ -157,11 +157,14 @@ export class TrackingController {
   }
 
   @Post('retrack')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Re-track on 17TRACK' })
-  async retrans(@Body() body: Array<{ number: string; carrier: number }>) {
+  async retrans(
+    @Body(new ParseArrayPipe({ items: TrackingNumberItem, whitelist: true, forbidNonWhitelisted: true }))
+    body: TrackingNumberItem[],
+  ) {
     if (!body || body.length === 0) {
       return { accepted: [], rejected: [] };
     }
@@ -169,13 +172,13 @@ export class TrackingController {
   }
 
   @Post('changecarrier')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change carrier on 17TRACK (max 5 per tracking)' })
   async changeCarrier(
-    @Body()
-    body: Array<{ number: string; carrier_old: number; carrier_new: number }>,
+    @Body(new ParseArrayPipe({ items: ChangeCarrierItem, whitelist: true, forbidNonWhitelisted: true }))
+    body: ChangeCarrierItem[],
   ) {
     if (!body || body.length === 0) {
       return { accepted: [], rejected: [] };
@@ -184,8 +187,8 @@ export class TrackingController {
   }
 
   @Get('changecarrier/:trackingNumber')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get remaining carrier change attempts' })
   async getChangeCarrierAttempts(

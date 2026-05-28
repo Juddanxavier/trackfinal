@@ -9,7 +9,7 @@ export interface TenantRequest extends Request {
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
   use(req: TenantRequest, res: Response, next: NextFunction) {
-    const user = req.user as any;
+    const user = req.user;
     if (user?.organisationId) {
       req.tenantId = user.organisationId;
     }

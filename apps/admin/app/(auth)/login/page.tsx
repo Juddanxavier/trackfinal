@@ -11,7 +11,8 @@ import { Eye, EyeOff, Loader2, CommandIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { login as apiLogin } from "@/lib/api"
+import { login as apiLogin, type AuthUser } from "@/lib/api"
+import { TwoFactorChallenge } from "@/components/two-factor-challenge"
 import { useRateLimiter } from "@/hooks/use-rate-limiter"
 
 const loginSchema = z.object({
@@ -31,6 +32,7 @@ export default function LoginPage() {
       : "/dashboard"
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [twoFactorSession, setTwoFactorSession] = useState<{ sessionToken: string; email: string } | null>(null)
 
   const rateLimiter = useRateLimiter({
     maxAttempts: 5,
@@ -56,8 +58,14 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const user = await apiLogin(data.email, data.password)
-      
+      const result = await apiLogin(data.email, data.password)
+      if (typeof result !== 'object' || !('id' in result)) {
+        if (result.sessionToken) {
+          setTwoFactorSession({ sessionToken: result.sessionToken, email: data.email })
+        }
+        return
+      }
+      const user = result as AuthUser
       // Check if user is a customer - customers cannot access admin
       if (user.role === "customer") {
         rateLimiter.recordAttempt(false)
@@ -75,6 +83,23 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handle2faComplete = () => {
+    window.location.href = redirect
+  }
+
+  if (twoFactorSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-8">
+        <TwoFactorChallenge
+          sessionToken={twoFactorSession.sessionToken}
+          email={twoFactorSession.email}
+          onComplete={handle2faComplete}
+          onBack={() => setTwoFactorSession(null)}
+        />
+      </div>
+    )
   }
 
   return (

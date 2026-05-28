@@ -13,7 +13,7 @@ export default function AuthButton() {
   const pathname = usePathname();
   
   // Light mode pages
-  const lightModePages = ['/shipments', '/quotes'];
+  const lightModePages = ['/shipments', '/quotes', '/about', '/contact', '/profile', '/prohibited', '/faqs', '/careers'];
   const isLightMode = lightModePages.some(page => pathname?.startsWith(page));
 
   const handleLogout = async () => {
@@ -25,10 +25,10 @@ export default function AuthButton() {
       <div className='relative z-50'>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all cursor-pointer ${
             isLightMode 
-              ? 'border-gray-200 hover:border-gray-300 bg-white' 
-              : 'border-white/20 hover:border-white/40'
+              ? 'bg-white/80 hover:bg-white' 
+              : 'bg-white/10 hover:bg-white/20'
           }`}>
           <div className='w-7 h-7 rounded-full bg-primary flex items-center justify-center'>
             <span className='text-xs font-bold text-white'>
@@ -78,6 +78,17 @@ export default function AuthButton() {
                   <Package className='w-4 h-4' />
                   My Quotes
                 </Link>
+                <Link
+                  href='/profile'
+                  className={`flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer ${
+                    isLightMode 
+                      ? 'text-gray-700 hover:text-gray-900 hover:bg-gray-50' 
+                      : 'text-white/80 hover:text-white hover:bg-white/5'
+                  }`}>
+                  <User className='w-4 h-4' />
+                  Profile
+                </Link>
+                <div className={`border-t ${isLightMode ? 'border-gray-100' : 'border-white/10'} my-1`} />
                 <button
                   onClick={handleLogout}
                   className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer ${
@@ -100,7 +111,7 @@ export default function AuthButton() {
     <div className='flex items-center gap-3'>
       <Link
         href='/login'
-        className={`px-4 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer border rounded-lg ${
+        className={`px-4 py-2 text-sm font-bold transition-colors duration-200 cursor-pointer border rounded-lg ${
           isLightMode
             ? 'text-gray-700 hover:text-gray-900 border-gray-200 hover:border-gray-300'
             : 'text-white/80 hover:text-white border-white/20 hover:border-white/40'
@@ -109,7 +120,7 @@ export default function AuthButton() {
       </Link>
       <Link
         href='/register'
-        className='px-5 py-2.5 text-sm font-semibold bg-primary hover:bg-[#4C833E] text-white rounded-lg transition-colors duration-200 cursor-pointer'>
+        className='px-5 py-2.5 text-sm font-semibold bg-primary hover:bg-[#172554] text-white rounded-lg transition-colors duration-200 cursor-pointer'>
         Sign Up
       </Link>
     </div>

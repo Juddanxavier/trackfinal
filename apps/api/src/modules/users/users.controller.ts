@@ -26,8 +26,7 @@ import {
   OrganisationsService,
 } from '../users/services';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { Role } from '../../common/enums/role.enum';
 
 interface PaginationQuery {
@@ -36,19 +35,23 @@ interface PaginationQuery {
   search?: string;
   role?: string;
   organisationId?: string;
+  branchId?: string;
   sortBy?: string;
   sortOrder?: string;
+  all?: string;
 }
 
 function sanitizeUser(user: any) {
   if (!user) return null;
-  // Explicitly include only safe fields (whitelist approach is more secure)
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
     organisationId: user.organisationId,
+    organisationName: user.organisationName || null,
+    branchId: user.branchId || null,
+    branchName: user.branchName || null,
     isActive: user.isActive,
     emailVerified: user.emailVerified,
     phoneNumber: user.phoneNumber,
@@ -79,8 +82,25 @@ export class UsersController {
     return this.usersService.lookupUser(email, phone, req.user.organisationId);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Get('by-email')
+  @ApiOperation({ summary: 'Check if user exists by email' })
+  @ApiResponse({ status: 200, description: 'User if found, null otherwise' })
+  async findByEmail(@Query('email') email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      return { exists: false };
+    }
+    return {
+      exists: true,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    };
+  }
+
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'read' })
   @Get()
   @ApiOperation({ summary: 'Get users with pagination, search, filter' })
   @ApiResponse({ status: 200, description: 'List of users' })
@@ -92,19 +112,20 @@ export class UsersController {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
     const isAdmin = userRole === Role.ADMIN;
+    const isStaff = userRole === Role.STAFF;
 
-    const organisationId =
-      isAdmin && query.organisationId
-        ? query.organisationId
-        : isAdmin && !query.organisationId
-          ? undefined
-          : userOrgId;
+    const branchId = isStaff ? req.user.branchId : query.branchId;
 
-    // Staff can only see customers, not admins or other staff
-    const excludeRoles = !isAdmin ? [Role.ADMIN, Role.STAFF] : undefined;
+    let excludeRoles: Role[] | undefined;
+    if (isAdmin) {
+      excludeRoles = [Role.ADMIN];
+    } else {
+      excludeRoles = [Role.ADMIN, Role.STAFF];
+    }
 
     const result = await this.usersService.findWithPagination({
-      organisationId,
+      organisationId: userOrgId,
+      branchId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 10,
       search: query.search,
@@ -131,8 +152,8 @@ export class UsersController {
     return sanitizeUser(user);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'read' })
   @Get('stats')
   @ApiOperation({ summary: 'Get stats for organisation' })
   @ApiResponse({ status: 200, description: 'Organisation stats' })
@@ -154,17 +175,17 @@ export class UsersController {
     return this.usersService.getAllStats(organisationId);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'read' })
   @Get('stats/all')
-  @ApiOperation({ summary: 'Get stats for all organisations' })
-  @ApiResponse({ status: 200, description: 'Overall stats' })
-  getAllStats() {
-    return this.usersService.getAllStats();
+  @ApiOperation({ summary: 'Get stats for all branches in your organisation' })
+  @ApiResponse({ status: 200, description: 'Organisation stats' })
+  getAllStats(@Request() req: any) {
+    return this.usersService.getAllStats(req.user.organisationId);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'write' })
   @Post('invite')
   @ApiOperation({ summary: 'Invite new user' })
   @ApiResponse({ status: 201, description: 'User invited' })
@@ -202,8 +223,8 @@ export class UsersController {
     return sanitizeUser(result);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF, Role.CUSTOMER)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'read' })
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User UUID' })
@@ -225,7 +246,7 @@ export class UsersController {
         throw new NotFoundException('User not found');
       }
 
-      if (userRole === Role.STAFF && targetUser.organisationId !== userOrgId) {
+      if (targetUser.organisationId !== userOrgId) {
         throw new ForbiddenException(
           'You can only view users in your organisation',
         );
@@ -242,8 +263,8 @@ export class UsersController {
     throw new ForbiddenException('You can only view your own profile');
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'write' })
   @Patch(':id')
   @ApiOperation({ summary: 'Update user' })
   @ApiParam({ name: 'id', description: 'User UUID' })
@@ -286,8 +307,8 @@ export class UsersController {
     return sanitizeUser(result);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'users', action: 'delete' })
   @Delete(':id')
   @ApiOperation({ summary: 'Delete user' })
   @ApiParam({ name: 'id', description: 'User UUID' })

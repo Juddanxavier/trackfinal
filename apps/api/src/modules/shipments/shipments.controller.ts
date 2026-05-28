@@ -11,6 +11,7 @@ import {
   Request,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
   UseInterceptors,
 } from '@nestjs/common';
 import { CacheInterceptor } from '../../common/interceptors/cache.interceptor';
@@ -21,10 +22,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
-import { CreateShipmentDto } from './dto/shipments.dto';
+import { CreateShipmentDto, UpdateShipmentDto } from './dto/shipments.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { Role } from '../../common/enums/role.enum';
 import { Public } from '../../common/decorators/public.decorator';
 import { CarriersService } from '../carriers/carriers.service';
@@ -42,26 +42,38 @@ export class ShipmentsController {
   ) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
   @ApiOperation({ summary: 'Create new shipment' })
   @ApiResponse({ status: 201, description: 'Shipment created' })
   async create(@Body() dto: CreateShipmentDto, @Request() req: any) {
     // Determine organisation ID: use DTO if provided (for admins), otherwise use user's org
     const organisationId = dto.organisationId || req.user.organisationId;
-    
+
     if (!organisationId) {
       throw new BadRequestException(
         'User must be assigned to an organisation to create shipments. Please contact an administrator.',
       );
     }
-    
+
     let carrierCode = dto.carrierCode;
     if (!carrierCode) {
-      const detected = await this.carriersService.detectByTrackingNumber(dto.trackingNumber);
+      const detected = await this.carriersService.detectByTrackingNumber(
+        dto.trackingNumber,
+      );
       carrierCode = detected?.key || 'unknown';
     }
-    
+
+    let branchId: string | null;
+    if (req.user.role === 'admin') {
+      if (!dto.branchId) {
+        throw new BadRequestException('Branch is required for admin-created shipments');
+      }
+      branchId = dto.branchId;
+    } else {
+      branchId = req.user.branchId || null;
+    }
+
     return this.shipmentsService.create({
       organisationId,
       trackingNumber: dto.trackingNumber,
@@ -69,13 +81,16 @@ export class ShipmentsController {
       recipientName: dto.recipientName,
       recipientEmail: dto.recipientEmail,
       recipientPhone: dto.recipientPhone,
-      userId: dto.userId,
+      userId: req.user.id,
+      assignedToId: dto.userId || null,
+      branchId,
+      billAmount: dto.billAmount ?? null,
     });
   }
 
   @Get()
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'read' })
   @ApiOperation({ summary: 'List shipments' })
   @ApiResponse({ status: 200, description: 'Shipments list' })
   async findAll(
@@ -87,6 +102,7 @@ export class ShipmentsController {
     @Query('archived') archived?: string,
     @Query('deleted') deleted?: string,
     @Query('organisationId') organisationId?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const orgId = organisationId || req.user.organisationId;
     if (!orgId) {
@@ -94,8 +110,13 @@ export class ShipmentsController {
         'User must be assigned to an organisation to view shipments.',
       );
     }
+    // Staff are restricted to their own branch; admins can override via query param
+    const resolvedBranchId = req.user.role === 'staff'
+      ? req.user.branchId
+      : branchId || undefined;
     return this.shipmentsService.findAll({
       organisationId: orgId,
+      branchId: resolvedBranchId,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
       search,
@@ -106,10 +127,19 @@ export class ShipmentsController {
   }
 
   @Get('my-shipments')
-  @ApiOperation({ summary: 'Get current user\'s shipments' })
+  @ApiOperation({ summary: "Get current user's shipments" })
   @ApiResponse({ status: 200, description: 'User shipments list' })
   async getMyShipments(@Request() req: any) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
+    const role = req.user.role;
+    const organisationId = req.user.organisationId;
+
+    // ADMIN and STAFF see all organisation shipments
+    if ((role === 'admin' || role === 'staff') && organisationId) {
+      return this.shipmentsService.findByOrganisation(organisationId);
+    }
+
+    // CUSTOMER sees only their own shipments
     return this.shipmentsService.findByUserId(userId);
   }
 
@@ -187,8 +217,8 @@ export class ShipmentsController {
   }
 
   @Get('stats')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'read' })
   @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get shipment stats' })
   @ApiResponse({ status: 200, description: 'Shipment stats' })
@@ -196,9 +226,8 @@ export class ShipmentsController {
     @Request() req: any,
     @Query('organisationId') organisationId?: string,
   ) {
-    // Users can only access their own organisation's stats
-    // Admins without org can access any (for system-wide stats)
     const requestedOrgId = organisationId || req.user.organisationId;
+    // Admin/staff can only access their own organisation
     if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
       throw new ForbiddenException('You can only access stats for your organisation');
     }
@@ -206,8 +235,8 @@ export class ShipmentsController {
   }
 
   @Get('activity')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'read' })
   @ApiOperation({ summary: 'Get shipment activity history' })
   @ApiResponse({ status: 200, description: 'Activity data' })
   async getActivity(
@@ -215,20 +244,16 @@ export class ShipmentsController {
     @Query('organisationId') organisationId?: string,
     @Query('days') days?: string,
   ) {
-    // Users can only access their own organisation's activity
     const requestedOrgId = organisationId || req.user.organisationId;
     if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
       throw new ForbiddenException('You can only access activity for your organisation');
     }
-    return this.shipmentsService.getActivity(
-      requestedOrgId || '',
-      days ? parseInt(days) : 30,
-    );
+    return this.shipmentsService.getActivity(requestedOrgId || '', days ? parseInt(days) : 30);
   }
 
   @Get('destinations')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'read' })
   @ApiOperation({ summary: 'Get top destinations' })
   @ApiResponse({ status: 200, description: 'Destination data' })
   async getDestinations(
@@ -236,7 +261,6 @@ export class ShipmentsController {
     @Query('organisationId') organisationId?: string,
     @Query('limit') limit?: string,
   ) {
-    // Users can only access their own organisation's destinations
     const requestedOrgId = organisationId || req.user.organisationId;
     if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
       throw new ForbiddenException('You can only access destinations for your organisation');
@@ -247,20 +271,78 @@ export class ShipmentsController {
     );
   }
 
+  @Get('user/:userId')
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'read' })
+  @ApiOperation({ summary: 'Get shipments by user ID' })
+  @ApiResponse({ status: 200, description: 'User shipments list' })
+  async findByUser(
+    @Param('userId') userId: string,
+    @Request() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const orgId = req.user.organisationId;
+    if (!orgId) {
+      throw new BadRequestException('User must be assigned to an organisation');
+    }
+    const data = await this.shipmentsService.findByUserAndOrganisation(userId, orgId);
+    const pageNum = page ? parseInt(page) : 1;
+    const limitNum = limit ? parseInt(limit) : 20;
+    const total = data.length;
+    const totalPages = Math.ceil(total / limitNum);
+    const paginated = data.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+    return { data: paginated, total, page: pageNum, limit: limitNum, totalPages };
+  }
+
   @Get(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'read' })
   @ApiOperation({ summary: 'Get shipment by ID' })
   @ApiResponse({ status: 200, description: 'Shipment details' })
   async findOne(@Param('id') id: string, @Request() req: any) {
     const shipment = await this.shipmentsService.findOne(id);
-    
+
     // Check organisation boundary
-    if (req.user.organisationId && shipment.organisationId !== req.user.organisationId) {
-      throw new ForbiddenException('You can only access shipments in your organisation');
+    if (
+      req.user.organisationId &&
+      shipment.organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException(
+        'You can only access shipments in your organisation',
+      );
     }
-    
+
     return shipment;
+  }
+
+  @Patch(':id')
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
+  @ApiOperation({ summary: 'Update shipment recipient details' })
+  @ApiResponse({ status: 200, description: 'Shipment updated' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateShipmentDto,
+    @Request() req: any,
+  ) {
+    const shipment = await this.shipmentsService.findOne(id);
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (shipment.organisationId !== req.user.organisationId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    // Only admin can update bill amount; strip it for staff
+    const updateData: any = { ...dto };
+    if (req.user.role !== 'admin') {
+      delete updateData.billAmount;
+    }
+
+    return this.shipmentsService.update(id, updateData);
   }
 
   @Patch(':id/status')
@@ -285,8 +367,8 @@ export class ShipmentsController {
   }
 
   @Patch(':id/archive')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
   @ApiOperation({ summary: 'Archive shipment' })
   @ApiResponse({ status: 200, description: 'Shipment archived' })
   async archive(@Param('id') id: string, @Request() req: any) {
@@ -299,8 +381,8 @@ export class ShipmentsController {
   }
 
   @Patch(':id/unarchive')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
   @ApiOperation({ summary: 'Unarchive shipment' })
   @ApiResponse({ status: 200, description: 'Shipment unarchived' })
   async unarchive(@Param('id') id: string, @Request() req: any) {
@@ -313,8 +395,8 @@ export class ShipmentsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'delete' })
   @ApiOperation({ summary: 'Soft delete shipment' })
   @ApiResponse({ status: 200, description: 'Shipment deleted' })
   async softDelete(@Param('id') id: string, @Request() req: any) {
@@ -327,8 +409,8 @@ export class ShipmentsController {
   }
 
   @Patch(':id/restore')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
   @ApiOperation({ summary: 'Restore soft-deleted shipment' })
   @ApiResponse({ status: 200, description: 'Shipment restored' })
   async restore(@Param('id') id: string, @Request() req: any) {

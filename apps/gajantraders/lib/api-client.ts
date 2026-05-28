@@ -44,13 +44,13 @@ async function doRefreshToken(): Promise<string | null> {
     }
 
     const data = await response.json();
-    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem(TOKEN_KEY, data.accessToken);
     localStorage.setItem('user', JSON.stringify(data.user));
     return data.accessToken;
   } catch (error) {
     console.error('Token refresh failed:', error);
     // Clear auth state on refresh failure
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('user');
     window.location.href = '/login?expired=true';
     return null;

@@ -43,8 +43,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         extra: { correlationId, path: request.url },
       });
     } else {
-      this.logger.error(`Unknown exception [${correlationId}]: ${JSON.stringify(exception)}`);
-      Sentry.captureException(exception as Error, {
+      this.logger.error(
+        `Unknown exception [${correlationId}]: ${JSON.stringify(exception)}`,
+      );
+      Sentry.captureException(exception, {
         extra: { correlationId, path: request.url },
       });
     }

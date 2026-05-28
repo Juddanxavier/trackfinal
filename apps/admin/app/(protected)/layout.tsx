@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/app-layout"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import { PageTransition } from "@/components/page-transition"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'})
 const fontMono = Geist_Mono({
@@ -31,7 +32,9 @@ export default function ProtectedLayout({
               <AuthProvider>
                 <AppLayout>
                   <PageTransition>
-                    {children}
+                    <ErrorBoundary>
+                      {children}
+                    </ErrorBoundary>
                   </PageTransition>
                 </AppLayout>
               </AuthProvider>

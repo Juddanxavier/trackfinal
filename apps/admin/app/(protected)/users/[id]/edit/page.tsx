@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
+import { getDialCode, prependCountryCode } from "@/lib/phone"
+import { userEditSchema, fieldErrors, type ProfileFormData } from "@/lib/validation"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,10 +36,12 @@ export default function EditUserPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({})
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [role, setRole] = useState("")
+  const [orgCountry, setOrgCountry] = useState("IN")
 
   const userId = params.id as string
   const isOwnProfile = currentUser?.id === userId
@@ -53,6 +57,10 @@ export default function EditUserPage() {
         setName(data.name)
         setPhoneNumber(data.phoneNumber || "")
         setRole(data.role)
+        if (currentUser?.organisationId) {
+          const org: any = await api.get(`/organisations/${currentUser.organisationId}`)
+          if (org?.countryCode) setOrgCountry(org.countryCode)
+        }
       } catch (err) {
         console.error("Failed to load user:", err)
         setError("Failed to load user")
@@ -65,19 +73,21 @@ export default function EditUserPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) {
-      setError("Name is required")
+
+    const result = userEditSchema.safeParse({ name, phoneNumber, role })
+    if (!result.success) {
+      setErrors(fieldErrors<ProfileFormData>(result))
       return
     }
-
-    setSaving(true)
+    setErrors({})
     setError(null)
+    setSaving(true)
 
     try {
       await api.patch(`/users/${userId}`, {
-        name: name.trim(),
-        phoneNumber: phoneNumber.trim() || null,
-        role: canChangeRole ? role : undefined,
+        ...result.data,
+        phoneNumber: result.data.phoneNumber || null,
+        role: canChangeRole ? result.data.role : undefined,
       })
       router.push(`/users/${userId}`)
     } catch (err) {
@@ -141,31 +151,34 @@ export default function EditUserPage() {
               <Label htmlFor="name">Name</Label>
               <div className="relative">
                 <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
-                  className="pl-10"
-                  required
-                />
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => { setErrors({ ...errors, name: undefined }); setName(e.target.value) }}
+                    placeholder="Your name"
+                    className="pl-10"
+                    required
+                  />
+                  {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+                </div>
               </div>
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <div className="relative">
                 <PhoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1 (555) 000-0000"
-                  className="pl-10"
-                />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => { setErrors({ ...errors, phoneNumber: undefined }); setPhoneNumber(e.target.value) }}
+                    onBlur={(e) => { const v = e.target.value; if (v) setPhoneNumber(prependCountryCode(v, orgCountry)) }}
+                    placeholder={getDialCode(orgCountry) + " 9000000000"}
+                    className="pl-10"
+                  />
+                  {errors.phoneNumber && <p className="text-sm text-red-500">{errors.phoneNumber}</p>}
+                </div>
               </div>
-            </div>
 
             {canChangeRole ? (
               <div className="space-y-2">

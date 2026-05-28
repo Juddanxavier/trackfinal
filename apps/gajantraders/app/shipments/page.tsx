@@ -1,715 +1,650 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ProtectedLayout } from '@/components/ProtectedLayout';
+import Image from 'next/image';
+import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
-import { 
-  Package, 
-  MapPin, 
-  Clock, 
-  Search, 
-  Filter, 
-  ChevronRight, 
-  Truck, 
-  CheckCircle2, 
-  AlertCircle,
+import { ProtectedRoute } from '@/components/protected-route';
+import Navbar from '@/components/Navbar';
+import {
+  Search,
   Plus,
-  LayoutGrid,
+  Plane,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Grid3X3,
   List,
-  X,
+  Package,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
   ArrowRight,
-  Copy,
-  User,
-  Mail,
-  Phone
+  Calendar,
+  MapPin,
+  Truck,
 } from 'lucide-react';
-import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-
-interface ShipmentEvent {
-  id: string;
-  status: string;
-  statusRaw?: string;
-  description?: string;
-  location?: string;
-  eventTime: string;
-  createdAt: string;
-}
-
-interface Track17Data {
-  origin_country?: string;
-  destination_country?: string;
-  tracking?: {
-    checkpoints?: Array<{
-      checkpoint_time?: string;
-      location?: string;
-      status?: string;
-      message?: string;
-    }>;
-  };
-}
 
 interface Shipment {
   id: string;
-  organisationId: string;
-  userId?: string;
-  assignedToId?: string;
   trackingNumber: string;
   whiteLabelTrackingCode?: string;
+  whiteLabelCode?: string;
   carrierCode: string;
   recipientName: string;
-  recipientEmail?: string;
-  recipientPhone?: string;
-  recipientAddress?: string;
   originCountry: string;
   destinationCountry: string;
   status: 'pending' | 'in_transit' | 'delivered' | 'cancelled' | 'exception';
-  goodsType?: string;
   weight?: number;
-  track17Data?: Track17Data;
-  deliveredAt?: string;
   createdAt: string;
-  updatedAt: string;
-  archivedAt?: string;
-  events?: ShipmentEvent[];
+  currentLocation?: string;
+  currentStatus?: string;
 }
 
-function ShipmentDetailModal({ shipment, onClose }: { shipment: Shipment; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'timeline' | 'details'>('timeline');
-  const [copied, setCopied] = useState(false);
+const countryCodeMap: Record<string, string> = {
+  'India': 'IN', 'United States': 'US', 'USA': 'US', 'United Kingdom': 'GB', 'UK': 'GB',
+  'Australia': 'AU', 'Canada': 'CA', 'Germany': 'DE', 'France': 'FR', 'UAE': 'AE',
+  'Dubai': 'AE', 'Singapore': 'SG', 'Japan': 'JP', 'China': 'CN', 'Malaysia': 'MY',
+  'Netherlands': 'NL', 'Italy': 'IT', 'Spain': 'ES', 'Saudi Arabia': 'SA', 'Qatar': 'QA',
+  'New Zealand': 'NZ', 'Switzerland': 'CH', 'Ireland': 'IE', 'South Africa': 'ZA',
+  'Bangladesh': 'BD', 'Pakistan': 'PK', 'Sri Lanka': 'LK', 'Nepal': 'NP', 'Thailand': 'TH',
+  'Indonesia': 'ID', 'Philippines': 'PH', 'Vietnam': 'VN', 'Korea': 'KR', 'South Korea': 'KR',
+};
 
-  const copyTracking = () => {
-    navigator.clipboard.writeText(shipment.whiteLabelTrackingCode || shipment.trackingNumber);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+function getCountryFlagUrl(code: string): string {
+  return `https://flagcdn.com/w80/${code.toLowerCase()}.png`;
+}
 
-  // Get tracking history from events or track17Data
-  const getTrackingHistory = () => {
-    if (shipment.events && shipment.events.length > 0) {
-      return shipment.events.map(event => ({
-        date: new Date(event.eventTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        time: new Date(event.eventTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        location: event.location || 'Unknown',
-        status: event.status,
-        description: event.description || event.statusRaw || 'Status update',
-        completed: true,
-      }));
-    }
-    
-    if (shipment.track17Data?.tracking?.checkpoints) {
-      return shipment.track17Data.tracking.checkpoints.map(cp => ({
-        date: cp.checkpoint_time ? new Date(cp.checkpoint_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
-        time: cp.checkpoint_time ? new Date(cp.checkpoint_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
-        location: cp.location || 'Unknown',
-        status: cp.status || 'Update',
-        description: cp.message || 'Tracking update',
-        completed: true,
-      }));
-    }
-    
-    return [];
-  };
+const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  pending: { label: 'Pending', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  in_transit: { label: 'In Transit', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
+  delivered: { label: 'Delivered', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  cancelled: { label: 'Cancelled', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
+  exception: { label: 'Exception', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
+};
 
-  const trackingHistory = getTrackingHistory();
+function getWhiteLabelCode(shipment: Shipment): string | null {
+  return shipment.whiteLabelTrackingCode || shipment.whiteLabelCode || null;
+}
+
+function ShipmentCard({ shipment }: { shipment: Shipment }) {
+  const config = statusConfig[shipment.status] || statusConfig.pending;
+  const trackingId = getWhiteLabelCode(shipment);
+  if (!trackingId) return null;
+  const date = new Date(shipment.createdAt);
+  const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const originFlag = getCountryFlagUrl(countryCodeMap[shipment.originCountry] || 'IN');
+  const destFlag = getCountryFlagUrl(countryCodeMap[shipment.destinationCountry] || 'UN');
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4 }}
+      className="group"
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="w-full max-w-3xl max-h-[90vh] overflow-hidden bg-white border border-gray-200 rounded-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Shipment Details</h2>
-            <div className="flex items-center gap-2 mt-1">
-              {shipment.whiteLabelTrackingCode ? (
-                <span className="text-primary font-medium">{shipment.whiteLabelTrackingCode}</span>
-              ) : (
-                <span className="text-gray-500">{shipment.trackingNumber}</span>
-              )}
-              <button
-                onClick={copyTracking}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title="Copy tracking number"
-              >
-                <Copy className="size-4 text-gray-400" />
-              </button>
-              {copied && <span className="text-xs text-emerald-600">Copied!</span>}
+      <Link href={`/shipments/${shipment.id}`}>
+        <div className="relative bg-white rounded-2xl border border-slate-200/60 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+          <div className="p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`${config.bg} rounded-xl p-2.5`}>
+                  {shipment.status === 'in_transit' && <Plane className={`w-5 h-5 ${config.color}`} />}
+                  {shipment.status === 'delivered' && <CheckCircle className={`w-5 h-5 ${config.color}`} />}
+                  {shipment.status === 'pending' && <Clock className={`w-5 h-5 ${config.color}`} />}
+                  {shipment.status === 'cancelled' && <XCircle className={`w-5 h-5 ${config.color}`} />}
+                  {shipment.status === 'exception' && <AlertTriangle className={`w-5 h-5 ${config.color}`} />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-900">{trackingId}</span>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>{config.label}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{shipment.recipientName}</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            <X className="size-6 text-gray-500" />
-          </button>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'timeline' 
-                ? 'text-primary border-b-2 border-primary' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Tracking Timeline
-          </button>
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'details' 
-                ? 'text-primary border-b-2 border-primary' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Package Details
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <AnimatePresence mode="wait">
-            {activeTab === 'timeline' ? (
-              <motion.div
-                key="timeline"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-0"
-              >
-                {trackingHistory.length > 0 ? (
-                  trackingHistory.map((event, index) => (
-                    <div key={index} className="relative pl-8 pb-8 last:pb-0">
-                      {index < trackingHistory.length - 1 && (
-                        <div className="absolute left-3 top-6 bottom-0 w-px bg-gray-200" />
-                      )}
-                      <div className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center bg-emerald-100 border border-emerald-300`}>
-                        <CheckCircle2 className="size-3 text-emerald-600" />
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{event.status}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{event.description}</p>
-                          <p className="text-sm text-gray-400 mt-1">{event.location}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">{event.date}</p>
-                          <p className="text-sm text-gray-400">{event.time}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <Truck className="size-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No tracking events available yet.</p>
-                    <p className="text-sm text-gray-400 mt-1">Tracking information will appear once the shipment is picked up.</p>
+            <div className="bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 rounded-xl p-4 mb-4 border border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="relative">
+                    <Image src={originFlag} alt={shipment.originCountry} width={48} height={32} className="rounded-lg shadow-md ring-2 ring-white" unoptimized />
                   </div>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="details"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
-              >
-                {/* Route */}
-                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Route</h3>
-                  <div className="flex items-center gap-4">
-                    <div className="text-center flex-1">
-                      <p className="text-lg font-semibold text-gray-900">{shipment.originCountry}</p>
-                      <p className="text-xs text-gray-500">Origin</p>
-                    </div>
-                    <div className="flex-[2] flex items-center gap-2">
-                      <div className="flex-1 h-px bg-gray-300" />
-                      <ArrowRight className="size-4 text-gray-400" />
-                      <div className="flex-1 h-px bg-gray-300" />
-                    </div>
-                    <div className="text-center flex-1">
-                      <p className="text-lg font-semibold text-gray-900">{shipment.destinationCountry}</p>
-                      <p className="text-xs text-gray-500">Destination</p>
-                    </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Origin</p>
+                    <p className="text-sm font-semibold text-slate-700">{shipment.originCountry}</p>
                   </div>
                 </div>
 
-                {/* Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  {shipment.whiteLabelTrackingCode && (
-                    <div className="p-4 bg-primary/10 rounded-xl border border-primary/30 col-span-2">
-                      <p className="text-xs text-primary/70 uppercase tracking-wider">Tracking ID</p>
-                      <p className="text-gray-900 font-bold text-lg mt-1">{shipment.whiteLabelTrackingCode}</p>
-                    </div>
-                  )}
-                  {shipment.weight && (
-                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Weight</p>
-                      <p className="text-gray-900 font-medium mt-1">{shipment.weight} kg</p>
-                    </div>
-                  )}
-                  {shipment.goodsType && (
-                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Goods Type</p>
-                      <p className="text-gray-900 font-medium mt-1">{shipment.goodsType}</p>
-                    </div>
-                  )}
-                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Created</p>
-                    <p className="text-gray-900 font-medium mt-1">
-                      {new Date(shipment.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </p>
+                <div className="flex items-center gap-2 px-4">
+                  <div className="h-px w-12 bg-gradient-to-r from-transparent via-primary to-transparent" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-slate-600 rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
+                    <Plane className="w-5 h-5 text-white rotate-45" />
                   </div>
-                  {shipment.deliveredAt && (
-                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Delivered</p>
-                      <p className="text-gray-900 font-medium mt-1">
-                        {new Date(shipment.deliveredAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                  )}
+                  <div className="h-px w-12 bg-gradient-to-r from-transparent via-primary to-transparent" />
                 </div>
 
-                {/* Recipient */}
-                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Recipient Information</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <User className="size-4 text-gray-400" />
-                      <p className="text-gray-900 font-medium">{shipment.recipientName}</p>
-                    </div>
-                    {shipment.recipientEmail && (
-                      <div className="flex items-center gap-2">
-                        <Mail className="size-4 text-gray-400" />
-                        <p className="text-gray-600">{shipment.recipientEmail}</p>
-                      </div>
-                    )}
-                    {shipment.recipientPhone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="size-4 text-gray-400" />
-                        <p className="text-gray-600">{shipment.recipientPhone}</p>
-                      </div>
-                    )}
-                    {shipment.recipientAddress && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="size-4 text-gray-400 mt-0.5" />
-                        <p className="text-gray-600">{shipment.recipientAddress}</p>
-                      </div>
-                    )}
+                <div className="flex items-center gap-3 flex-1 justify-end">
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Destination</p>
+                    <p className="text-sm font-semibold text-slate-700">{shipment.destinationCountry}</p>
+                  </div>
+                  <div className="relative">
+                    <Image src={destFlag} alt={shipment.destinationCountry} width={48} height={32} className="rounded-lg shadow-md ring-2 ring-white" unoptimized />
                   </div>
                 </div>
-              </motion.div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 text-center border border-slate-100">
+                <Calendar className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                <p className="text-[10px] text-slate-400 mb-1">Created</p>
+                <p className="text-sm font-semibold text-slate-700">{formattedDate}</p>
+              </div>
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 text-center border border-slate-100">
+                <MapPin className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                <p className="text-[10px] text-slate-400 mb-1">Current Location</p>
+                <p className="text-sm font-semibold text-slate-700 truncate">{shipment.currentLocation || '--'}</p>
+              </div>
+            </div>
+
+            {shipment.status === 'delivered' && (
+              <div className="mt-4 pt-4 border-t border-emerald-100">
+                <div className="bg-gradient-to-r from-emerald-50 to-slate-50 rounded-xl p-4 border border-emerald-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-emerald-700">Package Delivered!</p>
+                      <p className="text-xs text-emerald-600/80">Successfully delivered to recipient</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
-          </AnimatePresence>
+
+            {shipment.status === 'in_transit' && (
+              <div className="mt-4 pt-4 border-t border-blue-100">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                      <Truck className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-blue-700">In Transit</p>
+                      <p className="text-xs text-blue-600/80">Package is on its way</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {shipment.status === 'exception' && (
+              <div className="mt-4 pt-4 border-t border-red-100">
+                <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-4 border border-red-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-red-700">Exception Occurred</p>
+                      <p className="text-xs text-red-600/80">Please contact support</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </motion.div>
+      </Link>
     </motion.div>
   );
 }
 
-export default function MyShipmentsPage() {
+function ShipmentRow({ shipment }: { shipment: Shipment }) {
+  const config = statusConfig[shipment.status] || statusConfig.pending;
+  const trackingId = getWhiteLabelCode(shipment);
+  if (!trackingId) return null;
+  const date = new Date(shipment.createdAt);
+  const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const originFlag = getCountryFlagUrl(countryCodeMap[shipment.originCountry] || 'IN');
+  const destFlag = getCountryFlagUrl(countryCodeMap[shipment.destinationCountry] || 'UN');
+
+  return (
+    <Link href={`/shipments/${shipment.id}`}>
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        whileHover={{ x: 2 }}
+        className="group"
+      >
+        <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
+          <div className={`w-12 h-12 rounded-xl ${config.bg} flex items-center justify-center shrink-0`}>
+            {shipment.status === 'in_transit' && <Plane className={`w-5 h-5 ${config.color}`} />}
+            {shipment.status === 'delivered' && <CheckCircle className={`w-5 h-5 ${config.color}`} />}
+            {shipment.status === 'pending' && <Clock className={`w-5 h-5 ${config.color}`} />}
+            {shipment.status === 'cancelled' && <XCircle className={`w-5 h-5 ${config.color}`} />}
+            {shipment.status === 'exception' && <AlertTriangle className={`w-5 h-5 ${config.color}`} />}
+          </div>
+
+          <div className="shrink-0 min-w-[120px]">
+            <span className="font-semibold text-slate-900 text-sm">{trackingId}</span>
+            <p className="text-xs text-slate-400 truncate mt-0.5">{shipment.recipientName}</p>
+          </div>
+
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <Image src={originFlag} alt={shipment.originCountry} width={24} height={16} className="rounded shrink-0" unoptimized />
+            <span className="text-sm text-slate-600 truncate">{shipment.originCountry}</span>
+            <Plane className="w-4 h-4 text-primary shrink-0 rotate-45" />
+            <Image src={destFlag} alt={shipment.destinationCountry} width={24} height={16} className="rounded shrink-0" unoptimized />
+            <span className="text-sm text-slate-600 truncate">{shipment.destinationCountry}</span>
+          </div>
+
+          <div className="text-sm text-slate-400 shrink-0 min-w-[70px]">{formattedDate}</div>
+
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${config.bg} ${config.color} shrink-0`}>{config.label}</span>
+        </div>
+      </motion.div>
+    </Link>
+  );
+}
+
+function StatsCard({ stats }: { stats: { total: number; transit: number; delivered: number; pending: number } }) {
+  const total = stats.total;
+  const deliveredRate = total > 0 ? Math.round((stats.delivered / total) * 100) : 0;
+
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-br from-primary via-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16" />
+      <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10" />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-blue-100 text-sm font-medium">Total Shipments</p>
+            <p className="text-4xl font-bold mt-1">{stats.total}</p>
+          </div>
+          <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <Package className="w-7 h-7" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-blue-100 text-sm">
+          <TrendingUp className="w-4 h-4" />
+          <span>{deliveredRate}% delivery rate</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusOverview({ stats }: { stats: { transit: number; delivered: number; pending: number } }) {
+  const items = [
+    { key: 'in_transit', label: 'In Transit', icon: Truck, color: 'blue' },
+    { key: 'delivered', label: 'Delivered', icon: CheckCircle, color: 'emerald' },
+    { key: 'pending', label: 'Pending', icon: Clock, color: 'amber' },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5">
+      <h3 className="text-sm font-semibold text-slate-800 mb-4">Status Overview</h3>
+      <div className="space-y-3">
+        {items.map(item => (
+          <div key={item.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg bg-${item.color}-100 flex items-center justify-center`}>
+                <item.icon className={`w-5 h-5 text-${item.color}-600`} />
+              </div>
+              <span className="text-sm font-medium text-slate-700">{item.label}</span>
+            </div>
+            <span className={`text-xl font-bold text-${item.color}-700`}>{stats[item.key as keyof typeof stats]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ stats }: { stats: { total: number; transit: number; delivered: number; pending: number } }) {
+  const deliveredRate = stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white shadow-lg">
+        <div className="mb-4">
+          <h3 className="font-semibold text-lg">Track Package</h3>
+          <p className="text-slate-400 text-sm mt-1">Get real-time updates on your shipments</p>
+        </div>
+        <Link
+          href="/track"
+          className="w-full py-3 bg-white text-slate-900 rounded-xl font-medium hover:bg-slate-100 transition-all flex items-center justify-center gap-2"
+        >
+          <Search className="w-5 h-5" />
+          Track Now
+        </Link>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs text-slate-400 uppercase tracking-wider">Total Shipments</p>
+            <p className="text-3xl font-bold text-slate-900 mt-1">{stats.total}</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Package className="w-6 h-6 text-primary" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4">Status Overview</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Truck className="w-5 h-5 text-blue-600" />
+              </div>
+              <span className="text-sm font-medium text-slate-700">In Transit</span>
+            </div>
+            <span className="text-xl font-bold text-blue-700">{stats.transit}</span>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              </div>
+              <span className="text-sm font-medium text-slate-700">Delivered</span>
+            </div>
+            <span className="text-xl font-bold text-emerald-700">{stats.delivered}</span>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <span className="text-sm font-medium text-slate-700">Pending</span>
+            </div>
+            <span className="text-xl font-bold text-amber-700">{stats.pending}</span>
+          </div>
+        </div>
+      </div>
+
+      
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center py-20 px-4"
+    >
+      <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mb-6 shadow-xl">
+        <Package className="w-12 h-12 text-primary" />
+      </div>
+      <h2 className="text-xl font-semibold text-slate-900 mb-2">No shipments yet</h2>
+      <p className="text-slate-500 text-center mb-6 max-w-md">Create your first shipment to start tracking your packages</p>
+      <Link
+        href="/quote"
+        className="px-6 py-3 bg-gradient-to-r from-primary to-indigo-600 text-white font-medium rounded-xl hover:from-slate-600 hover:to-indigo-700 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+      >
+        <Plus className="w-5 h-5" />
+        Create Shipment
+      </Link>
+    </motion.div>
+  );
+}
+
+function ShipmentsPageContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [filteredShipments, setFilteredShipments] = useState<Shipment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     const token = searchParams.get('token');
-    if (token) {
-      localStorage.setItem('accessToken', token);
-    }
+    if (token) localStorage.setItem('gt_access_token', token);
   }, [searchParams]);
 
-  // Fetch shipments from API
   useEffect(() => {
-    const fetchShipments = async () => {
+    const fetchData = async () => {
       if (!user?.id) return;
-      
       try {
         setIsLoading(true);
-        setError(null);
-        
-        // Fetch shipments for the current customer
-        // Using the customer-specific endpoint
-        const response = await api.get<Shipment[]>(`/shipments/my-shipments`);
-        
-        setShipments(response);
-        setFilteredShipments(response);
-      } catch (err: any) {
-        console.error('Error fetching shipments:', err);
-        if (err.status === 403) {
-          setError('You do not have permission to view shipments. Please contact support.');
-        } else {
-          setError('Failed to load shipments. Please try again later.');
-        }
+        const res = await api.get<Shipment[]>('/shipments/my-shipments');
+        setShipments(res);
+        setFilteredShipments(res);
+      } catch (err) {
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchShipments();
+    fetchData();
   }, [user?.id]);
 
   useEffect(() => {
     let filtered = shipments;
     if (searchQuery) {
-      filtered = filtered.filter(s => 
-        s.whiteLabelTrackingCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.trackingNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.destinationCountry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.originCountry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.recipientName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(s => {
+        const code = getWhiteLabelCode(s);
+        return code?.toLowerCase().includes(q) || s.recipientName.toLowerCase().includes(q);
+      });
     }
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(s => s.status === statusFilter);
-    }
+    if (statusFilter !== 'all') filtered = filtered.filter(s => s.status === statusFilter);
     setFilteredShipments(filtered);
+    setCurrentPage(1);
   }, [searchQuery, statusFilter, shipments]);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'delivered': return <CheckCircle2 className="size-5 text-emerald-600" />;
-      case 'in_transit': return <Truck className="size-5 text-blue-600" />;
-      case 'pending': return <Clock className="size-5 text-amber-600" />;
-      case 'cancelled': return <X className="size-5 text-gray-500" />;
-      case 'exception': return <AlertCircle className="size-5 text-red-600" />;
-      default: return <Package className="size-5 text-gray-500" />;
-    }
-  };
+  const totalPages = Math.ceil(filteredShipments.length / itemsPerPage);
+  const paginatedShipments = filteredShipments.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'delivered': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'in_transit': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'cancelled': return 'bg-gray-100 text-gray-700 border-gray-200';
-      case 'exception': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
-  const getStatusBgClass = (status: string) => {
-    switch (status) {
-      case 'delivered': return 'bg-emerald-50';
-      case 'in_transit': return 'bg-blue-50';
-      case 'pending': return 'bg-amber-50';
-      case 'cancelled': return 'bg-gray-50';
-      case 'exception': return 'bg-red-50';
-      default: return 'bg-gray-50';
-    }
-  };
-
-  const formatStatus = (status: string) => {
-    if (!status) return 'Unknown';
-    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
-
-  // Calculate stats
   const stats = {
     total: shipments.length,
-    inTransit: shipments.filter(s => s.status === 'in_transit').length,
+    transit: shipments.filter(s => s.status === 'in_transit').length,
     delivered: shipments.filter(s => s.status === 'delivered').length,
     pending: shipments.filter(s => s.status === 'pending').length,
-    cancelled: shipments.filter(s => s.status === 'cancelled').length,
-    exception: shipments.filter(s => s.status === 'exception').length,
   };
 
   if (isLoading) {
     return (
-      <ProtectedLayout
-        title="My Shipments"
-        subtitle="Track and manage all your shipments in one place"
-        action={{ label: 'Get a Quote', href: '/quote', icon: <Plus className="size-5" /> }}
-      >
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
-      </ProtectedLayout>
-    );
-  }
-
-  if (error) {
-    return (
-      <ProtectedLayout
-        title="My Shipments"
-        subtitle="Track and manage all your shipments in one place"
-        action={{ label: 'Get a Quote', href: '/quote', icon: <Plus className="size-5" /> }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-            <AlertCircle className="size-16 text-red-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Shipments</h3>
-            <p className="text-gray-500 mb-6">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#4C833E] text-white font-semibold rounded-xl transition-all duration-200"
-            >
-              Try Again
-            </button>
+      <ProtectedRoute>
+        <div className="min-h-screen bg-slate-50">
+          <Navbar />
+          <div className="max-w-6xl mx-auto px-4 pt-24 pb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3">
+                <div className="h-8 w-40 bg-slate-200 rounded animate-pulse mb-6" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="h-48 bg-slate-200 rounded-2xl animate-pulse" />
+                <div className="h-56 bg-slate-200 rounded-2xl animate-pulse" />
+              </div>
+            </div>
           </div>
         </div>
-      </ProtectedLayout>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <>
-      <ProtectedLayout
-        title="My Shipments"
-        subtitle="Track and manage all your shipments in one place"
-        action={{ label: 'Get a Quote', href: '/quote', icon: <Plus className="size-5" /> }}
-      >
-        {/* Stats */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { label: 'Total', value: stats.total, color: 'text-gray-900' },
-              { label: 'In Transit', value: stats.inTransit, color: 'text-blue-600' },
-              { label: 'Delivered', value: stats.delivered, color: 'text-emerald-600' },
-              { label: 'Pending', value: stats.pending, color: 'text-amber-600' },
-              { label: 'Cancelled', value: stats.cancelled, color: 'text-gray-500' },
-              { label: 'Exceptions', value: stats.exception, color: 'text-red-600' },
-            ].map((stat, idx) => (
-              <button
-                key={idx}
-                onClick={() => setStatusFilter(stat.label.toLowerCase().replace(' ', '_'))}
-                className={`p-4 bg-white border border-gray-200 rounded-xl text-left hover:border-primary/40 hover:shadow-sm transition-all ${
-                  statusFilter === stat.label.toLowerCase().replace(' ', '_') ? 'border-primary bg-primary/5' : ''
-                }`}
-              >
-                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-              </button>
-            ))}
-          </div>
-        </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+        <Navbar />
 
-        {/* Search and Filter */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by tracking number, destination, carrier..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-              />
-            </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="pl-12 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer min-w-[180px]"
+        <main className="max-w-6xl mx-auto px-4 pt-24 pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-semibold text-slate-900">My Shipments</h1>
+                  <p className="text-slate-500 mt-1">Track and manage all your shipments</p>
+                </div>
+                <Link
+                  href="/quote"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-slate-700 transition-all shadow-lg shadow-primary/20"
                 >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="in_transit">In Transit</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="exception">Exception</option>
-                </select>
+                  <Plus className="w-5 h-5" />
+                  New Shipment
+                </Link>
               </div>
-              <div className="flex bg-white border border-gray-200 rounded-xl p-1">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-                  aria-label="List view"
-                >
-                  <List className="size-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-                  aria-label="Grid view"
-                >
-                  <LayoutGrid className="size-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Shipments List */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-          {filteredShipments.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-              <Package className="size-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {shipments.length === 0 ? 'No shipments yet' : 'No shipments found'}
-              </h3>
-              <p className="text-gray-500 mb-6">
-                {shipments.length === 0 
-                  ? 'You haven\'t created any shipments yet. Get a quote to start shipping!'
-                  : 'Try adjusting your search or filters'}
-              </p>
-              <Link
-                href="/quote"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#4C833E] text-white font-semibold rounded-xl transition-all duration-200"
-              >
-                {shipments.length === 0 ? 'Get Your First Quote' : 'Get a Quote'}
-                <ChevronRight className="size-5" />
-              </Link>
-            </div>
-          ) : (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
-              {filteredShipments.map((shipment) => (
-                <motion.div
-                  key={shipment.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div 
-                    className="p-6 bg-white border border-gray-200 rounded-2xl hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group"
-                    onClick={() => setSelectedShipment(shipment)}
-                  >
-                    {viewMode === 'list' ? (
-                      // List View
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className={`size-12 rounded-xl flex items-center justify-center ${getStatusBgClass(shipment.status)}`}>
-                            {getStatusIcon(shipment.status)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3">
-                              <h3 className="text-lg font-semibold text-gray-900">
-                                {shipment.whiteLabelTrackingCode || shipment.trackingNumber}
-                              </h3>
-                              <Badge className={`${getStatusClass(shipment.status)} border`}>
-                                {formatStatus(shipment.status)}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                              <MapPin className="size-4" />
-                              <span>{shipment.originCountry}</span>
-                              <ArrowRight className="size-3" />
-                              <span>{shipment.destinationCountry}</span>
-                            </div>
-                    {shipment.whiteLabelTrackingCode && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs text-gray-400">White Label ID:</span>
-                        <span className="text-xs font-medium text-primary">{shipment.whiteLabelTrackingCode}</span>
+              {shipments.length > 0 ? (
+                <>
+                  <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by tracking number or recipient..."
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
                       </div>
-                    )}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-6 lg:gap-8">
-                          <div className="text-center">
-                            <p className="text-xs text-gray-400 uppercase tracking-wider">Created</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {new Date(shipment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                          </div>
-                          {shipment.weight && (
-                            <div className="text-center">
-                              <p className="text-xs text-gray-400 uppercase tracking-wider">Weight</p>
-                              <p className="text-sm font-medium text-gray-900">{shipment.weight} kg</p>
-                            </div>
-                          )}
-                          <div className="text-center">
-                            <p className="text-xs text-gray-400 uppercase tracking-wider">Recipient</p>
-                            <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">{shipment.recipientName}</p>
-                          </div>
-                          <div className="hidden lg:flex">
-                            <ChevronRight className="size-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                          </div>
-                        </div>
+                      <select
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value)}
+                        className="px-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_transit">In Transit</option>
+                        <option value="delivered">Delivered</option>
+                      </select>
+                      <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                        <button
+                          onClick={() => setViewMode('grid')}
+                          className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}
+                        >
+                          <Grid3X3 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => setViewMode('list')}
+                          className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}
+                        >
+                          <List className="w-5 h-5" />
+                        </button>
                       </div>
-                    ) : (
-                      // Grid View
-                      <div className="space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className={`size-10 rounded-lg flex items-center justify-center ${getStatusBgClass(shipment.status)}`}>
-                            {getStatusIcon(shipment.status)}
-                          </div>
-                          <Badge className={`${getStatusClass(shipment.status)} border`}>
-                            {formatStatus(shipment.status)}
-                          </Badge>
-                        </div>
-                        <div>
-                          <h3 className="text-base font-semibold text-gray-900">
-                            {shipment.whiteLabelTrackingCode || shipment.trackingNumber}
-                          </h3>
-                          <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
-                            <MapPin className="size-3" />
-                            <span className="truncate">{shipment.originCountry}</span>
-                            <ArrowRight className="size-3" />
-                            <span className="truncate">{shipment.destinationCountry}</span>
-                          </div>
-                          {shipment.whiteLabelTrackingCode && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-xs text-gray-400">ID:</span>
-                              <span className="text-xs font-medium text-primary">{shipment.whiteLabelTrackingCode}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <p className="text-xs text-gray-400 uppercase tracking-wider">Created</p>
-                            <p className="font-medium text-gray-900">
-                              {new Date(shipment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                          </div>
-                          {shipment.weight && (
-                            <div>
-                              <p className="text-xs text-gray-400 uppercase tracking-wider">Weight</p>
-                              <p className="font-medium text-gray-900">{shipment.weight} kg</p>
-                            </div>
-                          )}
-                          <div className={shipment.weight ? '' : 'col-span-2'}>
-                            <p className="text-xs text-gray-400 uppercase tracking-wider">Recipient</p>
-                            <p className="font-medium text-gray-900 truncate">{shipment.recipientName}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ProtectedLayout>
 
-      {/* Shipment Detail Modal */}
-      <AnimatePresence>
-        {selectedShipment && (
-          <ShipmentDetailModal 
-            shipment={selectedShipment} 
-            onClose={() => setSelectedShipment(null)} 
-          />
-        )}
-      </AnimatePresence>
-    </>
+                  <AnimatePresence mode="wait">
+                    {paginatedShipments.length > 0 ? (
+                      viewMode === 'grid' ? (
+                        <motion.div
+                          key="grid"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        >
+                          {paginatedShipments.map(shipment => (
+                            <ShipmentCard key={shipment.id} shipment={shipment} />
+                          ))}
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="list"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="space-y-2"
+                        >
+                          {paginatedShipments.map(shipment => (
+                            <ShipmentRow key={shipment.id} shipment={shipment} />
+                          ))}
+                        </motion.div>
+                      )
+                    ) : (
+                      <div className="text-center py-12 text-slate-500">No results found</div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="flex items-center justify-between pt-4 bg-white rounded-xl p-4 border border-slate-200/80">
+                    <div className="text-sm text-slate-500">
+                      {filteredShipments.length > 0 ? (
+                        <>
+                          Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredShipments.length)} of {filteredShipments.length}
+                        </>
+                      ) : (
+                        <>No items</>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1 || totalPages === 0}
+                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          disabled={totalPages === 0}
+                          className={`w-8 h-8 rounded-lg text-sm ${currentPage === page && totalPages > 0 ? 'bg-primary text-white' : 'border border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <EmptyState />
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <Sidebar stats={stats} />
+            </div>
+          </div>
+        </main>
+      </div>
+    </ProtectedRoute>
+  );
+}
+
+export default function ShipmentsPage() {
+  return (
+    <Suspense>
+      <ShipmentsPageContent />
+    </Suspense>
   );
 }

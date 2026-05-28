@@ -16,7 +16,7 @@ import Redis from 'ioredis';
         });
 
         return {
-          store: redisClient as any,
+          store: redisClient,
           ttl: 300, // 5 minutes default
         };
       },

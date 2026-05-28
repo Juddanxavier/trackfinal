@@ -6,6 +6,7 @@ import { TrackingController } from './tracking.controller';
 import { SeventeenTrackWebhookController } from './seventeen-track-webhook.controller';
 import { ShipmentsModule } from '../shipments/shipments.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 
 @Global()
 @Module({
@@ -13,6 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ConfigModule,
     forwardRef(() => ShipmentsModule),
     NotificationsModule,
+    WebhooksModule,
   ],
   controllers: [SeventeenTrackWebhookController, TrackingController],
   providers: [SeventeenTrackService, TrackingSyncService],

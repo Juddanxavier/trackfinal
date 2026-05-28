@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+﻿import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { db } from '../../database';
@@ -10,6 +10,7 @@ const RETENTION_CRON = '0 0 * * *';
 
 @Injectable()
 export class QuoteCleanupService implements OnModuleInit {
+  private readonly logger = new Logger(QuoteCleanupService.name);
   constructor(private schedulerRegistry: SchedulerRegistry) {}
 
   onModuleInit() {
@@ -22,11 +23,11 @@ export class QuoteCleanupService implements OnModuleInit {
     this.schedulerRegistry.addCronJob('quote-retention-cleanup', job);
     job.start();
 
-    console.log(`[QuoteCleanup] Scheduled: ${cronExpression}`);
+    this.logger.log(`[QuoteCleanup] Scheduled: ${cronExpression}`);
   }
 
   private async handleRetentionCleanup() {
-    console.log('[QuoteCleanup] Running retention policy...');
+    this.logger.log('[QuoteCleanup] Running retention policy...');
     const now = new Date();
 
     const rejectedDays = parseInt(
@@ -92,7 +93,7 @@ export class QuoteCleanupService implements OnModuleInit {
         )
         .returning();
 
-      console.log(
+      this.logger.log(
         `[QuoteCleanup] Deleted ${rejectedDeleted.length} rejected (>${rejectedDays}d), ${pendingDeleted.length} pending (>${pendingDays}d), ${quotedDeleted.length} quoted (>${pendingDays}d)`,
       );
 
@@ -108,7 +109,7 @@ export class QuoteCleanupService implements OnModuleInit {
         )
         .returning();
 
-      console.log(
+      this.logger.log(
         `[QuoteCleanup] Archived ${acceptedToArchive.length} accepted (>${acceptedArchiveDays}d)`,
       );
 
@@ -129,11 +130,11 @@ export class QuoteCleanupService implements OnModuleInit {
           .where(eq(notifications.titleKey, 'quote.assigned'));
       }
 
-      console.log(
+      this.logger.log(
         `[QuoteCleanup] Permanently deleted ${acceptedToDelete.length} accepted (>${acceptedDeleteDays}d since archive)`,
       );
     } catch (error) {
-      console.error('[QuoteCleanup] Error:', error);
+      this.logger.error('[QuoteCleanup] Error:', error);
     }
   }
 }

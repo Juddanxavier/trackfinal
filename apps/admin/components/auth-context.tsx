@@ -20,7 +20,6 @@ export interface Organisation {
   countryCode?: string
   currency?: string
   logoUrl?: string
-  isActive?: boolean
   createdAt?: string
 }
 
@@ -33,6 +32,7 @@ interface AuthContextType {
   refreshUser: () => Promise<AuthUser | null>
   login: (email: string, password: string) => Promise<AuthUser>
   logout: () => Promise<void>
+  can: (action: string, object: string) => boolean
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
@@ -83,10 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let orgs: Organisation[] = []
       
       if (userData.role === "admin") {
-        // Admins can see all organisations
-        const response = await api.get<Organisation[]>("/organisations", { throwOnError: false })
-        if (Array.isArray(response)) {
-          orgs = response
+        // Admin sees only their own org (API filters based on role)
+        const response: any = await api.get<Organisation[]>("/organisations", { throwOnError: false })
+        const allOrgs = response?.value || response?.data || response
+        if (Array.isArray(allOrgs)) {
+          orgs = allOrgs
         }
         
         // If no orgs found, try to fetch user's own org
@@ -240,6 +241,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, orgId)
   }, [])
 
+  const can = React.useCallback((action: string, object: string): boolean => {
+    if (!user?.permissions) return false
+    const perms = user.permissions
+    const allowedObjects = perms[action] || perms['*'] || []
+    if (allowedObjects.includes('*')) return true
+    if (allowedObjects.includes(object)) return true
+    return false
+  }, [user?.permissions])
+
   return (
     <AuthContext.Provider
       value={{
@@ -251,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUser,
         login,
         logout,
+        can,
       }}
     >
       {children}

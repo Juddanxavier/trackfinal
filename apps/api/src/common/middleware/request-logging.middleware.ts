@@ -16,7 +16,9 @@ export class RequestLoggingMiddleware implements NestMiddleware {
   private readonly logger = new Logger('HTTP');
 
   use(req: Request, res: Response, next: NextFunction) {
-    const correlationId = (req.headers['x-correlation-id'] as string) || randomBytes(8).toString('hex');
+    const correlationId =
+      (req.headers['x-correlation-id'] as string) ||
+      randomBytes(8).toString('hex');
     const startTime = Date.now();
     const method = req.method;
     const reqUrl = req.url;
@@ -28,14 +30,16 @@ export class RequestLoggingMiddleware implements NestMiddleware {
 
     res.setHeader('X-Correlation-ID', correlationId);
 
-    console.log(`--> ${method} ${reqUrl} [correlationId=${correlationId}] ip=${ip} ua=${userAgent}`);
+    console.log(
+      `--> ${method} ${reqUrl} [correlationId=${correlationId}] ip=${ip} ua=${userAgent}`,
+    );
 
     const originalEnd = res.end;
     const log = (...args: any[]) => console.log(...args);
     const logError = (...args: any[]) => console.error(...args);
     const logWarn = (...args: any[]) => console.warn(...args);
 
-    res.end = function(...args: any[]) {
+    res.end = function (...args: any[]) {
       const duration = Date.now() - startTime;
       const statusCode = res.statusCode || 0;
 

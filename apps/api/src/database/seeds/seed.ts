@@ -37,7 +37,6 @@ async function seed() {
       .values({
         name: 'Track HQ',
         slug: 'track-hq',
-        isActive: true,
       })
       .returning();
     org = newOrg;
@@ -59,7 +58,6 @@ async function seed() {
         name: 'Admin User',
         role: Role.ADMIN,
         organisationId: org.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -80,7 +78,6 @@ async function seed() {
         name: 'Staff User',
         role: Role.STAFF,
         organisationId: org.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -101,7 +98,6 @@ async function seed() {
         name: 'Customer User',
         role: Role.CUSTOMER,
         organisationId: org.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -120,7 +116,6 @@ async function seed() {
       .values({
         name: 'India',
         slug: 'india',
-        isActive: true,
       })
       .returning();
     india = newIndia;
@@ -141,7 +136,6 @@ async function seed() {
         name: 'India Staff',
         role: Role.STAFF,
         organisationId: india.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -162,7 +156,6 @@ async function seed() {
         name: 'India Customer',
         role: Role.CUSTOMER,
         organisationId: india.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -181,7 +174,6 @@ async function seed() {
       .values({
         name: 'Sri Lanka',
         slug: 'sri-lanka',
-        isActive: true,
       })
       .returning();
     sriLanka = newSL;
@@ -202,7 +194,6 @@ async function seed() {
         name: 'Sri Lanka Staff',
         role: Role.STAFF,
         organisationId: sriLanka.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -223,7 +214,6 @@ async function seed() {
         name: 'Sri Lanka Customer',
         role: Role.CUSTOMER,
         organisationId: sriLanka.id,
-        isActive: true,
         emailVerified: true,
       })
       .returning();
@@ -256,8 +246,7 @@ async function seed() {
           name: `${org.name} Staff`,
           role: Role.STAFF,
           organisationId: org.id,
-          isActive: true,
-          emailVerified: true,
+            emailVerified: true,
         })
         .returning();
       staffForOrg = newStaff;

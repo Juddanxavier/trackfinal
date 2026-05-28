@@ -14,20 +14,10 @@ import {
   MailIcon,
   TrashIcon,
   EyeIcon,
+  FileSpreadsheetIcon,
 } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableFooter,
-  SortableTableHead,
-} from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Pagination } from "@/components/ui/pagination"
+import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
 import {
   Select,
   SelectContent,
@@ -37,6 +27,7 @@ import {
 } from "@/components/ui/select"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
 import { ExportButton } from "@/components/export-button"
+import { toast } from "sonner"
 import { AnimatedPage } from "@/components/animated-page"
 import {
   DropdownMenu,
@@ -51,6 +42,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { BulkActionFooter } from "@/components/bulk-action-footer"
 import {
   Dialog,
   DialogContent,
@@ -63,6 +56,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
+import { quoteEmailSchema, fieldErrors, type QuoteEmailFormData } from "@/lib/validation"
 
 type QuoteStatus = "pending" | "quoted" | "accepted" | "rejected"
 
@@ -94,6 +88,7 @@ export default function QuotesPage() {
   const { selectedOrganisation } = useAuth()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -101,8 +96,10 @@ export default function QuotesPage() {
   const [limit, setLimit] = useState(10)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [sortColumn, setSortColumn] = useState("")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "created", desc: true },
+  ])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null)
@@ -114,14 +111,12 @@ export default function QuotesPage() {
   const [emailSubject, setEmailSubject] = useState("")
   const [emailMessage, setEmailMessage] = useState("")
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailErrors, setEmailErrors] = useState<Partial<Record<keyof QuoteEmailFormData, string>>>({})
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [lastSentTime, setLastSentTime] = useState<number>(0)
   const EMAIL_COOLDOWN = 60000
-
-  const handleSort = (column: string, direction: "asc" | "desc") => {
-    setSortColumn(column)
-    setSortDirection(direction)
-  }
 
   const fetchQuotes = async () => {
     setLoading(true)
@@ -132,9 +127,9 @@ export default function QuotesPage() {
       if (search) params.set("search", search)
       if (statusFilter !== "all") params.set("status", statusFilter)
       if (selectedOrganisation) params.set("organisationId", selectedOrganisation)
-      if (sortColumn) {
-        params.set("sortBy", sortColumn)
-        params.set("sortOrder", sortDirection)
+      if (sorting.length > 0) {
+        params.set("sortBy", sorting[0].id)
+        params.set("sortOrder", sorting[0].desc ? "desc" : "asc")
       }
 
       const res = await api.get<{ data: Quote[]; total: number; page: number; limit: number; totalPages: number }>(
@@ -157,7 +152,7 @@ export default function QuotesPage() {
 
   useEffect(() => {
     fetchQuotes()
-  }, [page, limit, statusFilter, selectedOrganisation, sortColumn, sortDirection])
+  }, [page, limit, statusFilter, selectedOrganisation, sorting])
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -172,15 +167,23 @@ export default function QuotesPage() {
     fetchStats()
   }, [selectedOrganisation])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this quote?")) return
+  const handleDeleteClick = (id: string) => {
+    setDeleteTarget(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
     try {
-      await api.delete(`/quotes/${id}`)
+      await api.delete(`/quotes/${deleteTarget}`)
       fetchQuotes()
       const statsRes = await api.get<Stats>(`/quotes/stats${selectedOrganisation ? `?organisationId=${selectedOrganisation}` : ""}`)
       setStats(statsRes)
     } catch (err) {
       console.error("Failed to delete quote:", err)
+    } finally {
+      setDeleteDialogOpen(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -214,10 +217,23 @@ export default function QuotesPage() {
   }
 
   const handleExportToGoogleSheets = async () => {
-    if (!selectedQuote) return
-
-    const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/create?usp=sharing`
-    window.open(spreadsheetUrl, "_blank")
+    const headers = ["Email", "Origin", "Destination", "Status", "Price", "Created"]
+    const rows = quotes.map((q) => [
+      q.email,
+      q.originCountry,
+      q.destinationCountry,
+      q.status,
+      q.price?.toString() || "",
+      q.createdAt,
+    ])
+    const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v || "").replace(/"/g, '""')}"`).join(","))].join("\n")
+    try {
+      await navigator.clipboard.writeText(csv)
+      window.open("https://docs.google.com/spreadsheets/d/create?usp=sharing", "_blank")
+      toast.success("Data copied to clipboard. Paste into the new Google Sheet (Ctrl+V / Cmd+V).")
+    } catch {
+      toast.error("Failed to copy data to clipboard")
+    }
   }
 
   const handleOpenEmailDialog = (quote: Quote) => {
@@ -228,6 +244,12 @@ export default function QuotesPage() {
   }
 
   const handleSendEmail = () => {
+    setEmailErrors({})
+    const result = quoteEmailSchema.safeParse({ subject: emailSubject, message: emailMessage })
+    if (!result.success) {
+      setEmailErrors(fieldErrors<QuoteEmailFormData>(result))
+      return
+    }
     const now = Date.now()
     if (now - lastSentTime < EMAIL_COOLDOWN) {
       return
@@ -247,6 +269,7 @@ export default function QuotesPage() {
         message: emailMessage,
       })
       setEmailDialogOpen(false)
+      setEmailErrors({})
     } catch (err) {
       console.error("Failed to send email:", err)
     } finally {
@@ -261,8 +284,104 @@ export default function QuotesPage() {
     rejected: "bg-red-100 text-red-800",
   }
 
-  const isFirstPage = page === 1
-  const isLastPage = page === totalPages
+  const columns: ColumnDef<Quote>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <SelectAllCheckbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(val) => table.toggleAllPageRowsSelected(!!val)}
+        />
+      ),
+      cell: ({ row }) => (
+        <RowCheckbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(val) => row.toggleSelected(!!val)}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "phone",
+      header: "Phone",
+      cell: ({ row }) => row.original.phone || "-",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "originCountry",
+      header: "Origin Country",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "destinationCountry",
+      header: "Destination Country",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <Badge className={variants[row.original.status]}>
+          {row.original.status.charAt(0).toUpperCase() + row.original.status.slice(1)}
+        </Badge>
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "price",
+      header: "Price",
+      cell: ({ row }) =>
+        row.original.price
+          ? `₹${Math.round(parseFloat(row.original.price)).toLocaleString("en-IN")}`
+          : "-",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created",
+      cell: ({ row }) =>
+        new Date(row.original.createdAt).toLocaleDateString(),
+      enableSorting: true,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const quote = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                <MoreHorizontalIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-auto">
+              <DropdownMenuItem onClick={() => handleViewDetails(quote)}>
+                <EyeIcon className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              {quote.status !== "accepted" && quote.status !== "rejected" && (
+                <DropdownMenuItem onClick={() => handleOpenEmailDialog(quote)}>
+                  <MailIcon className="mr-2 h-4 w-4" />
+                  Send Email
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleDeleteClick(quote.id)} className="text-red-600">
+                <TrashIcon className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+      enableSorting: false,
+    },
+  ]
 
   return (
     <AnimatedPage className="p-6 space-y-6">
@@ -271,18 +390,29 @@ export default function QuotesPage() {
           <h1 className="text-3xl font-bold">Quote Management</h1>
           <p className="text-sm text-muted-foreground mt-1">View and manage all quote requests</p>
         </div>
-        <ExportButton
-          data={quotes}
-          columns={[
-            { key: "email", header: "Email" },
-            { key: "originCountry", header: "Origin" },
-            { key: "destinationCountry", header: "Destination" },
-            { key: "status", header: "Status" },
-            { key: "price", header: "Price" },
-            { key: "createdAt", header: "Created" },
-          ]}
-          filename="quotes"
-        />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportToGoogleSheets}>
+            <FileSpreadsheetIcon className="mr-2 h-4 w-4" />
+            Export to Sheets
+          </Button>
+          <ExportButton
+            sections={[
+              {
+                title: "Quotes",
+                data: quotes,
+                columns: [
+                  { key: "email", header: "Email" },
+                  { key: "originCountry", header: "Origin" },
+                  { key: "destinationCountry", header: "Destination" },
+                  { key: "status", header: "Status" },
+                  { key: "price", header: "Price" },
+                  { key: "createdAt", header: "Created" },
+                ],
+              },
+            ]}
+            filename="quotes"
+          />
+        </div>
       </div>
 
       {stats && <QuoteStatsCards {...stats} />}
@@ -302,97 +432,48 @@ export default function QuotesPage() {
         ]}
       />
 
-      <div className="border rounded-lg bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10"><Checkbox /></TableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>email</SortableTableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>phone</SortableTableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>originCountry</SortableTableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>destinationCountry</SortableTableHead>
-              <TableHead>Status</TableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>price</SortableTableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>created</SortableTableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">Loading...</TableCell>
-              </TableRow>
-            ) : quotes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9}>
-                <Empty>
-                  <EmptyDescription>No quotes found</EmptyDescription>
-                </Empty>
-              </TableCell>
-              </TableRow>
-            ) : (
-              quotes.map((quote) => (
-                <TableRow key={quote.id}>
-                  <TableCell><Checkbox /></TableCell>
-                  <TableCell>{quote.email}</TableCell>
-                  <TableCell>{quote.phone || "-"}</TableCell>
-                  <TableCell>{quote.originCountry}</TableCell>
-                  <TableCell>{quote.destinationCountry}</TableCell>
-                  <TableCell>
-                    <Badge className={variants[quote.status]}>
-                      {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{quote.price ? `₹${Math.round(parseFloat(quote.price)).toLocaleString('en-IN')}` : "-"}</TableCell>
-                  <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontalIcon className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-auto">
-                        <DropdownMenuItem onClick={() => handleViewDetails(quote)}>
-                          <EyeIcon className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        {quote.status !== "accepted" && quote.status !== "rejected" && (
-                          <DropdownMenuItem onClick={() => handleOpenEmailDialog(quote)}>
-                            <MailIcon className="mr-2 h-4 w-4" />
-                            Send Email
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleDelete(quote.id)} className="text-red-600">
-                          <TrashIcon className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-          <TableFooter>
-            <tr>
-              <td colSpan={9} className="px-4 py-3 text-sm text-muted-foreground">
-                Showing {total === 0 ? 0 : (page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} quotes
-              </td>
-            </tr>
-          </TableFooter>
-        </Table>
-      </div>
-
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        itemsPerPage={limit}
+      <DataTable
+        columns={columns}
+        data={quotes}
+        loading={loading}
+        getRowId={(row) => row.id}
+        emptyState={
+          <Empty>
+            <EmptyDescription>No quotes found</EmptyDescription>
+          </Empty>
+        }
+        enableRowSelection
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={setSorting}
+        manualPagination
+        page={page}
+        pageSize={limit}
+        total={total}
+        pageCount={totalPages}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
+        pageSizeOptions={[10, 20, 50, 100]}
+        customFooter={<BulkActionFooter
+          selectedCount={selectedIds.length}
+          actions={[
+            { label: "Delete Selected", variant: "destructive", onClick: () => {
+              if (selectedIds.length === 1) {
+                handleDeleteClick(selectedIds[0])
+              } else {
+                Promise.all(selectedIds.map(id => api.delete(`/quotes/${id}`))).then(() => {
+                  fetchQuotes()
+                }).catch(console.error)
+              }
+              setSelectedIds([])
+            }},
+          ]}
+        />}
       />
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet open={!!selectedQuote} onOpenChange={(open) => !open && setSelectedQuote(null)}>
         <SheetContent className="sm:max-w-[500px] overflow-y-auto p-6">
           <SheetHeader>
             <SheetTitle>Quote Details</SheetTitle>
@@ -511,24 +592,25 @@ export default function QuotesPage() {
             </div>
             <div className="space-y-2">
               <Label>Subject</Label>
-              <Input
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Enter subject..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea
-                value={emailMessage}
-                onChange={(e) => setEmailMessage(e.target.value)}
-                placeholder="Enter your message..."
-                rows={5}
-              />
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => { setEmailErrors({ ...emailErrors, subject: undefined }); setEmailSubject(e.target.value) }}
+                  placeholder="Enter subject..."
+                />
+                {emailErrors.subject && <p className="text-sm text-red-500">{emailErrors.subject}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Message</Label>
+                <Textarea
+                  value={emailMessage}
+                  onChange={(e) => { setEmailErrors({ ...emailErrors, message: undefined }); setEmailMessage(e.target.value) }}
+                  placeholder="Enter your message..."
+                  rows={5}
+                />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setEmailDialogOpen(false); setEmailErrors({}) }}>
               Cancel
             </Button>
             <Button onClick={handleSendEmail} disabled={sendingEmail}>
@@ -544,6 +626,16 @@ export default function QuotesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteTarget(null) }}
+        title="Delete Quote"
+        description="Are you sure you want to delete this quote? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirmDelete}
+      />
 
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">

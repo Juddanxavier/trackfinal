@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { organisations } from './organisations';
+import { branches } from './branches';
 import { users } from './user';
 
 export const invitationStatuses = pgTable('invitation_statuses', {
@@ -8,6 +9,7 @@ export const invitationStatuses = pgTable('invitation_statuses', {
   organisationId: uuid('organisation_id')
     .notNull()
     .references(() => organisations.id),
+  branchId: uuid('branch_id').references(() => branches.id),
   role: text('role').notNull(), // 'staff' | 'customer'
   token: text('token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),

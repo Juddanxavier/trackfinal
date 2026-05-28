@@ -8,8 +8,9 @@ async function migrate() {
     ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_phone TEXT;
     ALTER TABLE shipments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
     ALTER TABLE shipments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+    ALTER TABLE shipments ADD COLUMN IF NOT EXISTS bill_amount NUMERIC(10,2);
   `);
-  console.log('Added notification, archive, and deleted columns');
+  console.log('Added notification, archive, deleted, and bill_amount columns');
 }
 
 migrate()

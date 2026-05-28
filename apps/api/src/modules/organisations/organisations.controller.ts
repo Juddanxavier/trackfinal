@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,8 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { OrganisationsService } from '../users/services';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('organisations')
@@ -27,8 +27,8 @@ import { Role } from '../../common/enums/role.enum';
 export class OrganisationsController {
   constructor(private readonly organisationsService: OrganisationsService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'organisations', action: 'write' })
   @Post()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new organisation' })
@@ -54,15 +54,20 @@ export class OrganisationsController {
     return this.organisationsService.create(createDto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List all organisations' })
   @ApiResponse({ status: 200, description: 'List of organisations' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   findAll(@Request() req: any) {
-    return this.organisationsService.findAll();
+    const orgId = req.user.organisationId;
+    console.log('[OrganisationsController] findAll orgId:', orgId);
+    if (!orgId) {
+      console.log('[OrganisationsController] No orgId, returning empty');
+      return [];
+    }
+    return this.organisationsService.findById(orgId).then(o => o ? [o] : []);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -85,15 +90,14 @@ export class OrganisationsController {
   @ApiResponse({ status: 200, description: 'Organisation found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   findOne(@Param('id') id: string, @Request() req: any) {
-    // Users can only view their own organisation, admins can view any
-    if (req.user.role !== Role.ADMIN && req.user.organisationId !== id) {
+    if (req.user.organisationId !== id) {
       return null;
     }
     return this.organisationsService.findById(id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'organisations', action: 'write' })
   @Patch(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update organisation' })
@@ -118,17 +122,127 @@ export class OrganisationsController {
     },
     @Request() req: any,
   ) {
+    if (req.user.organisationId !== id) {
+      throw new ForbiddenException('You can only manage your own organisation');
+    }
     return this.organisationsService.update(id, updateDto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'organisations', action: 'write' })
   @Delete(':id')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete organisation' })
+  @ApiOperation({ summary: 'Soft delete organisation (deactivate)' })
   @ApiParam({ name: 'id', description: 'Organisation UUID' })
-  @ApiResponse({ status: 200, description: 'Organisation deleted' })
+  @ApiResponse({ status: 200, description: 'Organisation deactivated' })
   remove(@Param('id') id: string, @Request() req: any) {
+    if (req.user.organisationId !== id) {
+      throw new ForbiddenException('You can only manage your own organisation');
+    }
     return this.organisationsService.remove(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('tree')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get organisation hierarchy tree' })
+  @ApiResponse({ status: 200, description: 'Organisation tree with branches' })
+  getOrgTree(@Request() req: any) {
+    if (!req.user.organisationId) {
+      return [];
+    }
+    return this.organisationsService.getOrgTree().then((tree) =>
+      tree.filter((o: any) => o.id === req.user.organisationId)
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/branches')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get branches for an organisation' })
+  @ApiParam({ name: 'id', description: 'Organisation UUID' })
+  @ApiResponse({ status: 200, description: 'List of branches' })
+  getBranches(@Param('id') id: string, @Request() req: any) {
+    if (req.user.organisationId !== id) {
+      throw new ForbiddenException('You can only access branches for your own organisation');
+    }
+    return this.organisationsService.getBranches(id);
+  }
+
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'organisations', action: 'write' })
+  @Post(':id/branches')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a branch for an organisation' })
+  @ApiParam({ name: 'id', description: 'Organisation UUID' })
+  @ApiResponse({ status: 201, description: 'Branch created' })
+  createBranch(
+    @Param('id') id: string,
+    @Body()
+    createDto: {
+      name: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      countryCode?: string;
+    },
+    @Request() req: any,
+  ) {
+    if (req.user.organisationId !== id) {
+      throw new ForbiddenException('You can only manage branches for your own organisation');
+    }
+    return this.organisationsService.createBranch({
+      ...createDto,
+      organisationId: id,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'organisations', action: 'write' })
+  @Patch(':orgId/branches/:branchId')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a branch' })
+  @ApiParam({ name: 'orgId', description: 'Organisation UUID' })
+  @ApiParam({ name: 'branchId', description: 'Branch UUID' })
+  @ApiResponse({ status: 200, description: 'Branch updated' })
+  async updateBranch(
+    @Param('orgId') orgId: string,
+    @Param('branchId') branchId: string,
+    @Body()
+    updateDto: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      countryCode?: string;
+      isActive?: boolean;
+    },
+    @Request() req: any,
+  ) {
+    if (req.user.organisationId !== orgId) {
+      throw new ForbiddenException('You can only manage branches for your own organisation');
+    }
+    return this.organisationsService.updateBranch(branchId, updateDto);
+  }
+
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'organisations', action: 'write' })
+  @Delete(':orgId/branches/:branchId')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft delete branch (deactivate)' })
+  @ApiParam({ name: 'orgId', description: 'Organisation UUID' })
+  @ApiParam({ name: 'branchId', description: 'Branch UUID' })
+  @ApiResponse({ status: 200, description: 'Branch deactivated' })
+  removeBranch(@Param('orgId') orgId: string, @Param('branchId') branchId: string, @Request() req: any) {
+    if (req.user.organisationId !== orgId) {
+      throw new ForbiddenException('You can only manage branches for your own organisation');
+    }
+    return this.organisationsService.removeBranch(branchId);
   }
 }

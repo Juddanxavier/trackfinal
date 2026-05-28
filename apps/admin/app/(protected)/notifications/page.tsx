@@ -5,18 +5,9 @@ import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableFooter,
-} from "@/components/ui/table"
-import { Pagination } from "@/components/ui/pagination"
+import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
 import {
   BellIcon,
   BellOffIcon,
@@ -54,6 +45,8 @@ export default function NotificationsPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [filter, setFilter] = useState<"all" | "read" | "unread">("all")
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const fetchNotifications = async () => {
     setLoading(true)
@@ -63,6 +56,10 @@ export default function NotificationsPage() {
       params.set("limit", limit.toString())
       if (filter === "read") params.set("isRead", "true")
       if (filter === "unread") params.set("isRead", "false")
+      if (sorting.length > 0) {
+        params.set("sortBy", sorting[0].id)
+        params.set("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
 
       const res = await api.get<{
         data: Notification[]
@@ -115,7 +112,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     fetchNotifications()
-  }, [page, limit])
+  }, [page, limit, sorting])
 
   const markAsRead = async (id: string) => {
     try {
@@ -162,8 +159,77 @@ export default function NotificationsPage() {
     }
   }
 
-  const isFirstPage = page === 1
-  const isLastPage = page === totalPages
+  const columns: ColumnDef<Notification>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <SelectAllCheckbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(val) => table.toggleAllPageRowsSelected(!!val)}
+        />
+      ),
+      cell: ({ row }) => (
+        <RowCheckbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(val) => row.toggleSelected(!!val)}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      id: "type",
+      header: "Type",
+      cell: ({ row }) => getNotificationIcon(row.original.type),
+    },
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => (
+        <span className={row.original.isRead ? "opacity-60" : ""}>
+          {row.original.title}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "message",
+      header: "Message",
+      cell: ({ row }) => (
+        <span className={`max-w-xs truncate block ${row.original.isRead ? "opacity-60" : ""}`}>
+          {row.original.message}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "isRead",
+      header: "Status",
+      cell: ({ row }) => (
+        <Badge variant={row.original.isRead ? "secondary" : "default"}>
+          {row.original.isRead ? "Read" : "Unread"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Date",
+      cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const notification = row.original
+        return notification.isRead ? (
+          <Button variant="ghost" size="sm" onClick={() => markAsUnread(notification.id)}>
+            Mark Unread
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => markAsRead(notification.id)}>
+            Mark Read
+          </Button>
+        )
+      },
+    },
+  ]
 
   return (
     <div className="p-6 space-y-6">
@@ -242,100 +308,40 @@ export default function NotificationsPage() {
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10"><Checkbox /></TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Message</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="w-10">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : notifications.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <Empty>
-                    <EmptyDescription>
-                      No notifications found
-                    </EmptyDescription>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : (
-              notifications.map((notification) => (
-                <TableRow
-                  key={notification.id}
-                  className={notification.isRead ? "opacity-60" : ""}
-                >
-                  <TableCell><Checkbox /></TableCell>
-                  <TableCell>
-                    {getNotificationIcon(notification.type)}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {notification.title}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {notification.message}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={notification.isRead ? "secondary" : "default"}>
-                      {notification.isRead ? "Read" : "Unread"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(notification.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    {notification.isRead ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => markAsUnread(notification.id)}
-                      >
-                        Mark Unread
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => markAsRead(notification.id)}
-                      >
-                        Mark Read
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-          <TableFooter>
-            <tr>
-              <td colSpan={7} className="px-4 py-3 text-sm text-muted-foreground">
-                Showing {total === 0 ? 0 : (page - 1) * limit + 1} to{" "}
-                {Math.min(page * limit, total)} of {total} notifications
-              </td>
-            </tr>
-          </TableFooter>
-        </Table>
-      </div>
-
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        itemsPerPage={limit}
+      <DataTable
+        columns={columns}
+        data={notifications}
+        loading={loading}
+        getRowId={(row) => row.id}
+        emptyState={
+          <Empty>
+            <EmptyDescription>No notifications found</EmptyDescription>
+          </Empty>
+        }
+        enableRowSelection
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        manualPagination
+        page={page}
+        pageSize={limit}
+        total={total}
+        pageCount={totalPages}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
+        pageSizeOptions={[10, 20, 50, 100]}
+        customFooter={<BulkActionFooter
+          selectedCount={selectedIds.length}
+          actions={[
+            { label: "Mark Read", variant: "outline", onClick: () => {
+              selectedIds.forEach(id => markAsRead(id))
+              setSelectedIds([])
+            }},
+            { label: "Mark Unread", variant: "outline", onClick: () => {
+              selectedIds.forEach(id => markAsUnread(id))
+              setSelectedIds([])
+            }},
+          ]}
+        />}
       />
     </div>
   )

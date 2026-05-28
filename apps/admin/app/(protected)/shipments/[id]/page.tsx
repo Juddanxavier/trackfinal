@@ -20,6 +20,14 @@ import {
   AlertCircleIcon,
   Trash2Icon,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const countryNameToCode: Record<string, string> = {
   "Afghanistan": "AF", "Albania": "AL", "Algeria": "DZ", "Andorra": "AD", "Angola": "AO", "Antigua and Barbuda": "AG", "Argentina": "AR", "Armenia": "AM", "Australia": "AU", "Austria": "AT", "Azerbaijan": "AZ",
@@ -121,6 +129,7 @@ export default function ShipmentDetailPage() {
   const [syncing, setSyncing] = useState(false)
   const [registering, setRegistering] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const shipmentId = params.id as string
 
@@ -174,7 +183,6 @@ export default function ShipmentDetailPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this shipment?")) return
     setDeleting(true)
     try {
       await api.delete(`/shipments/${shipmentId}`, { throwOnError: false })
@@ -251,8 +259,8 @@ export default function ShipmentDetailPage() {
                     Register
                   </Button>
                 )}
-                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                  {deleting ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : <Trash2Icon className="mr-2 h-4 w-4" />}
+                <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+                  <Trash2Icon className="mr-2 h-4 w-4" />
                   Delete
                 </Button>
               </div>
@@ -409,6 +417,25 @@ export default function ShipmentDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Shipment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this shipment? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => { handleDelete(); setDeleteDialogOpen(false) }} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

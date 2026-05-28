@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm';
 import { SeventeenTrackService, TrackingData } from './seventeen-track.service';
 import { NotificationService } from '../notifications/notification.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 interface WebhookPayload {
   number: string;
@@ -74,6 +75,7 @@ export class TrackingSyncService {
     private configService: ConfigService,
     private seventeenTrackService: SeventeenTrackService,
     private notificationService: NotificationService,
+    private webhooksService: WebhooksService,
   ) {
     this.pollingIntervalMinutes =
       this.configService.get<number>('TRACKING_POLL_INTERVAL') || 60;
@@ -212,7 +214,7 @@ export class TrackingSyncService {
       .set({
         status: status as any,
         track17Data: {
-          ...((shipment.track17Data as object) || {}),
+          ...(shipment.track17Data || {}),
           lastSync: new Date().toISOString(),
           lastStatus: status,
         },
@@ -275,6 +277,28 @@ export class TrackingSyncService {
           this.logger.error(`[Webhook] Failed to send notification: ${err}`);
         }
       }
+
+      const webhookEvent = status === 'delivered' ? 'delivered'
+        : status === 'in_transit' ? 'in_transit'
+        : status === 'exception' ? 'exception'
+        : status === 'cancelled' ? 'cancelled'
+        : null;
+
+      if (webhookEvent) {
+        this.webhooksService.dispatch(webhookEvent, {
+          trackingNumber: shipment.trackingNumber,
+          carrierCode: shipment.carrierCode,
+          status,
+          statusRaw,
+          recipientName: shipment.recipientName,
+          destinationCountry: shipment.destinationCountry,
+          location: latestEvent?.location || null,
+          eventTime: latestEvent?.time_utc || null,
+          organisationId: shipment.organisationId,
+        }, shipment.organisationId).catch((err) => {
+          this.logger.error(`[Webhook] Failed to dispatch webhook: ${err}`);
+        });
+      }
     }
 
     this.logger.log(`[Webhook] Updated shipment ${trackingNumber}: ${status}`);
@@ -332,7 +356,7 @@ export class TrackingSyncService {
           tracking.destinationCountry || shipment.destinationCountry,
         carrierCode: tracking.carrierCode || shipment.carrierCode,
         track17Data: {
-          ...((shipment.track17Data as object) || {}),
+          ...(shipment.track17Data || {}),
           lastSync: new Date().toISOString(),
           originCountry: tracking.originCountry,
           destinationCountry: tracking.destinationCountry,

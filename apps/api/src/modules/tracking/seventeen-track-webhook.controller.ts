@@ -8,9 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { TrackingSyncService } from './tracking-sync.service';
 import { SeventeenTrackService } from './seventeen-track.service';
 import { timingSafeEqual } from '../../common/utils/crypto.util';
@@ -26,8 +24,11 @@ export class SeventeenTrackWebhookController {
   @Post()
   @Public()
   async handleWebhook(@Body() payload: any[]) {
-    console.log('[17Track Webhook] Received:', JSON.stringify(payload).slice(0, 200));
-    
+    console.log(
+      '[17Track Webhook] Received:',
+      JSON.stringify(payload).slice(0, 200),
+    );
+
     const webhookToken = this.configService.get<string>(
       'SEVENTEEN_WEBHOOK_TOKEN',
     );
@@ -57,8 +58,8 @@ export class SeventeenTrackWebhookController {
   }
 
   @Post('settings')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   async updateSettings(
     @Body()
     body: {
@@ -84,8 +85,8 @@ export class SeventeenTrackWebhookController {
   }
 
   @Post('settings/:organisationId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'tracking', action: 'write' })
   async updateOrgSettings(
     @Body()
     body: {

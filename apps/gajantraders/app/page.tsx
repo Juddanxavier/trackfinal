@@ -3,6 +3,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   Search,
@@ -113,91 +114,109 @@ export default function Home() {
                 priority
               />
             </motion.div>
-            <div className='absolute inset-0 bg-gradient-to-r from-[#121212]/95 via-[#121212]/70 to-[#121212]/95' />
+            <div className='absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/98 via-[#0a0a0a]/80 to-[#0a0a0a]/40' />
           </div>
 
-          <div className='relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16'>
-            <div className='grid lg:grid-cols-2 gap-12 xl:gap-16 items-center min-h-[calc(100vh-6rem)]'>
-              <div className='space-y-6'>
+          {/* Animated route lines */}
+          <div className='absolute inset-0 z-[1] pointer-events-none overflow-hidden'>
+            <svg className='absolute top-1/4 right-1/3 w-96 h-96 opacity-[0.04]' viewBox='0 0 400 400' fill='none'>
+              <circle cx='200' cy='200' r='180' stroke='white' strokeWidth='0.5' />
+              <circle cx='200' cy='200' r='120' stroke='white' strokeWidth='0.5' strokeDasharray='4 8' />
+              <circle cx='200' cy='200' r='60' stroke='white' strokeWidth='1' />
+            </svg>
+            <motion.svg
+              className='absolute bottom-1/4 left-[15%] w-64 h-64 opacity-[0.03]'
+              viewBox='0 0 300 300'
+              initial={{ rotate: 0 }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}>
+              <circle cx='150' cy='150' r='140' stroke='white' strokeWidth='0.5' strokeDasharray='2 6' />
+              <circle cx='150' cy='150' r='90' stroke='white' strokeWidth='0.5' />
+            </motion.svg>
+          </div>
+
+          <div className='relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16'>
+            <div className='grid lg:grid-cols-12 gap-8 xl:gap-12 items-center min-h-[calc(100vh-6rem)]'>
+              {/* Left Content */}
+              <div className='lg:col-span-7 space-y-8'>
                 <motion.div
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6 }}
-                  className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20'>
-                  <motion.span
-                    className='w-1.5 h-1.5 rounded-full bg-primary'
-                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  <span className='text-xs text-primary font-medium'>
-                    Trusted by 50,000+ Customers
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className='inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.06]'>
+                  <span className='relative flex h-2 w-2'>
+                    <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75' />
+                    <span className='relative inline-flex rounded-full h-2 w-2 bg-primary' />
+                  </span>
+                  <span className='text-xs text-white/60 font-medium tracking-wide'>
+                    Trusted by 50,000+ customers worldwide
                   </span>
                 </motion.div>
 
-                <motion.h1
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.1 }}
-                  className='text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-black text-white leading-[1] tracking-tight font-[family-name:var(--font-oswald)]'>
-                  <span className='text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70'>
-                    Send Your Parcel
-                  </span>
-                  <br />
-                  Anywhere Fast
-                </motion.h1>
+                <div className='space-y-6'>
+                  <motion.h1
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                    className='text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-semibold text-white leading-[0.9] tracking-tight font-heading'>
+                    Send Your Parcel{' '}
+                    <span className='inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-blue-400 to-primary/60'>
+                      Anywhere Fast
+                    </span>
+                  </motion.h1>
 
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                  className='text-sm md:text-base text-white/50 max-w-md'>
-                  Premium international courier services. Fast, secure delivery
-                  to 200+ countries with real-time tracking.
-                </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className='text-base md:text-lg text-white/40 max-w-lg leading-relaxed'>
+                    Premium international courier services. Fast, secure delivery
+                    to 200+ countries with real-time tracking and door-step pickup.
+                  </motion.p>
+                </div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.3 }}
-                  className='flex flex-wrap gap-3'>
-                  <button className='group px-5 py-2.5 bg-primary hover:bg-[#4C833E] text-xs font-bold text-white rounded-lg transition-all duration-300 cursor-pointer flex items-center gap-2 hover:gap-3 font-[family-name:var(--font-oswald)] uppercase tracking-wider'>
-                    Book Now
-                    <ChevronRight className='w-3.5 h-3.5 transition-transform group-hover:translate-x-1' />
-                  </button>
-                  <button className='px-5 py-2.5 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white rounded-lg border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer font-[family-name:var(--font-oswald)] uppercase tracking-wider'>
+                  className='flex flex-wrap gap-4'>
+                  <Link
+                    href='/register'
+                    className='group inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary hover:bg-[#172554] text-sm font-bold text-white rounded-xl transition-all duration-300 font-heading uppercase tracking-wider shadow-lg shadow-primary/25'>
+                    Get Started
+                    <ArrowRight className='w-4 h-4 transition-transform group-hover:translate-x-1' />
+                  </Link>
+                  <button className='inline-flex items-center gap-2.5 px-7 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-white/80 hover:text-white rounded-xl border border-white/[0.08] hover:border-white/[0.15] transition-all duration-300 font-heading uppercase tracking-wider cursor-pointer'>
+                    <Search className='w-3.5 h-3.5' />
                     Track Shipment
                   </button>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, delay: 0.5 }}
-                  className='flex flex-wrap items-center gap-6 pt-4 border-t border-white/10'>
-                  <div className='flex items-center gap-2'>
-                    <ShieldIcon className='w-4 h-4 text-emerald-400' />
-                    <span className='text-xs text-white/50'>
-                      Secure & Insured
-                    </span>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <Zap className='w-4 h-4 text-amber-400' />
-                    <span className='text-xs text-white/50'>
-                      Express Available
-                    </span>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <Star className='w-4 h-4 text-primary' />
-                    <span className='text-xs text-white/50'>4.9/5 Rating</span>
-                  </div>
                 </motion.div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.4 }}
+                  className='flex flex-wrap items-center gap-5 pt-6 border-t border-white/[0.06]'>
+                  <div className='flex items-center gap-2'>
+                    <ShieldIcon className='w-4 h-4 text-primary' />
+                    <span className='text-xs text-white/40'>Secure & Insured</span>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <Zap className='w-4 h-4 text-amber-400' />
+                    <span className='text-xs text-white/40'>Express Available</span>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <Star className='w-4 h-4 text-primary' />
+                    <span className='text-xs text-white/40'>4.9/5 Rating</span>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.45 }}
                   className='flex items-center gap-4'>
-                  <div className='flex  -space-x-4'>
+                  <div className='flex -space-x-3'>
                     {[
                       { code: 'FR', countryCode: 'FR' },
                       { code: 'CH', countryCode: 'CH' },
@@ -209,8 +228,8 @@ export default function Home() {
                         key={i}
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.5 + i * 0.1 }}
-                        className='w-9 h-9 rounded-full bg-white/10 border-2 border-zinc-950/50 flex items-center justify-center overflow-hidden'>
+                        transition={{ delay: 0.6 + i * 0.08 }}
+                        className='w-9 h-9 rounded-full bg-white/[0.06] border-2 border-[#0a0a0a] flex items-center justify-center overflow-hidden'>
                         <ReactCountryFlag
                           countryCode={item.countryCode}
                           svg
@@ -222,202 +241,207 @@ export default function Home() {
                       </motion.div>
                     ))}
                   </div>
-                  <span className='text-xs text-white/40'>
-                    Shipping from 150+ countries
+                  <span className='text-xs text-white/30'>
+                    Shipping to 150+ countries
                   </span>
                 </motion.div>
               </div>
 
+              {/* Right - Widget Panel */}
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.4 }}
-                className='bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden'>
-                <div className='flex bg-white/[0.02] border-b border-white/[0.08]'>
-                  <button
-                    onClick={() => setActiveTab('track')}
-                    className={`flex-1 px-4 py-3 text-xs font-semibold transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 ${
-                      activeTab === 'track'
-                        ? 'bg-white/[0.05] text-white border-b-2 border-primary'
-                        : 'text-white/50 hover:text-white hover:bg-white/[0.03]'
-                    }`}>
-                    <Search className='w-3.5 h-3.5' />
-                    Track
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('quote')}
-                    className={`flex-1 px-4 py-3 text-xs font-semibold transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 ${
-                      activeTab === 'quote'
-                        ? 'bg-white/[0.05] text-white border-b-2 border-primary'
-                        : 'text-white/50 hover:text-white hover:bg-white/[0.03]'
-                    }`}>
-                    <PackageIcon className='w-3.5 h-3.5' />
-                    Quote
-                  </button>
-                </div>
+                transition={{ duration: 0.8, delay: 0.5 }}
+                className='lg:col-span-5 relative'>
+                {/* Decorative glow behind widget */}
+                <div className='absolute -inset-4 bg-primary/5 blur-3xl rounded-3xl' />
+                <div className='relative bg-white/[0.03] backdrop-blur-2xl rounded-2xl border border-white/[0.06] shadow-2xl shadow-black/40 overflow-hidden'>
+                  <div className='flex bg-white/[0.02] border-b border-white/[0.06]'>
+                    <button
+                      onClick={() => setActiveTab('track')}
+                      className={`flex-1 px-5 py-4 text-xs font-semibold transition-all duration-300 cursor-pointer flex items-center justify-center gap-2.5 ${
+                        activeTab === 'track'
+                          ? 'bg-white/[0.04] text-white border-b-2 border-primary'
+                          : 'text-white/40 hover:text-white/70 hover:bg-white/[0.02]'
+                      }`}>
+                      <Search className='w-3.5 h-3.5' />
+                      Track Package
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('quote')}
+                      className={`flex-1 px-5 py-4 text-xs font-semibold transition-all duration-300 cursor-pointer flex items-center justify-center gap-2.5 ${
+                        activeTab === 'quote'
+                          ? 'bg-white/[0.04] text-white border-b-2 border-primary'
+                          : 'text-white/40 hover:text-white/70 hover:bg-white/[0.02]'
+                      }`}>
+                      <PackageIcon className='w-3.5 h-3.5' />
+                      Get Quote
+                    </button>
+                  </div>
 
-                <div className='p-5 md:p-6 space-y-5'>
-                  {activeTab === 'track' ? (
-                    <div className='space-y-4'>
-                      <div>
-                        <label className='block text-xs font-medium text-white/60 mb-1.5'>
-                          Tracking Number
-                        </label>
-                        <div className='relative'>
-                          <Search className='absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                          <input
-                            type='text'
-                            value={trackingId}
-                            onChange={(e) => setTrackingId(e.target.value)}
-                            placeholder='GT1234567890'
-                            className='w-full pl-11 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/25 focus:outline-none focus:border-blue-[#4c833e]/50 focus:bg-white/[0.07] transition-all text-sm tracking-wider font-mono'
-                          />
-                        </div>
-                      </div>
-                      <div className='flex items-center justify-center gap-3'>
-                        <button
-                          type='button'
-                          onClick={() => setTrackingId('')}
-                          className='px-5 py-3.5 bg-white/5 hover:bg-white/10 text-sm font-semibold text-white/70 rounded-lg border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer'>
-                          Clear
-                        </button>
-                        <button className='px-5 py-3.5 bg-primary hover:bg-[#4c833e] text-sm font-bold text-white rounded-lg transition-all duration-300 cursor-pointer flex items-center gap-2'>
-                          Track
-                          <ArrowRight className='w-4 h-4' />
-                        </button>
-                      </div>
-                      <p className='text-[10px] text-center text-white/30'>
-                        Enter your tracking ID to see real-time updates
-                      </p>
-                    </div>
-                  ) : (
-                    <div className='space-y-4'>
-                      <div className='grid grid-cols-2 gap-3'>
+                  <div className='p-6 md:p-7 space-y-5'>
+                    {activeTab === 'track' ? (
+                      <div className='space-y-5'>
                         <div>
-                          <label className='block text-xs font-medium text-white/60 mb-1.5'>
-                            From
+                          <label className='block text-xs font-medium text-white/50 mb-2 tracking-wide uppercase'>
+                            Tracking Number
                           </label>
-                          <div className='relative'>
-                            <MapPin className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
+                          <div className='relative group'>
+                            <Search className='absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-primary transition-colors' />
                             <input
                               type='text'
-                              value={formData.from}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  from: e.target.value,
-                                })
-                              }
-                              placeholder='City'
-                              className='w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.07] transition-all text-xs'
+                              value={trackingId}
+                              onChange={(e) => setTrackingId(e.target.value)}
+                              placeholder='GT1234567890'
+                              className='w-full pl-11 pr-4 py-3.5 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-sm tracking-wider font-mono'
                             />
+                          </div>
+                        </div>
+                        <div className='flex items-center gap-3'>
+                          <button
+                            type='button'
+                            onClick={() => setTrackingId('')}
+                            className='flex-1 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-medium text-white/50 rounded-xl border border-white/[0.06] transition-all duration-300 cursor-pointer'>
+                            Clear
+                          </button>
+                          <button className='flex-[2] py-3.5 bg-primary hover:bg-[#172554] text-sm font-bold text-white rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-primary/20'>
+                            Track Now
+                            <ArrowRight className='w-4 h-4' />
+                          </button>
+                        </div>
+                        <p className='text-[10px] text-center text-white/20 tracking-wide'>
+                          Enter your tracking ID to see real-time updates
+                        </p>
+                      </div>
+                    ) : (
+                      <div className='space-y-4'>
+                        <div className='grid grid-cols-2 gap-3'>
+                          <div>
+                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                              From
+                            </label>
+                            <div className='relative'>
+                              <MapPin className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20' />
+                              <input
+                                type='text'
+                                value={formData.from}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    from: e.target.value,
+                                  })
+                                }
+                                placeholder='City'
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs'
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                              To
+                            </label>
+                            <div className='relative'>
+                              <MapPin className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20' />
+                              <input
+                                type='text'
+                                value={formData.to}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, to: e.target.value })
+                                }
+                                placeholder='City'
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs'
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className='grid grid-cols-2 gap-3'>
+                          <div>
+                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                              Weight (kg)
+                            </label>
+                            <div className='relative'>
+                              <Weight className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20' />
+                              <input
+                                type='text'
+                                value={formData.weight}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    weight: e.target.value,
+                                  })
+                                }
+                                placeholder='0.0'
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs'
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                              Date
+                            </label>
+                            <div className='relative'>
+                              <Calendar className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20' />
+                              <input
+                                type='date'
+                                value={formData.date}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    date: e.target.value,
+                                  })
+                                }
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white/60 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs [color-scheme:dark]'
+                              />
+                            </div>
                           </div>
                         </div>
                         <div>
-                          <label className='block text-xs font-medium text-white/60 mb-1.5'>
-                            To
+                          <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                            Service Type
                           </label>
-                          <div className='relative'>
-                            <MapPin className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                            <input
-                              type='text'
-                              value={formData.to}
-                              onChange={(e) =>
-                                setFormData({ ...formData, to: e.target.value })
-                              }
-                              placeholder='City'
-                              className='w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.07] transition-all text-xs'
-                            />
-                          </div>
+                          <select
+                            value={formData.service}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                service: e.target.value,
+                              })
+                            }
+                            className='w-full px-4 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white/60 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs appearance-none cursor-pointer'>
+                            <option value='standard' className='bg-zinc-900'>
+                              Standard (5-10 days)
+                            </option>
+                            <option value='express' className='bg-zinc-900'>
+                              Express (2-3 days)
+                            </option>
+                            <option value='priority' className='bg-zinc-900'>
+                              Priority (24h)
+                            </option>
+                          </select>
+                        </div>
+                        <div className='flex items-center gap-3'>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              setFormData({
+                                from: '',
+                                to: '',
+                                weight: '',
+                                date: '',
+                                service: 'standard',
+                              })
+                            }
+                            className='flex-1 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-medium text-white/50 rounded-xl border border-white/[0.06] transition-all duration-300 cursor-pointer'>
+                            Clear
+                          </button>
+                          <button className='flex-[2] py-3.5 bg-primary hover:bg-[#172554] text-sm font-bold text-white rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-primary/20'>
+                            Get Quote
+                            <ArrowRight className='w-4 h-4' />
+                          </button>
                         </div>
                       </div>
-                      <div className='grid grid-cols-2 gap-3'>
-                        <div>
-                          <label className='block text-xs font-medium text-white/60 mb-1.5'>
-                            Weight (kg)
-                          </label>
-                          <div className='relative'>
-                            <Weight className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                            <input
-                              type='text'
-                              value={formData.weight}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  weight: e.target.value,
-                                })
-                              }
-                              placeholder='0.0'
-                              className='w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.07] transition-all text-xs'
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className='block text-xs font-medium text-white/60 mb-1.5'>
-                            Date
-                          </label>
-                          <div className='relative'>
-                            <Calendar className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                            <input
-                              type='date'
-                              value={formData.date}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  date: e.target.value,
-                                })
-                              }
-                              className='w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white/70 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.07] transition-all text-xs [color-scheme:dark]'
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className='block text-xs font-medium text-white/60 mb-1.5'>
-                          Service Type
-                        </label>
-                        <select
-                          value={formData.service}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              service: e.target.value,
-                            })
-                          }
-                          className='w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white/70 focus:outline-none focus:border-blue-[#4c833e]/50 focus:bg-white/[0.07] transition-all text-xs appearance-none cursor-pointer'>
-                          <option value='standard' className='bg-zinc-900'>
-                            Standard (5-10 days)
-                          </option>
-                          <option value='express' className='bg-zinc-900'>
-                            Express (2-3 days)
-                          </option>
-                          <option value='priority' className='bg-zinc-900'>
-                            Priority (24h)
-                          </option>
-                        </select>
-                      </div>
-                      <div className='flex items-center justify-center gap-3'>
-                        <button
-                          type='button'
-                          onClick={() =>
-                            setFormData({
-                              from: '',
-                              to: '',
-                              weight: '',
-                              date: '',
-                              service: 'standard',
-                            })
-                          }
-                          className='px-5 py-3.5 bg-white/5 hover:bg-white/10 text-sm font-semibold text-white/70 rounded-lg border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer'>
-                          Clear
-                        </button>
-                        <button className='px-5 py-3.5 bg-primary hover:bg-[#4c833e] text-sm font-bold text-white rounded-lg transition-all duration-300 cursor-pointer flex items-center gap-2'>
-                          Get Quote
-                          <ArrowRight className='w-4 h-4' />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -427,103 +451,22 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.8 }}
-            className='absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2'>
-            <span className='text-[10px] text-white/30 uppercase tracking-widest'>
-              Scroll
-            </span>
+            className='absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2'>
             <motion.div
               animate={{ y: [0, 6, 0] }}
               transition={{ duration: 1.5, repeat: Infinity }}
-              className='w-5 h-8 rounded-full border border-white/20 flex justify-center pt-1.5'>
-              <motion.div
-                animate={{ height: [4, 8, 4], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className='w-1 rounded-full bg-white/40'
-              />
-            </motion.div>
+              className='w-px h-10 bg-gradient-to-b from-transparent via-white/20 to-transparent'
+            />
+            <motion.span
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className='text-[10px] text-white/20 uppercase tracking-[0.2em]'>
+              Scroll
+            </motion.span>
           </motion.div>
         </motion.section>
 
-        <section className='py-20 px-4 bg-foreground'>
-          <div className='max-w-7xl mx-auto'>
-            <SlideIn direction='up'>
-              <div className='text-center mb-16'>
-                <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
-                  Our Expertise
-                </span>
-                <h2 className='text-2xl md:text-3xl font-black text-white mt-3 font-[family-name:var(--font-oswald)]'>
-                  Parcel Services
-                </h2>
-              </div>
-            </SlideIn>
-            <motion.div
-              initial='hidden'
-              whileInView='visible'
-              viewport={{ once: true, margin: '-100px' }}
-              variants={{
-                hidden: { opacity: 0 },
-                visible: {
-                  opacity: 1,
-                  transition: { staggerChildren: 0.15 },
-                },
-              }}
-              className='grid grid-cols-1 md:grid-cols-3 gap-6 items-start'>
-              {[
-                {
-                  num: '01',
-                  title: 'Express Freight',
-                  desc: 'Fast and reliable delivery for time-sensitive shipments',
-                  img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80',
-                  mt: 'mt-32',
-                },
-                {
-                  num: '02',
-                  title: 'Air Freight',
-                  desc: 'Global air cargo solutions for international shipping',
-                  img: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80',
-                  mt: 'mt-16',
-                },
-                {
-                  num: '03',
-                  title: 'Ship Cargo',
-                  desc: 'Ocean freight for large volume shipments',
-                  img: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=600&q=80',
-                  mt: 'mt-0',
-                },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  variants={{
-                    hidden: { opacity: 0, y: 80 },
-                    visible: { opacity: 1, y: 0 },
-                  }}
-                  transition={{ duration: 0.6, ease: 'easeOut' }}
-                  className={`relative group rounded-2xl overflow-hidden border border-black/10 bg-black/[0.02] hover:border-black/30 transition-all duration-300 ${item.mt}`}>
-                  <div className='aspect-[4/3] relative'>
-                    <Image
-                      src={item.img}
-                      alt={item.title}
-                      fill
-                      className='object-cover'
-                    />
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent' />
-                  </div>
-                  <div className='absolute bottom-0 left-0 right-0 p-6'>
-                    <div className='w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-black mb-3'>
-                      {item.num}
-                    </div>
-                    <h3 className='text-base font-bold text-white mb-1'>
-                      {item.title}
-                    </h3>
-                    <p className='text-sm text-white/60'>{item.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        <section className='py-16 px-4 border-y border-white/5 bg-foreground'>
+        <section className='py-14 px-4 bg-foreground'>
           <div className='max-w-7xl mx-auto'>
             <StaggeredSlideIn
               direction='up'
@@ -551,14 +494,14 @@ export default function Home() {
           </div>
         </section>
 
-        <section className='py-20 px-4 bg-white'>
+        <section className='py-14 px-4 bg-white'>
           <div className='max-w-7xl mx-auto'>
             <SlideIn direction='up'>
               <div className='text-center mb-16'>
                 <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
                   Simple Process
                 </span>
-                <h2 className='text-2xl md:text-3xl font-black text-zinc-900 mt-3 font-[family-name:var(--font-oswald)]'>
+                <h2 className='text-lg md:text-xl font-semibold text-zinc-900 mt-3 font-heading'>
                   Send a Parcel Abroad in 4 Steps
                 </h2>
               </div>
@@ -606,7 +549,7 @@ export default function Home() {
                   <span className='absolute top-0 w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center text-xs font-bold text-white mt-2'>
                     {item.num}
                   </span>
-                  <h3 className='text-base font-bold text-zinc-900 mt-6 mb-2'>
+                  <h3 className='text-sm font-semibold text-zinc-900 mt-6 mb-2'>
                     {item.title}
                   </h3>
                   <p className='text-sm text-zinc-500 leading-relaxed max-w-[260px]'>
@@ -638,11 +581,11 @@ export default function Home() {
           className='py-2 px-4 bg-zinc-100 overflow-hidden'>
           <div className='max-w-7xl mx-auto'>
             <div className='grid grid-cols-1 lg:grid-cols-2 gap-12 items-center'>
-              <SlideIn direction='left' className='py-20'>
+              <SlideIn direction='left' className='py-14'>
                 <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
                   Global Network
                 </span>
-                <h2 className='text-2xl md:text-3xl font-black text-zinc-900 mt-3 mb-4 font-[family-name:var(--font-oswald)]'>
+                <h2 className='text-lg md:text-xl font-semibold text-zinc-900 mt-3 mb-4 font-heading'>
                   Delivering Across the Globe
                 </h2>
                 <p className='text-base text-zinc-500 mb-8 leading-relaxed'>
@@ -663,7 +606,7 @@ export default function Home() {
                       whileHover={{ scale: 1.02 }}
                       className='p-4 rounded-xl bg-white border border-zinc-200 text-center hover:border-primary/30 hover:shadow-lg transition-all duration-300'>
                       <stat.icon className='w-5 h-5 text-primary mx-auto mb-2' />
-                      <div className='text-xl font-bold text-zinc-900'>
+                      <div className='text-lg font-semibold text-zinc-900'>
                         {stat.value}
                       </div>
                       <div className='text-sm text-zinc-500 mt-1'>
@@ -681,7 +624,7 @@ export default function Home() {
         </section>
 
         {/* Trust & Services Section - Split Layout */}
-        <section className='py-24 px-4 bg-white overflow-hidden'>
+        <section className='py-16 px-4 bg-white overflow-hidden'>
           <div className='max-w-7xl mx-auto'>
             <div className='grid lg:grid-cols-2 gap-12 lg:gap-20 items-center'>
               {/* Left: Large Image */}
@@ -714,7 +657,7 @@ export default function Home() {
                       <GlobeIcon className='w-7 h-7 text-primary' />
                     </div>
                     <div>
-                      <p className='text-2xl font-black text-zinc-900'>200+</p>
+                      <p className='text-xl font-semibold text-zinc-900'>200+</p>
                       <p className='text-sm text-zinc-500'>Countries Served</p>
                     </div>
                   </div>
@@ -727,7 +670,7 @@ export default function Home() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: 0.5 }}
                   className='absolute -top-4 -left-4 lg:left-8 bg-primary text-white rounded-2xl shadow-xl px-5 py-3'>
-                  <p className='text-2xl font-black'>13+</p>
+                  <p className='text-xl font-semibold'>13+</p>
                   <p className='text-xs font-medium opacity-90'>
                     Years Experience
                   </p>
@@ -742,24 +685,24 @@ export default function Home() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className='space-y-8'>
                 {/* Trust Badge */}
-                <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-100'>
+                <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/5 border border-primary/10'>
                   <div className='flex -space-x-2'>
                     {[1, 2, 3, 4].map((i) => (
                       <div
                         key={i}
-                        className='w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-white flex items-center justify-center'>
+                        className='w-7 h-7 rounded-full bg-gradient-to-br from-primary/60 to-primary border-2 border-white flex items-center justify-center'>
                         <Users className='w-3.5 h-3.5 text-white' />
                       </div>
                     ))}
                   </div>
-                  <span className='text-sm font-semibold text-emerald-700'>
+                  <span className='text-sm font-semibold text-primary'>
                     Trusted by 1M+ NRI families
                   </span>
                 </div>
 
                 {/* Heading */}
                 <div>
-                  <h2 className='text-2xl md:text-3xl lg:text-4xl font-black text-zinc-900 leading-tight font-[family-name:var(--font-oswald)] mb-4'>
+                  <h2 className='text-xl md:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight font-heading mb-4'>
                     International Courier
                     <span className='text-primary'> Services from India</span>
                   </h2>
@@ -798,7 +741,7 @@ export default function Home() {
                     Get a Free Quote
                     <ArrowRight className='w-4 h-4 transition-transform group-hover:translate-x-1' />
                   </button>
-                  <button className='px-8 py-4 bg-white hover:bg-zinc-50 text-sm font-bold text-zinc-900 rounded-xl border-2 border-zinc-200 hover:border-zinc-300 transition-all duration-300 cursor-pointer'>
+                  <button className='px-8 py-4 bg-white hover:bg-zinc-50 text-sm font-semibold text-zinc-900 rounded-xl border-2 border-zinc-200 hover:border-zinc-300 transition-all duration-300 cursor-pointer'>
                     Contact Sales
                   </button>
                 </div>
@@ -809,7 +752,7 @@ export default function Home() {
 
         <section
           id='testimonials'
-          className='py-24 px-4 overflow-hidden'
+          className='py-16 px-4 overflow-hidden'
           style={{ backgroundColor: '#131818' }}>
           <div className='max-w-7xl mx-auto'>
             <div className='text-center mb-16'>
@@ -823,7 +766,7 @@ export default function Home() {
                   Testimonials
                 </span>
               </motion.div>
-              <h2 className='text-4xl md:text-5xl font-black text-white mb-4 font-[family-name:var(--font-oswald)]'>
+              <h2 className='text-3xl md:text-4xl font-semibold text-white mb-4 font-heading'>
                 Loved by <span className='text-primary'>2000+</span> Customers
               </h2>
               <p className='text-lg text-white/50 max-w-xl mx-auto'>
@@ -963,13 +906,70 @@ export default function Home() {
           </div>
         </section>
 
-        <section className='py-20 px-4' style={{ backgroundColor: '#121212' }}>
+        <section className='py-14 px-4' style={{ backgroundColor: '#131818' }}>
+          <div className='max-w-4xl mx-auto'>
+            <div className='text-center mb-12'>
+              <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
+                FAQ
+              </span>
+              <h2 className='text-lg md:text-xl font-semibold text-white mt-3 font-heading'>
+                Frequently Asked Questions
+              </h2>
+            </div>
+            <div className='space-y-3'>
+              {[
+                {
+                  q: 'How long does international delivery take?',
+                  a: 'Delivery times vary by destination. Express shipments take 2-5 days, while standard shipping may take 7-15 days. Remote areas may require additional time.',
+                },
+                {
+                  q: 'What items can I ship internationally?',
+                  a: 'We ship documents, packages, personal belongings, commercial goods, and food items (non-perishable). Some items may require special documentation.',
+                },
+                {
+                  q: 'Is my shipment insured during transit?',
+                  a: 'Yes, all shipments are covered by our comprehensive insurance policy. Additional coverage can be purchased for high-value items.',
+                },
+                {
+                  q: 'Can I track my shipment in real-time?',
+                  a: 'Absolutely! You can track your shipment 24/7 through our website or mobile app. You will receive SMS and email updates at every milestone.',
+                },
+                {
+                  q: 'Do you offer door pickup service?',
+                  a: 'Yes, we offer free door pickup in select cities. Schedule a pickup online and our team will collect your package from your specified address.',
+                },
+                {
+                  q: 'What payment methods do you accept?',
+                  a: 'We accept all major credit/debit cards, UPI, net banking, and cash on delivery (select locations). Corporate clients can request invoice-based billing.',
+                },
+              ].map((item, i) => (
+                <details
+                  key={i}
+                  className='group bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden'>
+                  <summary className='flex items-center justify-between px-5 py-4 cursor-pointer list-none hover:bg-white/[0.02] transition-colors'>
+                    <span className='text-sm font-semibold text-white'>
+                      {item.q}
+                    </span>
+                    <ChevronRight className='w-4 h-4 text-white/40 transition-transform duration-300 group-open:rotate-90 shrink-0' />
+                  </summary>
+                  <div className='px-5 pb-5'>
+                    <p className='text-sm text-white/50 leading-relaxed'>
+                      {item.a}
+                    </p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className='py-14 px-4' style={{ backgroundColor: '#121212' }}>
           <div className='max-w-4xl mx-auto text-center'>
             <SlideIn direction='up'>
               <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
                 Get In Touch
               </span>
-              <h2 className='text-2xl md:text-3xl font-black text-white mt-3 mb-4 font-[family-name:var(--font-oswald)]'>
+              <h2 className='text-lg md:text-xl font-semibold text-white mt-3 mb-4 font-heading'>
                 Ready to Ship?
               </h2>
               <p className='text-base text-white/50 mb-8 max-w-md mx-auto'>
@@ -1002,7 +1002,7 @@ export default function Home() {
           style={{ backgroundColor: '#121212' }}>
           <div className='max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4'>
             <div className='flex items-center gap-2'>
-              <PlaneIcon className='w-5 h-5 text-blue-500' />
+              <PlaneIcon className='w-5 h-5 text-primary' />
               <span className='text-sm font-bold text-white'>
                 Gajan Traders
               </span>

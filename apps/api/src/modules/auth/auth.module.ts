@@ -14,9 +14,11 @@ import { EmailModule } from '../email/email.module';
 import { EmailService } from './email.service';
 import { VerificationsService } from './verifications.service';
 import { InvitationsService } from './invitations.service';
+import { TwoFactorService } from './two-factor.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { CasbinService, CasbinGuard } from '../../common/casbin';
 
 @Module({
   imports: [
@@ -52,9 +54,12 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     JwtAuthGuard,
     RolesGuard,
     TenantGuard,
+    CasbinService,
+    CasbinGuard,
     EmailService,
     VerificationsService,
     InvitationsService,
+    TwoFactorService,
   ],
   exports: [
     AuthService,
@@ -62,6 +67,8 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     JwtAuthGuard,
     RolesGuard,
     TenantGuard,
+    CasbinService,
+    CasbinGuard,
     InvitationsService,
   ],
 })

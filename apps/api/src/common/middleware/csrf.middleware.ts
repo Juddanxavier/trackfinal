@@ -10,10 +10,10 @@ import { csrfSync } from 'csrf-sync';
 const { csrfSynchronisedProtection } = csrfSync({
   getTokenFromRequest: (req) => {
     return (
-      req.headers['x-csrf-token'] as string ||
-      req.headers['xsrf-token'] as string ||
-      (req.body as Record<string, unknown>)?._csrf as string ||
-      (req.query as Record<string, unknown>)?._csrf as string
+      (req.headers['x-csrf-token'] as string) ||
+      (req.headers['xsrf-token'] as string) ||
+      ((req.body as Record<string, unknown>)?._csrf as string) ||
+      ((req.query as Record<string, unknown>)?._csrf as string)
     );
   },
 });
@@ -52,7 +52,10 @@ export class CsrfMiddleware implements NestMiddleware {
 
     csrfSynchronisedProtection(req, res, (err?: string) => {
       if (err) {
-        this.logger.warn(`CSRF validation failed: ${req.path}`, err || 'unknown');
+        this.logger.warn(
+          `CSRF validation failed: ${req.path}`,
+          err || 'unknown',
+        );
         throw new UnauthorizedException('Invalid CSRF token');
       }
       next();

@@ -1,45 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
-import { Badge } from "@/components/ui/badge"
-import { UserStatsCards } from "@/components/user-stats-cards"
-import { SearchTabs } from "@/components/search-tabs"
 import { api } from "@/lib/api"
-import { MoreHorizontalIcon, UserMinusIcon, TrashIcon, EditIcon, PlusIcon } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableFooter,
-  SortableTableHead,
-} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Pagination } from "@/components/ui/pagination"
-import { Empty, EmptyDescription } from "@/components/ui/empty"
-import { ExportButton } from "@/components/export-button"
-import { AnimatedPage } from "@/components/animated-page"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -49,15 +16,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { AnimatedPage } from "@/components/animated-page"
+import { StatsCard, StatsCardGrid } from "@/components/stats-card"
+import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
+import { Empty, EmptyDescription } from "@/components/ui/empty"
+import { toast } from "sonner"
+import {
+  SearchIcon,
+  Loader2,
+  UsersIcon,
+  UserCheckIcon,
+  ShieldIcon,
+  UserPlusIcon,
+  MoreHorizontalIcon,
+  EditIcon,
+  TrashIcon,
+  UserMinusIcon,
+  MailIcon,
+  PhoneIcon,
+  Building2Icon,
+} from "lucide-react"
+import { ExportButton } from "@/components/export-button"
 
 interface User {
   id: string
   name: string
   email: string
+  phoneNumber?: string | null
   role: string
   isActive: boolean
   organisationId: string
   createdAt: string
+  branchId?: string | null
   [key: string]: unknown
 }
 
@@ -68,89 +73,83 @@ interface Stats {
   staff: number
 }
 
+interface Branch {
+  id: string
+  name: string
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const styles: Record<string, string> = {
+    admin: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+    staff: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    customer: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800",
+  }
+  return (
+    <Badge variant="outline" className={styles[role] || styles.customer}>
+      {role}
+    </Badge>
+  )
+}
+
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  return isActive ? (
+    <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 dark:bg-green-900/20">
+      Active
+    </Badge>
+  ) : (
+    <Badge variant="outline" className="border-gray-300 text-gray-600 bg-gray-50 dark:bg-gray-900/20">
+      Inactive
+    </Badge>
+  )
+}
+
 export default function UsersPage() {
-  const { user, selectedOrganisation, isLoading: authLoading, organisations } = useAuth()
   const router = useRouter()
+  const { user, selectedOrganisation, isLoading: authLoading, organisations } = useAuth()
+  
+  const isGlobalAdmin = user?.role === "global_admin"
+  const isAdmin = user?.role === "admin" || isGlobalAdmin
+
   const [users, setUsers] = useState<User[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [branchFilter, setBranchFilter] = useState("all")
+  const [branches, setBranches] = useState<Branch[]>([])
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [sortColumn, setSortColumn] = useState("")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState("")
-  const [inviteRole, setInviteRole] = useState<"staff" | "customer">("customer")
-  const [inviteOrganisationId, setInviteOrganisationId] = useState(selectedOrganisation || "")
-  const [inviting, setInviting] = useState(false)
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [orgFilter, setOrgFilter] = useState(selectedOrganisation || "")
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [userToEdit, setUserToEdit] = useState<User | null>(null)
+  const [editRole, setEditRole] = useState<"admin" | "staff" | "customer">("staff")
+  const [editBranchId, setEditBranchId] = useState("none")
+  const [editBranches, setEditBranches] = useState<Branch[]>([])
+  const [savingEdit, setSavingEdit] = useState(false)
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const canInvite = user?.role === "admin" || user?.role === "staff"
-  const canManageUsers = user?.role === "admin"
-  const isMultiOrg = user?.role === "admin" && organisations.length > 1
+  const isMultiOrg = isGlobalAdmin && organisations.length > 1
 
-  const handleInvite = async () => {
-    if (!inviteEmail) return
-    setInviting(true)
-    try {
-      await api.post("/auth/invitations", {
-        email: inviteEmail,
-        role: inviteRole,
-        organisationId: isMultiOrg ? inviteOrganisationId : selectedOrganisation,
-      })
-      setInviteDialogOpen(false)
-      setInviteEmail("")
-      setInviteRole("customer")
-    } catch (err) {
-      console.error("Failed to invite user:", err)
-    } finally {
-      setInviting(false)
-    }
-  }
+  const orgMap = useMemo(() => {
+    const map = new Map<string, string>()
+    organisations.forEach((org) => map.set(org.id, org.name))
+    return map
+  }, [organisations])
 
-  const handleDeactivate = async (userId: string) => {
-    try {
-      await api.patch(`/users/${userId}`, { isActive: false })
-      fetchUsers()
-    } catch (err) {
-      console.error("Failed to deactivate user:", err)
-    }
-  }
-
-  const handleActivate = async (userId: string) => {
-    try {
-      await api.patch(`/users/${userId}`, { isActive: true })
-      fetchUsers()
-    } catch (err) {
-      console.error("Failed to activate user:", err)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!userToDelete) return
-    setDeleting(true)
-    try {
-      await api.delete(`/users/${userToDelete.id}`)
-      setDeleteDialogOpen(false)
-      setUserToDelete(null)
-      fetchUsers()
-    } catch (err) {
-      console.error("Failed to delete user:", err)
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  const handleSort = (column: string, direction: "asc" | "desc") => {
-    setSortColumn(column)
-    setSortDirection(direction)
-  }
+  const branchMap = useMemo(() => {
+    const map = new Map<string, string>()
+    branches.forEach((b) => map.set(b.id, b.name))
+    return map
+  }, [branches])
 
   const fetchUsers = async () => {
     if (authLoading) return
@@ -161,11 +160,19 @@ export default function UsersPage() {
       params.set("limit", limit.toString())
       if (search) params.set("search", search)
       if (roleFilter !== "all") params.set("role", roleFilter)
-      if (selectedOrganisation) params.set("organisationId", selectedOrganisation)
-      if (user?.role === "admin") params.set("all", "true")
-      if (sortColumn) {
-        params.set("sortBy", sortColumn)
-        params.set("sortOrder", sortDirection)
+      if (statusFilter !== "all") params.set("isActive", statusFilter === "active" ? "true" : "false")
+      
+      // Use branch filter from page
+      const branchId = branchFilter !== "all" ? branchFilter : null
+      if (branchId) params.set("branchId", branchId)
+      
+      // Determine organisation
+      const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+      if (orgId) params.set("organisationId", orgId)
+      if (isAdmin) params.set("all", "true")
+      if (sorting.length > 0) {
+        params.set("sortBy", sorting[0].id)
+        params.set("sortOrder", sorting[0].desc ? "desc" : "asc")
       }
 
       const res = await api.get<{ data: User[]; total: number; page: number; limit: number; totalPages: number }>(
@@ -183,270 +190,521 @@ export default function UsersPage() {
     }
   }
 
+  const fetchBranches = async () => {
+    const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+    if (!orgId) {
+      setBranches([])
+      return
+    }
+    try {
+      const res = await api.get<Branch[]>(`/organisations/${orgId}/branches`, { throwOnError: false })
+      if (res) setBranches(res)
+    } catch (err) {
+      console.error("Failed to fetch branches:", err)
+    }
+  }
+
+  const fetchStats = async () => {
+    if (authLoading) return
+    try {
+      const params = new URLSearchParams()
+      const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+      if (orgId) params.set("organisationId", orgId)
+      const queryString = params.toString() ? `?${params.toString()}` : ""
+      const res = await api.get<Stats>(`/users/stats${queryString}`, { throwOnError: false })
+      if (res) setStats(res)
+    } catch (err) {
+      console.error("Failed to fetch stats:", err)
+    }
+  }
+
+  // Fetch branches when org changes
+  useEffect(() => {
+    const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+    if (orgId) fetchBranches()
+  }, [selectedOrganisation, orgFilter, isGlobalAdmin])
+
+  // Search/filter changes - reset to page 1
   useEffect(() => {
     setPage(1)
     fetchUsers()
-  }, [search])
+  }, [search, branchFilter, statusFilter, roleFilter])
 
+  // Page/other params changes
   useEffect(() => {
     fetchUsers()
-  }, [page, limit, roleFilter, selectedOrganisation, user, sortColumn, sortDirection, authLoading])
+  }, [page, limit, sorting, selectedOrganisation, orgFilter, user, authLoading, isGlobalAdmin, isAdmin])
 
+  // Fetch stats for admin/staff
   useEffect(() => {
-    const fetchStats = async () => {
-      if (authLoading) return
-      try {
-        const params = new URLSearchParams()
-        if (selectedOrganisation) {
-          params.set("organisationId", selectedOrganisation)
-        }
-        const queryString = params.toString() ? `?${params.toString()}` : ""
-        const res = await api.get<Stats>(`/users/stats${queryString}`, { throwOnError: false })
-        if (res) {
-          setStats(res)
-        }
-      } catch (err) {
-        console.error("Failed to fetch stats:", err)
+    if (isAdmin || user?.role === "staff") fetchStats()
+  }, [selectedOrganisation, orgFilter, isGlobalAdmin, isAdmin, user, authLoading])
+
+  // Fetch branches for edit dialog
+  useEffect(() => {
+    if (editDialogOpen && userToEdit) {
+      const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+      if (orgId) {
+        api.get<Branch[]>(`/organisations/${orgId}/branches`, { throwOnError: false }).then(res => {
+          if (res) setEditBranches(res)
+        }).catch(console.error)
       }
     }
-    if (user?.role === "admin") {
-      fetchStats()
+  }, [editDialogOpen, userToEdit, selectedOrganisation, orgFilter, isGlobalAdmin])
+
+  const handleEditClick = (userItem: User) => {
+    setUserToEdit(userItem)
+    setEditRole(userItem.role as "admin" | "staff" | "customer")
+    setEditBranchId(userItem.branchId || "none")
+    setEditDialogOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!userToEdit) return
+    const prev = [...users]
+    setUsers((u) =>
+      u.map((x) =>
+        x.id === userToEdit.id
+          ? { ...x, role: editRole, branchId: editBranchId === "none" ? null : editBranchId }
+          : x
+      )
+    )
+    setSavingEdit(true)
+    try {
+      await api.patch(`/users/${userToEdit.id}`, {
+        role: editRole,
+        branchId: editBranchId === "none" ? null : editBranchId,
+      })
+      toast.success("User updated successfully")
+      setEditDialogOpen(false)
+      setUserToEdit(null)
+    } catch (err) {
+      setUsers(prev)
+      toast.error("Failed to update user")
+    } finally {
+      setSavingEdit(false)
     }
-  }, [selectedOrganisation, user, authLoading])
+  }
 
-  const isFirstPage = page === 1
-  const isLastPage = page === totalPages
+  const optimisticToggleActive = async (userId: string, isActive: boolean) => {
+    const prev = [...users]
+    setUsers((u) => u.map((x) => (x.id === userId ? { ...x, isActive } : x)))
+    try {
+      await api.patch(`/users/${userId}`, { isActive })
+      toast.success(isActive ? "User activated" : "User deactivated")
+    } catch (err) {
+      setUsers(prev)
+      toast.error("Failed to update user")
+    }
+  }
 
-return (
-    <AnimatedPage className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage and view all users in your organization</p>
+  const handleDeleteClick = (userItem: User) => {
+    setUserToDelete(userItem)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return
+    const prev = [...users]
+    setUsers((u) => u.filter((x) => x.id !== userToDelete.id))
+    setDeleting(true)
+    try {
+      await api.delete(`/users/${userToDelete.id}`)
+      toast.success("User deleted")
+      setDeleteDialogOpen(false)
+      setUserToDelete(null)
+    } catch (err) {
+      setUsers(prev)
+      toast.error("Failed to delete user")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const columns: ColumnDef<User>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <SelectAllCheckbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(val) => table.toggleAllPageRowsSelected(!!val)}
+        />
+      ),
+      cell: ({ row }) => (
+        <RowCheckbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(val) => row.toggleSelected(!!val)}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "name",
+      header: "User",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-sm font-medium text-primary">
+              {row.original.name?.charAt(0).toUpperCase() || "?"}
+            </span>
+          </div>
+          <span className="font-medium">{row.original.name}</span>
         </div>
-        {canInvite && (
-          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Invite User
+      ),
+    },
+    {
+      id: "contact",
+      header: "Contact",
+      cell: ({ row }) => (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MailIcon className="h-3.5 w-3.5" />
+            <span>{row.original.email}</span>
+          </div>
+          {row.original.phoneNumber && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <PhoneIcon className="h-3.5 w-3.5" />
+              <span>{row.original.phoneNumber}</span>
+            </div>
+          )}
+        </div>
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "role",
+      header: "Role",
+      cell: ({ row }) => <RoleBadge role={row.original.role} />,
+    },
+    {
+      id: "branch",
+      header: "Branch",
+      cell: ({ row }) => {
+        const u = row.original
+        return (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Building2Icon className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              {u.branchId && branchMap.has(u.branchId)
+                ? `${orgMap.get(u.organisationId) || "Org"} / ${branchMap.get(u.branchId)}`
+                : orgMap.get(u.organisationId) || "-"}
+            </span>
+          </div>
+        )
+      },
+      enableSorting: false,
+    },
+    {
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) => <StatusBadge isActive={row.original.isActive} />,
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Joined",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {new Date(row.original.createdAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const u = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                <MoreHorizontalIcon className="h-4 w-4" />
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite User</DialogTitle>
-                <DialogDescription>
-                  Send an invitation to join your organisation.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="user@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
-                </div>
-                {user?.role === "admin" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={inviteRole}
-                      onValueChange={(v) => setInviteRole(v as "staff" | "customer")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="customer">Customer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {isMultiOrg && (
-                  <div className="space-y-2">
-                    <Label htmlFor="organisation">Organisation</Label>
-                    <Select
-                      value={inviteOrganisationId}
-                      onValueChange={setInviteOrganisationId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {organisations.map((org) => (
-                          <SelectItem key={org.id} value={org.id}>
-                            {org.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleInvite} disabled={inviting || !inviteEmail}>
-                  {inviting ? "Sending..." : "Send Invitation"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push(`/users/${u.id}`)}>
+                <EditIcon className="mr-2 h-4 w-4" />
+                View Profile
+              </DropdownMenuItem>
+              {isAdmin && u.id !== user?.id && (
+                <DropdownMenuItem onClick={() => handleEditClick(u)}>
+                  <ShieldIcon className="mr-2 h-4 w-4" />
+                  Edit User
+                </DropdownMenuItem>
+              )}
+              {u.isActive ? (
+                <DropdownMenuItem onClick={() => optimisticToggleActive(u.id, false)}>
+                  <UserMinusIcon className="mr-2 h-4 w-4" />
+                  Deactivate
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => optimisticToggleActive(u.id, true)}>
+                  <UserCheckIcon className="mr-2 h-4 w-4" />
+                  Activate
+                </DropdownMenuItem>
+              )}
+              {isAdmin && u.id !== user?.id && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleDeleteClick(u)} className="text-destructive">
+                    <TrashIcon className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+      enableSorting: false,
+    },
+  ]
+
+  return (
+    <AnimatedPage className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+            <p className="text-muted-foreground mt-1">Manage users and their access</p>
+          </div>
+          {isMultiOrg && (
+            <Select value={orgFilter} onValueChange={(val) => { setOrgFilter(val); setPage(1) }}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select organisation" />
+              </SelectTrigger>
+              <SelectContent>
+                {organisations.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        {isAdmin && (
+          <p className="text-sm text-muted-foreground">
+            Invite users from the{" "}
+            <Button variant="link" className="h-auto p-0 text-primary" onClick={() => router.push('/invitations')}>
+              Invitations page
+            </Button>
+          </p>
+        )}
+        {!isAdmin && (
+          <p className="text-sm text-muted-foreground">Contact your admin to invite new users</p>
         )}
       </div>
 
-      {stats && user?.role === "admin" && <UserStatsCards {...stats} />}
+      {/* Stats */}
+      {stats && (
+        <StatsCardGrid>
+          <StatsCard
+            title="Total Users"
+            value={stats.total}
+            icon={<UsersIcon className="h-5 w-5" />}
+            color="blue"
+            variant="inline"
+          />
+          <StatsCard
+            title="Active"
+            value={stats.active}
+            icon={<UserCheckIcon className="h-5 w-5" />}
+            color="green"
+            variant="inline"
+          />
+          <StatsCard
+            title="Customers"
+            value={stats.customers}
+            icon={<UserPlusIcon className="h-5 w-5" />}
+            color="orange"
+            variant="inline"
+          />
+          <StatsCard
+            title="Staff"
+            value={stats.staff}
+            icon={<ShieldIcon className="h-5 w-5" />}
+            color="purple"
+            variant="inline"
+          />
+        </StatsCardGrid>
+      )}
 
-      <SearchTabs
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search users..."
-        tabsValue={roleFilter}
-        onTabsChange={setRoleFilter}
-        tabs={[
-          { value: "all", label: "All" },
-          { value: "admin", label: "Admin" },
-          { value: "staff", label: "Staff" },
-          { value: "customer", label: "Customer" },
-        ]}
-      />
-
-      <div className="flex justify-end mb-4">
-        <ExportButton
-          data={users}
-          columns={[
-            { key: "name", header: "Name" },
-            { key: "email", header: "Email" },
-            { key: "role", header: "Role" },
-            { key: "status", header: "Status" },
-            { key: "createdAt", header: "Created" },
-          ]}
-          filename="users"
-        />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="relative w-full sm:w-72">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search users..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="staff">Staff</SelectItem>
+              <SelectItem value="customer">Customer</SelectItem>
+            </SelectContent>
+          </Select>
+          {branches.length > 0 && (
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Branch" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Branches</SelectItem>
+                {branches.map((branch) => (
+                  <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <ExportButton
+            sections={[
+              {
+                title: "Users",
+                data: users,
+                columns: [
+                  { key: "name", header: "Name" },
+                  { key: "email", header: "Email" },
+                  { key: "phoneNumber", header: "Phone" },
+                  { key: "role", header: "Role" },
+                  { key: "isActive", header: "Status" },
+                  { key: "createdAt", header: "Joined" },
+                ],
+              },
+            ]}
+            filename="users"
+          />
+        </div>
       </div>
 
-      <div className="border rounded-lg bg-card mt-6 mx-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10"><Checkbox /></TableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>name</SortableTableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>email</SortableTableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>role</SortableTableHead>
-              <TableHead>Status</TableHead>
-              <SortableTableHead onSort={handleSort} sortColumn={sortColumn} sortDirection={sortDirection}>created</SortableTableHead>
-              <TableHead className="w-10">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
-              </TableRow>
-            ) : !users || users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7}>
-                <Empty>
-                  <EmptyDescription>No users found</EmptyDescription>
-                </Empty>
-              </TableCell>
-              </TableRow>
-            ) : (
-              users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell><Checkbox /></TableCell>
-                  <TableCell>{u.name}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{u.role}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={u.isActive ? "default" : "secondary"}>
-                      {u.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{new Date(u.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontalIcon className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/users/${u.id}`)}>
-                          <EditIcon className="mr-2 h-4 w-4" />
-                          View & Edit
-                        </DropdownMenuItem>
-                        {canManageUsers && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {u.isActive ? (
-                              <DropdownMenuItem onClick={() => handleDeactivate(u.id)}>
-                                <UserMinusIcon className="mr-2 h-4 w-4" />
-                                Deactivate
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onClick={() => handleActivate(u.id)}>
-                                Activate
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => {
-                                setUserToDelete(u)
-                                setDeleteDialogOpen(true)
-                              }}
-                            >
-                              <TrashIcon className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-          <TableFooter>
-            <tr>
-              <td colSpan={7} className="px-4 py-3 text-sm text-muted-foreground">
-                Showing {total === 0 ? 0 : (page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} users
-              </td>
-            </tr>
-          </TableFooter>
-        </Table>
-      </div>
-
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        itemsPerPage={limit}
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={users}
+        loading={loading}
+        getRowId={(row) => row.id}
+        emptyState={
+          <Empty>
+            <EmptyDescription>No users found</EmptyDescription>
+          </Empty>
+        }
+        enableRowSelection
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={setSorting}
+        manualPagination
+        page={page}
+        pageSize={limit}
+        total={total}
+        pageCount={totalPages || 1}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
+        pageSizeOptions={[10, 20, 50, 100]}
+        customFooter={<BulkActionFooter
+          selectedCount={selectedIds.length}
+          actions={[
+            { label: "Activate", variant: "outline", onClick: () => {
+              selectedIds.forEach(id => optimisticToggleActive(id, true))
+              setSelectedIds([])
+            }},
+            { label: "Deactivate", variant: "outline", onClick: () => {
+              selectedIds.forEach(id => optimisticToggleActive(id, false))
+              setSelectedIds([])
+            }},
+          ]}
+        />}
       />
 
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update role and branch for {userToEdit?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={editRole} onValueChange={(val) => setEditRole(val as "admin" | "staff" | "customer")}>
+                <SelectTrigger id="edit-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {isGlobalAdmin && (
+                    <>
+                      <SelectItem value="admin">Admin (Branch Admin)</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                    </>
+                  )}
+                  {!isGlobalAdmin && (
+                    <SelectItem value="staff">Staff</SelectItem>
+                  )}
+                  <SelectItem value="customer">Customer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {editBranches.length > 0 && (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-branch">Branch</Label>
+                <Select value={editBranchId} onValueChange={setEditBranchId}>
+                  <SelectTrigger id="edit-branch">
+                    <SelectValue placeholder="Select branch (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No branch</SelectItem>
+                    {editBranches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit} className="gap-2">
+              {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{userToDelete?.name}</strong> ({userToDelete?.email})? This action cannot be undone.
+              Are you sure you want to delete {userToDelete?.name}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete"}
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting} className="gap-2">
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete User
             </Button>
           </DialogFooter>
         </DialogContent>

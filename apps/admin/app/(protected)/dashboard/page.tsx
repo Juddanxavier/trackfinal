@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api, ApiError } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ResponsiveContainer } from "recharts"
+import { XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Package, FileText, Truck, CheckCircle, TrendingUp, TrendingDown, ArrowUpRight } from "lucide-react"
 import { DashboardStatsCards } from "@/components/dashboard-stats-cards"
 
 interface Stats {
@@ -157,7 +156,10 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground mt-1">Overview of your logistics activity</p>
       </div>
 
-      <DashboardStatsCards shipmentStats={shipmentStats} quoteStats={quoteStats} />
+      <DashboardStatsCards
+        shipmentStats={shipmentStats}
+        quoteStats={quoteStats}
+      />
 
       <Card className="pt-0">
         <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
@@ -176,15 +178,15 @@ export default function DashboardPage() {
               <AreaChart data={activityData}>
                 <defs>
                   <linearGradient id="gradientShipments" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.01} />
                   </linearGradient>
                   <linearGradient id="gradientQuotes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.01} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted/20" vertical={false} />
                 <XAxis
                   dataKey="date"
                   tickLine={false}
@@ -212,6 +214,8 @@ export default function DashboardPage() {
                   stroke="#3b82f6"
                   strokeWidth={2}
                   fill="url(#gradientShipments)"
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 2, stroke: "white", fill: "#3b82f6" }}
                 />
                 <Area
                   type="monotone"
@@ -219,6 +223,8 @@ export default function DashboardPage() {
                   stroke="#22c55e"
                   strokeWidth={2}
                   fill="url(#gradientQuotes)"
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 2, stroke: "white", fill: "#22c55e" }}
                 />
                 <ChartLegend content={<ChartLegendContent />} />
               </AreaChart>
@@ -249,9 +255,10 @@ export default function DashboardPage() {
                       innerRadius={45}
                       outerRadius={75}
                       paddingAngle={3}
+                      cornerRadius={4}
                     >
                       {shipmentStatusData.map((_, i) => (
-                        <Cell key={i} fill={SHIPMENT_COLORS[i % SHIPMENT_COLORS.length]} />
+                        <Cell key={i} fill={SHIPMENT_COLORS[i % SHIPMENT_COLORS.length]} strokeWidth={0} />
                       ))}
                     </Pie>
                     <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
@@ -294,9 +301,10 @@ export default function DashboardPage() {
                       innerRadius={45}
                       outerRadius={75}
                       paddingAngle={3}
+                      cornerRadius={4}
                     >
                       {quoteStatusData.map((_, i) => (
-                        <Cell key={i} fill={QUOTE_COLORS[i % QUOTE_COLORS.length]} />
+                        <Cell key={i} fill={QUOTE_COLORS[i % QUOTE_COLORS.length]} strokeWidth={0} />
                       ))}
                     </Pie>
                     <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />

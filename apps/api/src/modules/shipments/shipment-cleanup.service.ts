@@ -21,7 +21,7 @@ export class ShipmentCleanupService implements OnModuleInit {
     this.schedulerRegistry.addCronJob('shipment-retention-cleanup', job);
     job.start();
 
-    console.log(`[ShipmentCleanup] Scheduled: ${cronExpression}`);
+    this.logger.log(`[ShipmentCleanup] Scheduled: ${cronExpression}`);
   }
 
   private async handleRetentionCleanup() {

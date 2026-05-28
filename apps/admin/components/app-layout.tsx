@@ -18,18 +18,12 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, organisations, selectedOrganisation, setSelectedOrganisation } = useAuth()
+  const { user } = useAuth()
   const isAdmin = user?.role === "admin"
 
   return (
     <>
-      <AppSidebar
-        variant="inset"
-        organisations={organisations}
-        selectedOrganisation={selectedOrganisation || user?.organisationId || undefined}
-        onOrganisationChange={setSelectedOrganisation}
-        isAdmin={isAdmin}
-      />
+      <AppSidebar variant="inset" isAdmin={isAdmin} />
       <SidebarInset>
         <SiteHeader />
         {children}

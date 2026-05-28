@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
         <div className='absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl' />
         <div className='absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl' />
         
-        <div className='relative z-10 flex flex-col justify-center px-20 py-20'>
+        <div className='relative z-10 flex flex-col justify-center pl-20 pr-12 py-20'>
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className='text-4xl font-black text-white mb-4 leading-tight'
+            className='text-3xl font-semibold text-white mb-4 leading-tight'
           >
             Create New<br />
             <span className='text-primary'>Password</span>
@@ -99,6 +99,40 @@ export default function ResetPasswordPage() {
                 <span>{feature.text}</span>
               </div>
             ))}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className='mt-10 grid grid-cols-3 gap-6'
+          >
+            {[
+              { value: '10K+', label: 'Shipments' },
+              { value: '99%', label: 'On-Time' },
+              { value: '50+', label: 'Countries' },
+            ].map((stat, i) => (
+              <div key={i} className='text-center'>
+                <div className='text-2xl font-bold text-white'>{stat.value}</div>
+                <div className='text-xs text-white/40 mt-1'>{stat.label}</div>
+              </div>
+            ))}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className='mt-8 flex items-center gap-4'
+          >
+            <div className='flex -space-x-2'>
+              {['JD', 'AS', 'RK', 'MK'].map((initials, i) => (
+                <div key={i} className='w-8 h-8 rounded-full bg-primary/60 border-2 border-[#131818] flex items-center justify-center text-xs font-bold text-white'>
+                  {initials}
+                </div>
+              ))}
+            </div>
+            <span className='text-sm text-white/50'>Trusted by 2000+ businesses worldwide</span>
           </motion.div>
         </div>
       </div>
@@ -206,7 +240,7 @@ export default function ResetPasswordPage() {
               <button
                 type='submit'
                 disabled={isLoading}
-                className='w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-[#4C833E] text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                className='w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-[#172554] text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
               >
                 {isLoading ? (
                   <div className='w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin' />

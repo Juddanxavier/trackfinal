@@ -20,6 +20,7 @@ export const notificationPreferences = pgTable('notification_preferences', {
   whatsappEnabled: boolean('whatsapp_enabled').default(true),
   inTransitNotifications: boolean('in_transit_notifications').default(true),
   deliveredNotifications: boolean('delivered_notifications').default(true),
+  exceptionsNotifications: boolean('exceptions_notifications').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

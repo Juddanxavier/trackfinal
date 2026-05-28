@@ -5,22 +5,15 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
-import { MoreHorizontalIcon, PlusIcon, RefreshCwIcon, BanIcon, EditIcon, Trash2Icon, PackageCheckIcon } from "lucide-react"
+import { MoreHorizontalIcon, PlusIcon, RefreshCwIcon, BanIcon, EditIcon, Trash2Icon, MailIcon, FileTextIcon, PackageCheckIcon, SearchIcon, FilterIcon } from "lucide-react"
 import { ShipmentStatsCards } from "@/components/shipment-stats-cards"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableFooter,
-  SortableTableHead,
-} from "@/components/ui/table"
+import { COUNTRY_CODES, getDialCode, prependCountryCode } from "@/lib/phone"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Pagination } from "@/components/ui/pagination"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { BulkActionFooter } from "@/components/bulk-action-footer"
+import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,15 +30,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  PackageIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  SearchIcon,
-  FilterIcon,
-} from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -77,6 +71,9 @@ interface Shipment {
   recipientName?: string
   recipientEmail?: string
   recipientPhone?: string
+  branchId?: string
+  billAmount?: number
+  archivedAt?: string | null
   createdAt: string
 }
 
@@ -90,25 +87,6 @@ interface Stats {
   pending: number
   inTransit: number
   delivered: number
-}
-
-interface StatCardProps {
-  title: string
-  value: number
-  icon: React.ReactNode
-  iconBg: string
-  iconColor: string
-}
-
-interface Stats {
-  total: number
-  pending: number
-  inTransit: number
-  delivered: number
-  totalChange?: number
-  pendingChange?: number
-  inTransitChange?: number
-  deliveredChange?: number
 }
 
 const statusVariants: Record<ShipmentStatus, string> = {
@@ -127,20 +105,6 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true)
   const [orgCountry, setOrgCountry] = useState("")
 
-  const COUNTRY_CODES: Record<string, string> = {
-    US: "+1",
-    CA: "+1",
-    GB: "+44",
-    AU: "+61",
-    DE: "+49",
-    FR: "+33",
-    CN: "+86",
-    JP: "+81",
-    IN: "+91",
-    BR: "+55",
-    MX: "+52",
-    LK: "+94",
-  }
   const [quota, setQuota] = useState<{
     used: number
     total: number
@@ -152,14 +116,22 @@ export default function ShipmentsPage() {
   const [limit, setLimit] = useState(10)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [sortColumn, setSortColumn] = useState("")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "createdAt", desc: true },
+  ])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [openCreateDialog, setOpenCreateDialog] = useState(false)
+  const [createStep, setCreateStep] = useState(1)
   const [creating, setCreating] = useState(false)
   const [detecting, setDetecting] = useState(false)
   const [carrierOpen, setCarrierOpen] = useState(false)
   const carrierRef = React.useRef<HTMLDivElement>(null)
   
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [archiveDialog, setArchiveDialog] = useState<{ open: boolean; shipment: Shipment | null }>({ open: false, shipment: null })
+  const [archiving, setArchiving] = useState(false)
+
   const [actionDialog, setActionDialog] = useState<{
     open: boolean
     shipment: Shipment | null
@@ -168,6 +140,12 @@ export default function ShipmentsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [newCarrierCode, setNewCarrierCode] = useState("")
   const [carrierAttempts, setCarrierAttempts] = useState<{ attempts: number; attempts_left: number } | null>(null)
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([])
+  const [branchId, setBranchId] = useState("all")
+
+  const [editDialog, setEditDialog] = useState<{ open: boolean; shipment: Shipment | null }>({ open: false, shipment: null })
+  const [editForm, setEditForm] = useState({ recipientName: "", recipientEmail: "", recipientPhone: "", branchId: "", billAmount: "" })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -187,14 +165,12 @@ export default function ShipmentsPage() {
     recipientPhone: "",
     recipientName: "",
     userId: "",
+    branchId: "",
+    billAmount: "",
   })
+  const [assignToSelf, setAssignToSelf] = useState(false)
 
   const [userLookupStatus, setUserLookupStatus] = useState<{email?: string; phone?: string}>({})
-
-  const handleSort = (column: string, direction: "asc" | "desc") => {
-    setSortColumn(column)
-    setSortDirection(direction)
-  }
 
   const fetchShipments = async () => {
     setLoading(true)
@@ -206,9 +182,10 @@ export default function ShipmentsPage() {
       if (statusFilter !== "all") params.set("status", statusFilter)
       if (selectedOrganisation)
         params.set("organisationId", selectedOrganisation)
-      if (sortColumn) {
-        params.set("sortBy", sortColumn)
-        params.set("sortOrder", sortDirection)
+      if (branchId && branchId !== "all") params.set("branchId", branchId)
+      if (sorting.length > 0) {
+        params.set("sortBy", sorting[0].id)
+        params.set("sortOrder", sorting[0].desc ? "desc" : "asc")
       }
 
       const res = (await api.get(`/shipments?${params}`, {
@@ -231,22 +208,11 @@ const fetchStats = async () => {
     try {
       const res = await api.get(`/shipments/stats?organisationId=${selectedOrganisation}`, { throwOnError: false }) as any
       if (res && res.total !== undefined) {
-        const calcChange = (trend: string[] | number[]) => {
-          if (!trend || trend.length < 2) return 0
-          const first = Number(trend[0])
-          const last = Number(trend[trend.length - 1])
-          if (first === 0) return last > 0 ? 100 : 0
-          return Math.round(((last - first) / first) * 100)
-        }
         setStats({
           total: Number(res.total),
           pending: Number(res.pending),
           inTransit: Number(res.inTransit),
           delivered: Number(res.delivered),
-          totalChange: calcChange(res.totalTrend),
-          pendingChange: calcChange(res.pendingTrend),
-          inTransitChange: calcChange(res.inTransitTrend),
-          deliveredChange: calcChange(res.deliveredTrend),
         })
       }
     } catch (err) {
@@ -275,6 +241,18 @@ const fetchStats = async () => {
       }
     } catch (err) {
       console.error("Failed to fetch quota:", err)
+    }
+  }
+
+  const fetchBranches = async () => {
+    if (!selectedOrganisation) return
+    try {
+      const res = await api.get(`/organisations/${selectedOrganisation}/branches`, { throwOnError: false }) as any
+      if (Array.isArray(res)) {
+        setBranches(res)
+      }
+    } catch (err) {
+      console.error("Failed to fetch branches:", err)
     }
   }
 
@@ -344,29 +322,38 @@ const fetchStats = async () => {
     // Validate inputs using Zod schemas
     try {
       trackingNumberSchema.parse(formData.trackingNumber)
-      nameSchema.parse(formData.recipientName)
-      if (formData.recipientEmail) {
-        emailSchema.parse(formData.recipientEmail)
+      if (!assignToSelf) {
+        nameSchema.parse(formData.recipientName)
+        phoneSchema.parse(formData.recipientPhone)
+        if (formData.recipientEmail) {
+          emailSchema.parse(formData.recipientEmail)
+        }
       }
-      phoneSchema.parse(formData.recipientPhone)
-    } catch (validationErr) {
-      toast.error("Please check your input values")
+    } catch (validationErr: any) {
+      const field = validationErr?.issues?.[0]?.path?.[0] || "input"
+      toast.error(`Invalid ${field}`)
       return
     }
-    
-    if (!formData.trackingNumber || !formData.recipientName || !formData.recipientPhone) {
-      toast.error("Please fill in tracking number, recipient name, and phone")
+
+    if (!formData.trackingNumber) {
+      toast.error("Please enter a tracking number")
       return
     }
+
+    if (!assignToSelf && (!formData.recipientName || !formData.recipientPhone)) {
+      toast.error("Please fill in recipient name and phone, or assign to self")
+      return
+    }
+
     setCreating(true)
     try {
       let phone = formData.recipientPhone.replace(/\s/g, "")
       if (!phone.startsWith("+")) {
-        const code = COUNTRY_CODES[orgCountry] || "+1"
+        const code = getDialCode(orgCountry)
         phone = code + phone
       }
 
-      await api.post(
+      const res: any = await api.post(
         "/shipments",
         {
           trackingNumber: formData.trackingNumber,
@@ -376,9 +363,18 @@ const fetchStats = async () => {
           recipientPhone: phone,
           userId: formData.userId || undefined,
           organisationId: selectedOrganisation,
+          branchId: formData.branchId || undefined,
+          billAmount: formData.billAmount ? parseFloat(formData.billAmount) : undefined,
         },
         { throwOnError: false, timeout: 30000 }
       )
+
+      if (res?.error) {
+        toast.error(res.message || "Failed to create shipment")
+        return
+      }
+
+      toast.success("Shipment created")
       setOpenCreateDialog(false)
       setFormData({
         trackingNumber: "",
@@ -388,13 +384,59 @@ const fetchStats = async () => {
         recipientPhone: "",
         recipientName: "",
         userId: "",
+        branchId: "",
+        billAmount: "",
       })
       fetchShipments()
       fetchStats()
-    } catch (err) {
-      console.error("Failed to create shipment:", err)
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create shipment")
     } finally {
       setCreating(false)
+    }
+  }
+
+  const openEditShipment = (shipment: Shipment) => {
+    setEditForm({
+      recipientName: shipment.recipientName || "",
+      recipientEmail: shipment.recipientEmail || "",
+      recipientPhone: shipment.recipientPhone || "",
+      branchId: shipment.branchId || "",
+      billAmount: shipment.billAmount != null ? String(shipment.billAmount) : "",
+    })
+    setEditDialog({ open: true, shipment })
+  }
+
+  const handleUpdateShipment = async () => {
+    if (!editDialog.shipment) return
+    if (!editForm.recipientName || !editForm.recipientPhone || !editForm.branchId) {
+      toast.error("Name, phone, and branch are required")
+      return
+    }
+    setSavingEdit(true)
+    try {
+      const payload: any = {
+        recipientName: editForm.recipientName,
+        recipientEmail: editForm.recipientEmail || undefined,
+        recipientPhone: editForm.recipientPhone,
+        branchId: editForm.branchId,
+      }
+      if (editForm.billAmount) {
+        payload.billAmount = parseFloat(editForm.billAmount)
+      }
+      const res: any = await api.patch(`/shipments/${editDialog.shipment.id}`, payload, { throwOnError: false })
+      if (res?.error) {
+        toast.error(res.message || "Failed to update shipment")
+        return
+      }
+      toast.success("Shipment updated")
+      setEditDialog({ open: false, shipment: null })
+      fetchShipments()
+      fetchStats()
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update shipment")
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -415,6 +457,100 @@ const fetchStats = async () => {
       toast.error("Failed to delete shipment")
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true)
+    try {
+      await Promise.all(selectedIds.map((id) => api.delete(`/shipments/${id}`, { throwOnError: false })))
+      toast.success(`${selectedIds.length} shipments deleted`)
+      setSelectedIds([])
+      setBulkDeleteDialog(false)
+      fetchShipments()
+      fetchStats()
+    } catch (err) {
+      console.error("Bulk delete failed:", err)
+      toast.error("Failed to delete some shipments")
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  const handleArchive = async () => {
+    if (!archiveDialog.shipment) return
+    setArchiving(true)
+    try {
+      await api.patch(`/shipments/${archiveDialog.shipment.id}/archive`, {})
+      toast.success("Shipment archived")
+      setArchiveDialog({ open: false, shipment: null })
+      fetchShipments()
+      fetchStats()
+    } catch (err) {
+      console.error("Failed to archive shipment:", err)
+      toast.error("Failed to archive shipment")
+    } finally {
+      setArchiving(false)
+    }
+  }
+
+  const handleUnarchive = async (shipment: Shipment) => {
+    try {
+      await api.patch(`/shipments/${shipment.id}/unarchive`, {})
+      toast.success("Shipment unarchived")
+      fetchShipments()
+      fetchStats()
+    } catch (err) {
+      console.error("Failed to unarchive shipment:", err)
+      toast.error("Failed to unarchive shipment")
+    }
+  }
+
+  const handleDownloadInvoice = (shipment: Shipment) => {
+    const token = localStorage.getItem("track_access_token")
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+    if (!token) {
+      window.open(`${baseUrl}/invoices/${shipment.id}/download`, "_blank")
+      return
+    }
+    fetch(`${baseUrl}/invoices/${shipment.id}/download`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.blob()
+      })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `invoice-${shipment.trackingNumber}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        setTimeout(() => {
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+        }, 100)
+      })
+      .catch(() => toast.error("Failed to download invoice"))
+  }
+
+  const handleSendInvoice = async (shipment: Shipment) => {
+    const token = localStorage.getItem("track_access_token")
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+    try {
+      const res = await fetch(`${baseUrl}/invoices/${shipment.id}/send-email`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Invoice email queued")
+      } else {
+        toast.error(data.message || "Failed to send invoice")
+      }
+    } catch {
+      toast.error("Failed to send invoice")
     }
   }
 
@@ -498,18 +634,11 @@ const fetchStats = async () => {
     }
   }
 
-  const openActionDialog = (shipment: Shipment, type: "stoptrack" | "retrack" | "changecarrier") => {
-    setActionDialog({ open: true, shipment, type })
-    if (type === "changecarrier") {
-      fetchCarrierAttempts(shipment.trackingNumber)
-    }
-  }
-
   useEffect(() => {
     if (authLoading || !user) return
     setPage(1)
     fetchShipments()
-  }, [search, authLoading, user])
+  }, [search, branchId, authLoading, user])
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -519,8 +648,8 @@ const fetchStats = async () => {
     limit,
     statusFilter,
     selectedOrganisation,
-    sortColumn,
-    sortDirection,
+    sorting,
+    branchId,
     authLoading,
     user,
   ])
@@ -538,6 +667,12 @@ const fetchStats = async () => {
     fetchStats()
     fetchCarriers()
     fetchQuota()
+    fetchBranches()
+    if (user?.role === "staff" && user?.branchId) {
+      setBranchId(user.branchId)
+    } else {
+      setBranchId("")
+    }
     const interval = setInterval(fetchQuota, 60 * 60 * 1000)
     
     return () => {
@@ -567,9 +702,180 @@ const fetchStats = async () => {
         recipientPhone: "",
         recipientName: "",
         userId: "",
+        branchId: "",
+        billAmount: "",
       })
     }
   }, [openCreateDialog])
+
+  useEffect(() => {
+    if (!openCreateDialog) {
+      setCreateStep(1)
+    }
+  }, [openCreateDialog])
+
+  const openActionDialog = (shipment: Shipment, type: "stoptrack" | "retrack" | "changecarrier") => {
+    setActionDialog({ open: true, shipment, type })
+    if (type === "changecarrier") {
+      fetchCarrierAttempts(shipment.trackingNumber)
+    }
+  }
+
+  const columns: ColumnDef<Shipment>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <SelectAllCheckbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(val) => table.toggleAllPageRowsSelected(!!val)}
+        />
+      ),
+      cell: ({ row }) => (
+        <RowCheckbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(val) => row.toggleSelected(!!val)}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "trackingNumber",
+      header: "Tracking #",
+      cell: ({ row }) => (
+        <span className="font-mono text-sm">{row.original.trackingNumber}</span>
+      ),
+      enableSorting: true,
+    },
+    {
+      accessorKey: "whiteLabelTrackingCode",
+      header: "White Label Code",
+      cell: ({ row }) => (
+        <span className="font-mono text-sm text-muted-foreground">
+          {row.original.whiteLabelTrackingCode || "-"}
+        </span>
+      ),
+      enableSorting: true,
+    },
+    {
+      accessorFn: (row) => row.carrierName || row.carrierCode,
+      id: "carrier",
+      header: "Carrier",
+      cell: ({ row }) =>
+        row.original.carrierName || row.original.carrierCode || "Unknown",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <Badge className={statusVariants[row.original.status]}>
+          {row.original.status.replace("_", " ")}
+        </Badge>
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "recipientName",
+      header: "Recipient",
+      cell: ({ row }) => row.original.recipientName || "-",
+      enableSorting: true,
+    },
+    {
+      accessorKey: "recipientEmail",
+      header: "Email",
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.recipientEmail || "-"}</span>
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "recipientPhone",
+      header: "Phone",
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.recipientPhone || "-"}</span>
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: "billAmount",
+      header: "Bill",
+      cell: ({ row }) => {
+        const amount = row.original.billAmount;
+        return amount != null ? `$${Number(amount).toFixed(2)}` : "-";
+      },
+      enableSorting: true,
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created",
+      cell: ({ row }) =>
+        new Date(row.original.createdAt).toLocaleDateString(),
+      enableSorting: true,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const shipment = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                <MoreHorizontalIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => openEditShipment(shipment)}>
+                <EditIcon className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownloadInvoice(shipment)}>
+                <FileTextIcon className="mr-2 h-4 w-4" />
+                Invoice
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSendInvoice(shipment)}>
+                <MailIcon className="mr-2 h-4 w-4" />
+                Send Invoice
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => openActionDialog(shipment, "changecarrier")}>
+                <PackageCheckIcon className="mr-2 h-4 w-4" />
+                Change Carrier
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openActionDialog(shipment, "stoptrack")}>
+                <BanIcon className="mr-2 h-4 w-4" />
+                Stop Tracking
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openActionDialog(shipment, "retrack")}>
+                <RefreshCwIcon className="mr-2 h-4 w-4" />
+                Re-track
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {shipment.archivedAt ? (
+                <DropdownMenuItem onClick={() => handleUnarchive(shipment)}>
+                  <PackageCheckIcon className="mr-2 h-4 w-4" />
+                  Unarchive
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => setArchiveDialog({ open: true, shipment })}>
+                  <PackageCheckIcon className="mr-2 h-4 w-4" />
+                  Archive
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={() => setDeleteDialog({ open: true, shipment })}
+              >
+                <Trash2Icon className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+      enableSorting: false,
+    },
+  ]
 
   return (
     <AnimatedPage className="space-y-6 p-6">
@@ -583,188 +889,281 @@ const fetchStats = async () => {
               </Badge>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Track and manage all shipments
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Track and manage all your shipments in one place</p>
         </div>
-        <Dialog open={openCreateDialog} onOpenChange={setOpenCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusIcon className="mr-2 h-4 w-4" />
-              New Shipment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Create New Shipment</DialogTitle>
-              <DialogDescription>
-                Enter the tracking number to auto-detect carrier.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="trackingNumber">Tracking Number</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="trackingNumber"
-                    placeholder="Enter tracking number"
-                    value={formData.trackingNumber}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        trackingNumber: e.target.value,
-                      }))
-                    }
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => detectCarrier(formData.trackingNumber)}
-                    disabled={!formData.trackingNumber || detecting}
-                  >
-                    {detecting ? "..." : "Detect"}
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="carrier">Carrier</Label>
-                <div className="relative" ref={carrierRef}>
-                  <Input
-                    id="carrier"
-                    placeholder="Search carrier..."
-                    value={carriers.find((c) => c.key === formData.carrierCode)?.name_en || ""}
-                    onChange={(e) => {
-                      const search = e.target.value.toLowerCase()
-                      const filtered = carriers.filter((c) => 
-                        c.name_en.toLowerCase().includes(search)
-                      )
-                      if (filtered.length === 1) {
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setOpenCreateDialog(true)}>
+            <PlusIcon className="mr-2 h-4 w-4" />
+            New Shipment
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={openCreateDialog} onOpenChange={setOpenCreateDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Shipment</DialogTitle>
+            <DialogDescription>
+              {createStep === 1 && "Enter tracking number and select carrier."}
+              {createStep === 2 && "Enter recipient details."}
+              {createStep === 3 && "Assign ownership and billing."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-1 mb-4">
+            <div className={`h-1 flex-1 rounded-full ${createStep >= 1 ? "bg-primary" : "bg-muted"}`} />
+            <div className={`h-1 flex-1 rounded-full ${createStep >= 2 ? "bg-primary" : "bg-muted"}`} />
+            <div className={`h-1 flex-1 rounded-full ${createStep >= 3 ? "bg-primary" : "bg-muted"}`} />
+          </div>
+          <div className="grid gap-4">
+            {createStep === 1 && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="trackingNumber">Tracking Number</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="trackingNumber"
+                      placeholder="Enter tracking number"
+                      value={formData.trackingNumber}
+                      onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          carrierCode: filtered[0].key,
-                          carrierName: filtered[0].name_en,
+                          trackingNumber: e.target.value,
                         }))
-                      } else if (filtered.length === 0) {
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => detectCarrier(formData.trackingNumber)}
+                      disabled={!formData.trackingNumber || detecting}
+                    >
+                      {detecting ? "..." : "Detect"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="carrier">Carrier</Label>
+                  <div className="relative" ref={carrierRef}>
+                    <Input
+                      id="carrier"
+                      placeholder="Search carrier..."
+                      value={carriers.find((c) => c.key === formData.carrierCode)?.name_en || ""}
+                      onChange={(e) => {
+                        const search = e.target.value.toLowerCase()
+                        const filtered = carriers.filter((c) => 
+                          c.name_en.toLowerCase().includes(search)
+                        )
+                        if (filtered.length === 1) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            carrierCode: filtered[0].key,
+                            carrierName: filtered[0].name_en,
+                          }))
+                        } else if (filtered.length === 0) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            carrierCode: "",
+                            carrierName: "",
+                          }))
+                        }
+                      }}
+                      onFocus={() => setCarrierOpen(true)}
+                    />
+                    {carrierOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {carriers.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground">No carriers</div>
+                        ) : (
+                          carriers.map((carrier) => (
+                            <div
+                              key={carrier.key}
+                              className="px-3 py-2 cursor-pointer hover:bg-accent"
+                              onClick={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  carrierCode: carrier.key,
+                                  carrierName: carrier.name_en,
+                                }))
+                                setCarrierOpen(false)
+                              }}
+                            >
+                              {carrier.name_en}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+            {createStep === 2 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="assignToSelf"
+                    checked={assignToSelf}
+                    onCheckedChange={(checked) => {
+                      setAssignToSelf(checked as boolean)
+                      if (checked) {
                         setFormData((prev) => ({
                           ...prev,
-                          carrierCode: "",
-                          carrierName: "",
+                          userId: user?.id || "",
+                          recipientEmail: user?.email || "",
+                          recipientPhone: user?.phoneNumber || "",
+                          recipientName: user?.name || "",
+                        }))
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          userId: "",
+                          recipientEmail: "",
+                          recipientPhone: "",
+                          recipientName: "",
                         }))
                       }
                     }}
-                    onFocus={() => setCarrierOpen(true)}
                   />
-                  {carrierOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
-                      {carriers.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground">No carriers</div>
-                      ) : (
-                        carriers.map((carrier) => (
-                          <div
-                            key={carrier.key}
-                            className="px-3 py-2 cursor-pointer hover:bg-accent"
-                            onClick={() => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                carrierCode: carrier.key,
-                                carrierName: carrier.name_en,
-                              }))
-                              setCarrierOpen(false)
-                            }}
-                          >
-                            {carrier.name_en}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                  <Label htmlFor="assignToSelf" className="text-sm font-normal cursor-pointer">
+                    Assign to me (self)
+                  </Label>
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="recipientEmail">Recipient Email (optional)</Label>
-                <div className="flex gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="recipientEmail">Email (optional)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="recipientEmail"
+                      placeholder="recipient@example.com"
+                      type="email"
+                      value={formData.recipientEmail}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          recipientEmail: e.target.value,
+                          userId: "",
+                        }))
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => lookupUser(formData.recipientEmail)}
+                      disabled={!formData.recipientEmail}
+                      type="button"
+                    >
+                      Lookup
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="recipientPhone">Phone</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="recipientPhone"
+                      placeholder={getDialCode(orgCountry) + " 9000000000"}
+                      value={formData.recipientPhone}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          recipientPhone: e.target.value,
+                          userId: "",
+                        }))
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => lookupUser(undefined, formData.recipientPhone)}
+                      disabled={!formData.recipientPhone}
+                      type="button"
+                    >
+                      Lookup
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="recipientName">Recipient Name</Label>
                   <Input
-                    id="recipientEmail"
-                    placeholder="recipient@example.com"
-                    type="email"
-                    value={formData.recipientEmail}
+                    id="recipientName"
+                    placeholder="Enter name"
+                    value={formData.recipientName}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        recipientEmail: e.target.value,
-                        userId: "",
+                        recipientName: e.target.value,
                       }))
                     }
-                    className="flex-1"
                   />
-                  <Button
-                    variant="outline"
-                    onClick={() => lookupUser(formData.recipientEmail)}
-                    disabled={!formData.recipientEmail}
-                    type="button"
-                  >
-                    Lookup
-                  </Button>
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="recipientPhone">Notify Phone</Label>
-                <div className="flex gap-2">
+              </>
+            )}
+            {createStep === 3 && (
+              <>
+                {user?.role === "admin" && branches.length > 0 && (
+                  <div className="grid gap-2">
+                    <Label>Branch *</Label>
+                    <Select
+                      value={formData.branchId}
+                      onValueChange={(val) =>
+                        setFormData((prev) => ({ ...prev, branchId: val }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="grid gap-2">
+                  <Label>Bill Amount</Label>
                   <Input
-                    id="recipientPhone"
-                    placeholder={orgCountry ? (COUNTRY_CODES[orgCountry] || "+1") + " 9000000000" : "+1 9000000000"}
-                    value={formData.recipientPhone}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={formData.billAmount}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        recipientPhone: e.target.value,
-                        userId: "",
-                      }))
+                      setFormData((prev) => ({ ...prev, billAmount: e.target.value }))
                     }
-                    className="flex-1"
                   />
-                  <Button
-                    variant="outline"
-                    onClick={() => lookupUser(undefined, formData.recipientPhone)}
-                    disabled={!formData.recipientPhone}
-                    type="button"
-                  >
-                    Lookup
-                  </Button>
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="recipientName">Recipient Name</Label>
-                <Input
-                  id="recipientName"
-                  placeholder="Enter recipient name"
-                  value={formData.recipientName}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      recipientName: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setOpenCreateDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateShipment}
-                disabled={creating || !formData.trackingNumber || !formData.recipientName || !formData.recipientPhone}
-              >
-                {creating ? "Creating..." : "Create Shipment"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            {createStep === 1 && (
+              <>
+                <Button variant="outline" onClick={() => setOpenCreateDialog(false)}>Cancel</Button>
+                <Button onClick={() => setCreateStep(2)}>Next</Button>
+              </>
+            )}
+            {createStep === 2 && (
+              <>
+                <Button variant="outline" onClick={() => setCreateStep(1)}>Back</Button>
+                <Button onClick={() => setCreateStep(3)}>Next</Button>
+              </>
+            )}
+            {createStep === 3 && (
+              <>
+                <Button variant="outline" onClick={() => setCreateStep(2)}>Back</Button>
+                <Button
+                  onClick={handleCreateShipment}
+                  disabled={creating || !formData.trackingNumber || (!assignToSelf && (!formData.recipientName || !formData.recipientPhone)) || (user?.role === "admin" && !formData.branchId)}
+                >
+                  {creating ? "Creating..." : "Create Shipment"}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {stats && <ShipmentStatsCards stats={stats} />}
 
@@ -780,6 +1179,19 @@ const fetchStats = async () => {
             />
           </div>
           <div className="flex gap-2">
+            {user?.role === "admin" && branches.length > 0 && (
+              <Select value={branchId} onValueChange={setBranchId}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="All Branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[140px]">
                 <FilterIcon className="mr-2 h-4 w-4" />
@@ -811,15 +1223,20 @@ const fetchStats = async () => {
               </SelectContent>
             </Select>
             <ExportButton
-              data={shipments}
-              columns={[
-                { key: "trackingNumber", header: "Tracking Number" },
-                { key: "carrierName", header: "Carrier" },
-                { key: "status", header: "Status" },
-                { key: "recipientName", header: "Recipient" },
-                { key: "recipientEmail", header: "Email" },
-                { key: "recipientPhone", header: "Phone" },
-                { key: "createdAt", header: "Created" },
+              sections={[
+                {
+                  title: "Shipments",
+                  data: shipments,
+                  columns: [
+                    { key: "trackingNumber", header: "Tracking Number" },
+                    { key: "carrierName", header: "Carrier" },
+                    { key: "status", header: "Status" },
+                    { key: "recipientName", header: "Recipient" },
+                    { key: "recipientEmail", header: "Email" },
+                    { key: "recipientPhone", header: "Phone" },
+                    { key: "createdAt", header: "Created" },
+                  ],
+                },
               ]}
               filename={`shipments-${page}`}
             />
@@ -865,169 +1282,36 @@ const fetchStats = async () => {
         )}
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <Checkbox />
-              </TableHead>
-              <SortableTableHead
-                onSort={handleSort}
-                sortColumn={sortColumn}
-                sortDirection={sortDirection}
-              >
-                Tracking #
-              </SortableTableHead>
-              <SortableTableHead
-                onSort={handleSort}
-                sortColumn={sortColumn}
-                sortDirection={sortDirection}
-              >
-                White Label Code
-              </SortableTableHead>
-              <SortableTableHead
-                onSort={handleSort}
-                sortColumn={sortColumn}
-                sortDirection={sortDirection}
-              >
-                Carrier
-              </SortableTableHead>
-              <TableHead>Status</TableHead>
-              <SortableTableHead
-                onSort={handleSort}
-                sortColumn={sortColumn}
-                sortDirection={sortDirection}
-              >
-                Recipient
-              </SortableTableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <SortableTableHead
-                onSort={handleSort}
-                sortColumn={sortColumn}
-                sortDirection={sortDirection}
-              >
-                Created
-              </SortableTableHead>
-              <TableHead className="w-10">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : shipments.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10}>
-                  <Empty>
-                    <EmptyDescription>No shipments found</EmptyDescription>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : (
-              shipments.map((shipment) => (
-                <TableRow key={shipment.id}>
-                  <TableCell>
-                    <Checkbox />
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {shipment.trackingNumber}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm text-muted-foreground">
-                    {shipment.whiteLabelTrackingCode || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {shipment.carrierName || shipment.carrierCode || "Unknown"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={statusVariants[shipment.status]}>
-                      {shipment.status.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{shipment.recipientName || "-"}</TableCell>
-                  <TableCell className="text-sm">
-                    {shipment.recipientEmail || "-"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {shipment.recipientPhone || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(shipment.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontalIcon className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            router.push(`/shipments/${shipment.id}`)
-                          }
-                        >
-                          <EditIcon className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => openActionDialog(shipment, "changecarrier")}
-                        >
-                          <PackageCheckIcon className="mr-2 h-4 w-4" />
-                          Change Carrier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openActionDialog(shipment, "stoptrack")}
-                        >
-                          <BanIcon className="mr-2 h-4 w-4" />
-                          Stop Tracking
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openActionDialog(shipment, "retrack")}
-                        >
-                          <RefreshCwIcon className="mr-2 h-4 w-4" />
-                          Re-track
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => setDeleteDialog({ open: true, shipment })}
-                        >
-                          <Trash2Icon className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-          <TableFooter>
-            <tr>
-              <td
-                colSpan={10}
-                className="px-4 py-3 text-sm text-muted-foreground"
-              >
-                Showing {total === 0 ? 0 : (page - 1) * limit + 1} to{" "}
-                {Math.min(page * limit, total)} of {total} shipments
-              </td>
-            </tr>
-          </TableFooter>
-        </Table>
-      </div>
-
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        itemsPerPage={limit}
+      <DataTable
+        columns={columns}
+        data={shipments}
+        loading={loading}
+        getRowId={(row) => row.id}
+        emptyState={
+          <Empty>
+            <EmptyDescription>No shipments found</EmptyDescription>
+          </Empty>
+        }
+        enableRowSelection
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={setSorting}
+        manualPagination
+        page={page}
+        pageSize={limit}
+        total={total}
+        pageCount={totalPages}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
+        pageSizeOptions={[10, 20, 50, 100]}
+        customFooter={<BulkActionFooter
+          selectedCount={selectedIds.length}
+          actions={[
+            { label: "Delete Selected", variant: "destructive", onClick: () => setBulkDeleteDialog(true) },
+          ]}
+        />}
       />
 
       <Dialog open={actionDialog.open} onOpenChange={(open) => !open && setActionDialog({ open: false, shipment: null, type: null })}>
@@ -1108,25 +1392,96 @@ const fetchStats = async () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, shipment: deleteDialog.shipment })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Shipment</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{deleteDialog.shipment?.trackingNumber}</strong>? 
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, shipment: null })}>
-              Cancel
+      <Sheet open={editDialog.open} onOpenChange={(open) => { if (!open) setEditDialog({ open: false, shipment: null }) }}>
+        <SheetContent side="right" className="sm:max-w-md p-6">
+          <SheetHeader className="px-0">
+            <SheetTitle>Edit Shipment</SheetTitle>
+            <SheetDescription>
+              Update recipient details for <strong>{editDialog.shipment?.trackingNumber}</strong>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-4 flex-1">
+            <div className="grid gap-2">
+              <Label>Recipient Name *</Label>
+              <Input value={editForm.recipientName} onChange={(e) => setEditForm({ ...editForm, recipientName: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Email</Label>
+              <Input value={editForm.recipientEmail} onChange={(e) => setEditForm({ ...editForm, recipientEmail: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Phone *</Label>
+              <Input value={editForm.recipientPhone} onChange={(e) => setEditForm({ ...editForm, recipientPhone: e.target.value })} />
+            </div>
+            {user?.role === "admin" && branches.length > 0 && (
+              <div className="grid gap-2">
+                <Label>Branch *</Label>
+                <Select value={editForm.branchId} onValueChange={(val) => setEditForm({ ...editForm, branchId: val })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {user?.role === "admin" && (
+              <div className="grid gap-2">
+                <Label>Bill Amount</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={editForm.billAmount}
+                  onChange={(e) => setEditForm({ ...editForm, billAmount: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setEditDialog({ open: false, shipment: null })}>Cancel</Button>
+            <Button onClick={handleUpdateShipment} disabled={savingEdit}>
+              {savingEdit ? "Saving..." : "Save Changes"}
             </Button>
-            <Button variant="destructive" onClick={handleDeleteShipment} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, shipment: deleteDialog.shipment })}
+        title="Delete Shipment"
+        description={`Are you sure you want to delete ${deleteDialog.shipment?.trackingNumber}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleting}
+        onConfirm={handleDeleteShipment}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteDialog}
+        onOpenChange={setBulkDeleteDialog}
+        title="Delete Shipments"
+        description={`Are you sure you want to delete ${selectedIds.length} shipments? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} Shipments`}
+        variant="destructive"
+        loading={bulkDeleting}
+        onConfirm={handleBulkDelete}
+      />
+
+      <ConfirmDialog
+        open={archiveDialog.open}
+        onOpenChange={(open) => setArchiveDialog({ open, shipment: archiveDialog.shipment })}
+        title="Archive Shipment"
+        description={`Are you sure you want to archive ${archiveDialog.shipment?.trackingNumber}?`}
+        confirmLabel="Archive"
+        loading={archiving}
+        onConfirm={handleArchive}
+      />
     </AnimatedPage>
   )
 }

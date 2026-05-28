@@ -1,7 +1,8 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { db } from '../../database';
 import { quotes, quoteStatusEnum } from '../../database/schema/quotes';
@@ -74,6 +75,7 @@ function emailBody(content: string): string {
 
 @Injectable()
 export class QuotesService {
+  private readonly logger = new Logger(QuotesService.name);
   constructor(
     private usersService: UsersService,
     private notificationsService: NotificationsService,
@@ -82,6 +84,7 @@ export class QuotesService {
 
   async create(data: {
     organisationId: string;
+    branchId?: string | null;
     userId: string;
     originCountry: string;
     destinationCountry: string;
@@ -102,6 +105,7 @@ export class QuotesService {
       .insert(quotes)
       .values({
         organisationId: data.organisationId,
+        branchId: data.branchId || null,
         userId: data.userId,
         originCountry: data.originCountry,
         destinationCountry: data.destinationCountry,
@@ -122,6 +126,8 @@ export class QuotesService {
           quoteId: quote.id,
           origin: data.originCountry,
           destination: data.destinationCountry,
+          weight: data.weight,
+          email: data.email,
         },
       });
     }
@@ -156,7 +162,6 @@ export class QuotesService {
     await db.update(quotes).set(updateData).where(eq(quotes.id, id));
 
     if (
-      data.status &&
       data.status !== oldStatus &&
       (data.status === 'quoted' ||
         data.status === 'accepted' ||
@@ -171,6 +176,18 @@ export class QuotesService {
         data.price,
         data.remarks,
       );
+
+      const titleKey = `quote.${data.status}`;
+      await this.notificationsService.create(quote.organisationId, {
+        userId: quote.userId,
+        titleKey,
+        data: {
+          quoteId: quote.id,
+          origin: quote.originCountry,
+          destination: quote.destinationCountry,
+          price: data.price,
+        },
+      });
     }
 
     return this.findById(id);
@@ -181,32 +198,31 @@ export class QuotesService {
       ? eq(quotes.id, id)
       : and(eq(quotes.id, id), isNull(quotes.deletedAt));
 
-    const [quote] = await db
-      .select()
-      .from(quotes)
-      .where(whereClause as any);
+    const [quote] = await db.select().from(quotes).where(whereClause);
     if (!quote) throw new NotFoundException('Quote not found');
     return quote;
   }
 
-  async findByUser(userId: string) {
+  async findByUser(userId: string, organisationId?: string) {
+    const filters: any[] = [eq(quotes.userId, userId), isNull(quotes.deletedAt)];
+    if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
     return db
       .select()
       .from(quotes)
-      .where(and(eq(quotes.userId, userId), isNull(quotes.deletedAt)));
+      .where(and(...filters));
   }
 
-  async findPendingByOrganisation(organisationId: string) {
+  async findPendingByOrganisation(organisationId: string, branchId?: string) {
+    const filters: any[] = [
+      eq(quotes.organisationId, organisationId),
+      eq(quotes.status, 'pending'),
+      isNull(quotes.deletedAt),
+    ];
+    if (branchId) filters.push(eq(quotes.branchId, branchId));
     return db
       .select()
       .from(quotes)
-      .where(
-        and(
-          eq(quotes.organisationId, organisationId),
-          eq(quotes.status, 'pending'),
-          isNull(quotes.deletedAt),
-        ),
-      );
+      .where(and(...filters));
   }
 
   async delete(id: string, deletedBy: string, reason?: string) {
@@ -240,6 +256,7 @@ export class QuotesService {
 
   async findWithPagination(options: {
     organisationId?: string;
+    branchId?: string;
     userId?: string;
     page?: number;
     limit?: number;
@@ -250,6 +267,7 @@ export class QuotesService {
   }) {
     const {
       organisationId,
+      branchId,
       userId,
       page = 1,
       limit = 10,
@@ -266,6 +284,9 @@ export class QuotesService {
     }
     if (userId) {
       conditions.push(eq(quotes.userId, userId));
+    }
+    if (branchId) {
+      conditions.push(eq(quotes.branchId, branchId));
     }
     if (status) {
       conditions.push(eq(quotes.status, status as any));
@@ -304,7 +325,10 @@ export class QuotesService {
         .orderBy(orderFn(orderColumn))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` }).from(quotes).where(whereClause),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(quotes)
+        .where(whereClause),
     ]);
 
     const total = Number(countResult[0]?.count || 0);
@@ -313,11 +337,12 @@ export class QuotesService {
     return { data, total, page, limit, totalPages };
   }
 
-  async getStats(organisationId?: string) {
+  async getStats(organisationId?: string, branchId?: string) {
     try {
-      const whereCondition = organisationId
-        ? and(eq(quotes.organisationId, organisationId), isNull(quotes.deletedAt))
-        : isNull(quotes.deletedAt);
+      const filters: any[] = [isNull(quotes.deletedAt)];
+      if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
+      if (branchId) filters.push(eq(quotes.branchId, branchId));
+      const whereCondition = and(...filters);
 
       const allQuotes = await db.select().from(quotes).where(whereCondition);
 
@@ -335,18 +360,26 @@ export class QuotesService {
 
       return { total, pending, quoted, accepted, rejected, recent };
     } catch (err) {
-      console.error('[getStats] ERROR:', err);
-      return { total: 0, pending: 0, quoted: 0, accepted: 0, rejected: 0, recent: 0 };
+      this.logger.error('[getStats] ERROR:', err);
+      return {
+        total: 0,
+        pending: 0,
+        quoted: 0,
+        accepted: 0,
+        rejected: 0,
+        recent: 0,
+      };
     }
   }
 
-  async getActivityHistory(organisationId?: string, days: number = 30) {
+  async getActivityHistory(organisationId?: string, branchId?: string, days: number = 30) {
     try {
-      const whereClause = organisationId
-        ? and(eq(quotes.organisationId, organisationId), isNull(quotes.deletedAt))
-        : isNull(quotes.deletedAt);
+      const filters: any[] = [isNull(quotes.deletedAt)];
+      if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
+      if (branchId) filters.push(eq(quotes.branchId, branchId));
+      const whereClause = and(...filters);
 
-      const allQuotes = await db.select().from(quotes).where(whereClause as any);
+      const allQuotes = await db.select().from(quotes).where(whereClause);
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -365,31 +398,28 @@ export class QuotesService {
           if (date >= startDate) {
             const key = date.toISOString().split('T')[0];
             historyMap.set(key, (historyMap.get(key) || 0) + 1);
+          }
         }
-      }
-    });
+      });
 
-    return Array.from(historyMap.entries())
+      return Array.from(historyMap.entries())
         .map(([date, count]) => ({ date, quotes: count }))
         .sort((a, b) => a.date.localeCompare(b.date));
     } catch (err) {
-      console.error('[getActivityHistory] ERROR:', err);
+      this.logger.error('[getActivityHistory] ERROR:', err);
       return [];
     }
   }
 
-  async getDeletedStats(organisationId?: string) {
+  async getDeletedStats(organisationId?: string, branchId?: string) {
+    const filters: any[] = [eq(quotes.status, 'deleted')];
+    if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
+    if (branchId) filters.push(eq(quotes.branchId, branchId));
+
     const deletedQuotes = await db
       .select()
       .from(quotes)
-      .where(
-        organisationId
-          ? and(
-              eq(quotes.organisationId, organisationId),
-              eq(quotes.status, 'deleted'),
-            )
-          : eq(quotes.status, 'deleted'),
-      );
+      .where(and(...filters));
 
     const total = deletedQuotes.length;
     const oneYearAgo = new Date();

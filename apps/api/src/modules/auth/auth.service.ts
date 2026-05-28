@@ -6,6 +6,7 @@ import {
   Logger,
   Inject,
   forwardRef,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -17,8 +18,9 @@ import { TokenService, RequestContext } from './token.service';
 import { EmailService } from './email.service';
 import { VerificationsService } from './verifications.service';
 import { InvitationsService } from './invitations.service';
+import { TwoFactorService } from './two-factor.service';
 import { db } from '../../database';
-import { invitationStatuses, organisations } from '../../database/schema';
+import { invitationStatuses, organisations, branches } from '../../database/schema';
 import { eq, isNull } from 'drizzle-orm';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -44,6 +46,7 @@ export class AuthService {
     private verificationsService: VerificationsService,
     @Inject(forwardRef(() => InvitationsService))
     private invitationsService: InvitationsService,
+    private twoFactorService: TwoFactorService,
   ) {}
 
   private async passwordFailDelay(): Promise<void> {
@@ -112,16 +115,51 @@ export class AuthService {
       );
     }
 
-    const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(
-      user.id,
-      context,
-    );
+    const twoFactorStatus = await this.twoFactorService.getStatus(user.id);
+    if (twoFactorStatus.enabled) {
+      const sessionToken = await this.tokenService.generateTwoFactorToken(user.id);
+      await this.twoFactorService.sendLoginCode(user.id, user.email);
+      return { requiresTwoFactor: true, sessionToken, message: '2FA code sent to your email' };
+    }
+
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken, sessionId } =
+      await this.tokenService.generateRefreshToken(user.id, context);
 
     return {
       accessToken,
       refreshToken,
       user: this.sanitizeUser(user),
+      sessionId,
+    };
+  }
+
+  async verifyTwoFactorChallenge(
+    sessionToken: string,
+    code: string,
+    context: RequestContext,
+  ): Promise<AuthResponseDto> {
+    const { userId } = await this.tokenService.verifyTwoFactorToken(sessionToken);
+
+    const isValid = await this.twoFactorService.validate(userId, code);
+    if (!isValid) {
+      throw new BadRequestException('Invalid 2FA code');
+    }
+
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken, sessionId } =
+      await this.tokenService.generateRefreshToken(user.id, context);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.sanitizeUser(user),
+      sessionId,
     };
   }
 
@@ -135,17 +173,23 @@ export class AuthService {
     if (!user && googleUser.email) {
       user = await this.usersService.findByEmail(googleUser.email);
       if (user) {
-        await this.usersService.update(user.id, { googleId: googleUser.googleId });
+        await this.usersService.update(user.id, {
+          googleId: googleUser.googleId,
+        });
       }
     }
 
     if (!user) {
-      const organisation = await this.organisationsService.findBySlug('gajan-traders');
+      const organisation =
+        await this.organisationsService.findBySlug('gajan-traders');
       if (!organisation) {
         throw new BadRequestException('Organisation not found');
       }
 
-      const passwordHash = await hashPassword(Math.random().toString(36), this.configService);
+      const passwordHash = await hashPassword(
+        Math.random().toString(36),
+        this.configService,
+      );
 
       user = await this.usersService.create({
         email: googleUser.email,
@@ -162,11 +206,11 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(user.id, {
-      ip: 'unknown',
-      userAgent: 'google-oauth',
-    });
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
+      user.id,
+      { ip: 'unknown', userAgent: 'google-oauth' },
+    );
 
     return {
       accessToken,
@@ -197,9 +241,12 @@ export class AuthService {
         slug: slugify(registerDto.organisationName),
       });
     } else {
-      organisation = await this.organisationsService.findBySlug('gajan-traders');
+      organisation =
+        await this.organisationsService.findBySlug('gajan-traders');
       if (!organisation) {
-        throw new BadRequestException('Organisation not found. Please contact support.');
+        throw new BadRequestException(
+          'Organisation not found. Please contact support.',
+        );
       }
     }
 
@@ -212,7 +259,7 @@ export class AuthService {
     const user = await this.usersService.create({
       email: registerDto.email,
       passwordHash,
-      name: registerDto.name,
+      name: registerDto.name!,
       organisationId: organisation.id,
       emailVerified: false,
     });
@@ -220,8 +267,8 @@ export class AuthService {
     const token = await this.verificationsService.create(user.id, 'email');
     await this.emailService.sendVerificationEmail(user.email, token);
 
-    const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
       user.id,
       context,
     );
@@ -257,21 +304,30 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email first');
     }
 
-    const newRefreshToken = await this.tokenService.rotateRefreshToken(
-      refreshToken,
-      context,
+    const { token: newRefreshToken, sessionId: newSessionId } =
+      await this.tokenService.rotateRefreshToken(refreshToken, context);
+    const accessToken = await this.tokenService.generateAccessToken(
+      user,
+      newSessionId,
     );
-    const accessToken = this.tokenService.generateAccessToken(user);
 
     return {
       accessToken,
       refreshToken: newRefreshToken,
       user: this.sanitizeUser(user),
+      sessionId: newSessionId,
     };
   }
 
-  async logout(userId: string): Promise<{ message: string }> {
-    await this.sessionsService.revokeAllUserSessions(userId);
+  async logout(
+    userId: string,
+    sessionId?: string,
+  ): Promise<{ message: string }> {
+    if (sessionId) {
+      await this.sessionsService.revoke(sessionId);
+    } else {
+      await this.sessionsService.revokeAllUserSessions(userId);
+    }
     return { message: 'Logged out successfully' };
   }
 
@@ -283,6 +339,30 @@ export class AuthService {
     return {
       message: 'Logged out from all devices',
       sessionsRevoked: sessions.length,
+    };
+  }
+
+  async getSessions(userId: string) {
+    return this.sessionsService.findByUserId(userId);
+  }
+
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
+    const sessions = await this.sessionsService.findByUserId(userId);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (session) {
+      await this.sessionsService.revoke(sessionId);
+    }
+  }
+
+  async revokeOtherSessions(
+    userId: string,
+    currentSessionId: string,
+  ): Promise<{ message: string; sessionsRevoked: number }> {
+    const sessions = await this.sessionsService.findByUserId(userId);
+    await this.sessionsService.revokeAllOtherSessions(userId, currentSessionId);
+    return {
+      message: 'All other sessions revoked',
+      sessionsRevoked: sessions.filter((s) => s.id !== currentSessionId).length,
     };
   }
 
@@ -322,8 +402,8 @@ export class AuthService {
       );
     }
 
-    const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
       user.id,
       context,
     );
@@ -349,6 +429,20 @@ export class AuthService {
       role: user.role,
       organisationId: user.organisationId,
     };
+  }
+
+  async disable2fa(userId: string, password: string): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.passwordHash) {
+      throw new BadRequestException('Unable to verify identity');
+    }
+
+    const isValid = await comparePassword(password, user.passwordHash);
+    if (!isValid) {
+      throw new BadRequestException('Invalid password');
+    }
+
+    await this.twoFactorService.disable(userId);
   }
 
   async registerWithInvitation(
@@ -382,6 +476,7 @@ export class AuthService {
       name,
       role: invitation.role as Role,
       organisationId: invitation.organisationId,
+      branchId: invitation.branchId,
       emailVerified: true,
     });
 
@@ -391,8 +486,8 @@ export class AuthService {
       invitation.organisationId,
     );
 
-    const accessToken = this.tokenService.generateAccessToken(user);
-    const refreshToken = await this.tokenService.generateRefreshToken(
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
       user.id,
       context,
     );
@@ -413,17 +508,21 @@ export class AuthService {
   async createInvitation(
     organisationId: string,
     createdBy: string,
-    dto: { email: string; role: 'admin' | 'staff' },
+    dto: { email: string; role: 'admin' | 'staff'; branchId?: string | null },
     inviterName: string,
     organisationName: string,
   ) {
-    return this.invitationsService.create(
-      organisationId,
-      createdBy,
-      dto,
-      inviterName,
-      organisationName,
-    );
+    try {
+      return await this.invitationsService.create(
+        organisationId,
+        createdBy,
+        dto,
+        inviterName,
+        organisationName,
+      );
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'Failed to create invitation');
+    }
   }
 
   async listInvitations(organisationId?: string) {
@@ -440,9 +539,17 @@ export class AuthService {
       const org = await db.query.organisations.findFirst({
         where: eq(organisations.id, inv.organisationId),
       });
+      let branchName: string | null = null;
+      if (inv.branchId) {
+        const branch = await db.query.branches.findFirst({
+          where: eq(branches.id, inv.branchId),
+        });
+        branchName = branch?.name ?? null;
+      }
       result.push({
         ...inv,
         organisationName: org?.name || 'Unknown',
+        branchName,
       });
     }
     return result.map(({ token, ...inv }) => inv);
@@ -452,11 +559,16 @@ export class AuthService {
     await this.invitationsService.delete(invitationId);
   }
 
+  async resendInvitation(invitationId: string) {
+    return this.invitationsService.resend(invitationId);
+  }
+
   async customerRegister(
     email: string,
     password: string,
-    name: string,
+    name: string | undefined,
     phoneNumber: string | undefined,
+    organisationSlug: string | undefined,
     context: RequestContext,
   ): Promise<AuthResponseDto> {
     // Check for duplicate email
@@ -469,7 +581,8 @@ export class AuthService {
 
     // Check for duplicate phone number if provided
     if (phoneNumber) {
-      const existingPhone = await this.usersService.findByPhoneNumber(phoneNumber);
+      const existingPhone =
+        await this.usersService.findByPhoneNumber(phoneNumber);
       if (existingPhone) {
         throw new BadRequestException(
           'This phone number is already registered. Please use a different number.',
@@ -484,15 +597,30 @@ export class AuthService {
 
     const passwordHash = await hashPassword(password, this.configService);
 
-    const organisation = await this.organisationsService.findBySlug('gajan-traders');
+    // Auto-assign organisation by email domain first, then fall back to slug
+    let organisation;
+    if (organisationSlug) {
+      organisation = await this.organisationsService.findBySlug(organisationSlug);
+    } else {
+      const emailDomain = email.split('@')[1]?.toLowerCase();
+      if (emailDomain) {
+        organisation = await this.organisationsService.findByTrackingDomain(emailDomain);
+      }
+      if (!organisation) {
+        organisation =
+          await this.organisationsService.findBySlug('gajan-traders');
+      }
+    }
     if (!organisation) {
-      throw new BadRequestException('Organisation not found. Please contact support.');
+      throw new BadRequestException(
+        'Organisation not found. Please contact support.',
+      );
     }
 
     const user = await this.usersService.create({
       email,
       passwordHash,
-      name,
+      name: name || email.split('@')[0],
       phoneNumber,
       role: Role.CUSTOMER,
       organisationId: organisation.id,
@@ -500,13 +628,36 @@ export class AuthService {
       emailVerified: false,
     });
 
-    const verificationToken = await this.verificationsService.create(user.id, 'email');
-    
+    const verificationToken = await this.verificationsService.create(
+      user.id,
+      'email',
+    );
+
     // Send verification email
-    await this.emailService.sendVerificationEmail(user.email, verificationToken);
-    
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      verificationToken,
+    );
+
+    // Auto-login after registration so user can access onboarding
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
+      user.id,
+      context,
+    );
+
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        organisationId: user.organisationId,
+      },
+      message:
+        'Registration successful. Please check your email to verify your account.',
     };
   }
 }

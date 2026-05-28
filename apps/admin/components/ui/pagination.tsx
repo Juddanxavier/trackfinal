@@ -103,8 +103,8 @@ export function TablePagination({
 interface PaginationProps {
   currentPage: number
   totalPages: number
-  totalItems: number
-  itemsPerPage: number
+  totalItems?: number
+  itemsPerPage?: number
   onPageChange: (page: number) => void
 }
 
@@ -115,8 +115,9 @@ export function Pagination({
   itemsPerPage,
   onPageChange,
 }: PaginationProps) {
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+  const items = itemsPerPage ?? 10
+  const startItem = totalItems === undefined ? 0 : (currentPage - 1) * items + 1
+  const endItem = totalItems === undefined ? 0 : Math.min(currentPage * items, totalItems)
   const pageNumbers = getPageNumbers(currentPage, totalPages)
 
   return (

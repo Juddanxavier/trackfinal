@@ -22,11 +22,20 @@ export interface AuthTokens {
 
 export interface AuthResponse extends AuthTokens {
   user: AuthUser;
+  sessionId?: string;
 }
 
 export interface LoginCredentials {
   email: string;
   password: string;
+}
+
+export interface SessionInfo {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface RegisterData {
@@ -41,6 +50,8 @@ class AuthClient {
   private refreshToken: string | null = null;
   private user: AuthUser | null = null;
   private listeners: Set<(user: AuthUser | null) => void> = new Set();
+  private refreshPromise: Promise<boolean> | null = null;
+  private currentSessionId: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -53,10 +64,12 @@ class AuthClient {
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     const userStr = localStorage.getItem('user');
+    const sessionId = localStorage.getItem('sessionId');
 
     if (accessToken && userStr) {
       this.accessToken = accessToken;
       this.refreshToken = refreshToken;
+      this.currentSessionId = sessionId;
       try {
         this.user = JSON.parse(userStr);
       } catch {
@@ -70,6 +83,7 @@ class AuthClient {
     if (this.accessToken) localStorage.setItem('accessToken', this.accessToken);
     if (this.refreshToken) localStorage.setItem('refreshToken', this.refreshToken);
     if (this.user) localStorage.setItem('user', JSON.stringify(this.user));
+    if (this.currentSessionId) localStorage.setItem('sessionId', this.currentSessionId);
   }
 
   private clearStorage() {
@@ -77,6 +91,7 @@ class AuthClient {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('sessionId');
   }
 
   private notifyListeners() {
@@ -94,6 +109,10 @@ class AuthClient {
 
   getAccessToken(): string | null {
     return this.accessToken;
+  }
+
+  getSessionId(): string | null {
+    return this.currentSessionId;
   }
 
   isAuthenticated(): boolean {
@@ -165,9 +184,58 @@ class AuthClient {
     this.clearSession();
   }
 
+  async logoutAll(): Promise<void> {
+    if (this.accessToken) {
+      try {
+        await fetch(`${API_URL}/auth/logout-all`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.accessToken}` },
+        });
+      } catch {
+        // Ignore logout errors
+      }
+    }
+    this.clearSession();
+  }
+
+  async getSessions(): Promise<SessionInfo[]> {
+    if (!this.accessToken) return [];
+    try {
+      const response = await fetch(`${API_URL}/auth/sessions`, {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    } catch {
+      return [];
+    }
+  }
+
+  async revokeSession(sessionId: string): Promise<boolean> {
+    if (!this.accessToken) return false;
+    try {
+      const response = await fetch(`${API_URL}/auth/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async refreshAccessToken(): Promise<boolean> {
     if (!this.refreshToken) return false;
+    if (this.refreshPromise) return this.refreshPromise;
 
+    this.refreshPromise = this._doRefresh().finally(() => {
+      this.refreshPromise = null;
+    });
+
+    return this.refreshPromise;
+  }
+
+  private async _doRefresh(): Promise<boolean> {
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
@@ -177,9 +245,10 @@ class AuthClient {
 
       if (!response.ok) return false;
 
-      const data: AuthTokens = await response.json();
+      const data = await response.json();
       this.accessToken = data.accessToken;
       if (data.refreshToken) this.refreshToken = data.refreshToken;
+      if (data.sessionId) this.currentSessionId = data.sessionId;
       this.saveToStorage();
       return true;
     } catch {
@@ -191,6 +260,7 @@ class AuthClient {
     this.accessToken = auth.accessToken;
     this.refreshToken = auth.refreshToken;
     this.user = auth.user;
+    if (auth.sessionId) this.currentSessionId = auth.sessionId;
     this.saveToStorage();
     this.notifyListeners();
   }
@@ -199,6 +269,7 @@ class AuthClient {
     this.accessToken = null;
     this.refreshToken = null;
     this.user = null;
+    this.currentSessionId = null;
     this.clearStorage();
     this.notifyListeners();
   }

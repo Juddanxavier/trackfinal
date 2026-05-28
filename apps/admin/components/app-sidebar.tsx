@@ -8,6 +8,7 @@ import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { useAuth } from "@/components/auth-context"
 import {
   Sidebar,
   SidebarContent,
@@ -17,12 +18,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -37,6 +32,7 @@ import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { z } from "zod"
+import { getDialCode, prependCountryCode } from "@/lib/phone"
 
 // Input validation schemas
 const quickTrackingSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9\-]+$/)
@@ -52,11 +48,11 @@ import {
   FileChartColumnIcon,
   TruckIcon,
   BellIcon,
-  ChevronDownIcon,
   LayoutIcon,
   MailIcon,
   CommandIcon,
   UserIcon,
+  Building2Icon,
 } from "lucide-react"
 
 export interface Organisation {
@@ -72,7 +68,6 @@ export interface Organisation {
   countryCode?: string
   currency?: string
   logoUrl?: string
-  isActive?: boolean
   createdAt?: string
 }
 
@@ -102,6 +97,11 @@ const data = {
       title: "Users",
       url: "/users",
       icon: <UsersIcon />,
+    },
+    {
+      title: "Organisations",
+      url: "/organisations",
+      icon: <Building2Icon />,
     },
     {
       title: "Invitations",
@@ -146,21 +146,29 @@ const data = {
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  organisations?: Organisation[]
-  selectedOrganisation?: string
-  onOrganisationChange?: (orgId: string) => void
   isAdmin?: boolean
 }
 
 export function AppSidebar({
-  organisations = [],
-  selectedOrganisation,
-  onOrganisationChange,
   isAdmin = false,
   ...props
 }: AppSidebarProps) {
+  const { selectedOrganisation, organisations } = useAuth()
   const router = useRouter()
+  const { can: checkPermission } = useAuth()
   const [openQuickCreate, setOpenQuickCreate] = useState(false)
+
+  const filteredNavMain = React.useMemo(() => {
+    return data.navMain.filter(item => {
+      const permKey = item.url.replace('/', '')
+      // Hide organisations page for non-admins
+      if (permKey === 'organisations' && !isAdmin) return false
+      // Hide invitations page for non-admin users (staff cannot invite)
+      if (permKey === 'invitations' && !isAdmin) return false
+      if (isAdmin) return true
+      return checkPermission('read', permKey) || checkPermission('*', permKey)
+    })
+  }, [isAdmin, checkPermission])
   const [quickForm, setQuickForm] = useState({ trackingNumber: "", recipientName: "", recipientPhone: "", recipientEmail: "" })
   const [creating, setCreating] = useState(false)
 
@@ -170,8 +178,9 @@ export function AppSidebar({
       quickTrackingSchema.parse(quickForm.trackingNumber)
       quickNameSchema.parse(quickForm.recipientName)
       quickPhoneSchema.parse(quickForm.recipientPhone)
-    } catch (validationErr) {
-      toast.error("Please check your input values")
+    } catch (validationErr: any) {
+      const field = validationErr?.issues?.[0]?.path?.[0] || "input"
+      toast.error(`Invalid ${field}`)
       return
     }
     
@@ -181,10 +190,8 @@ export function AppSidebar({
     }
     setCreating(true)
     try {
-      let phone = quickForm.recipientPhone.replace(/\s/g, "")
-      if (!phone.startsWith("+")) {
-        phone = "+1" + phone
-      }
+      const orgCode = organisations.find(o => o.id === selectedOrganisation)?.countryCode || ""
+      let phone = prependCountryCode(quickForm.recipientPhone, orgCode)
       await api.post("/shipments", {
         trackingNumber: quickForm.trackingNumber,
         carrierCode: "unknown",
@@ -204,19 +211,7 @@ export function AppSidebar({
     }
   }
 
-  const currentOrg = organisations.find(
-    (org) => org.id === selectedOrganisation
-  ) || organisations[0]
-  // Show org selector for admins if there are any organisations
-  const showOrgSelector = isAdmin && organisations.length > 0
-
-  let displayName = currentOrg?.name
-  if (!displayName && selectedOrganisation) {
-    displayName = "Org: " + selectedOrganisation.slice(0, 8)
-  }
-  if (!displayName) {
-    displayName = showOrgSelector ? "Select Org" : "My Organisation"
-  }
+  // Use selectedOrganisation from auth-context for quick create
 
   return (
     <>
@@ -237,7 +232,7 @@ export function AppSidebar({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="qc-phone">Phone *</Label>
-              <Input id="qc-phone" placeholder="Enter phone number" value={quickForm.recipientPhone} onChange={(e) => setQuickForm(p => ({ ...p, recipientPhone: e.target.value }))} />
+              <Input id="qc-phone" placeholder={getDialCode(organisations.find(o => o.id === selectedOrganisation)?.countryCode || "") + " 9000000000"} value={quickForm.recipientPhone} onChange={(e) => setQuickForm(p => ({ ...p, recipientPhone: e.target.value }))} onBlur={(e) => { const v = e.target.value; if (v) { const cc = organisations.find(o => o.id === selectedOrganisation)?.countryCode || ""; setQuickForm(p => ({ ...p, recipientPhone: prependCountryCode(v, cc) })) } }} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="qc-email">Email</Label>
@@ -254,69 +249,23 @@ export function AppSidebar({
       </Dialog>
 
       <Sidebar collapsible="icon" {...props}>
-        {showOrgSelector ? (
-          <>
-            <SidebarHeader>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton className="w-full data-[slot=sidebar-menu-button]:p-1.5!">
-                        <CommandIcon className="mr-2 h-4 w-4" />
-                        <span className="truncate text-base font-semibold">
-                          {displayName}
-                        </span>
-                        <ChevronDownIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" align="start" className="w-48">
-                      {organisations.length === 0 ? (
-                        <DropdownMenuItem disabled>No organisations</DropdownMenuItem>
-                      ) : (
-                        organisations.map((org) => (
-                          <DropdownMenuItem
-                            key={org.id}
-                            onClick={() => onOrganisationChange?.(org.id)}
-                            className={
-                              selectedOrganisation === org.id ? "bg-accent" : ""
-                            }
-                          >
-                            {org.name}
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarHeader>
-            <SidebarContent>
-              <NavMain items={data.navMain} onQuickCreate={() => setOpenQuickCreate(true)} />
-              <NavDocuments items={data.documents} />
-              <NavSecondary items={data.navSecondary} className="mt-auto" />
-            </SidebarContent>
-          </>
-        ) : (
-          <>
-            <SidebarHeader>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton className="w-full data-[slot=sidebar-menu-button]:p-1.5!">
-                    <CommandIcon className="mr-2 h-4 w-4" />
-                    <span className="truncate text-base font-semibold">
-                      {displayName}
-                    </span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarHeader>
-            <SidebarContent>
-              <NavMain items={data.navMain} onQuickCreate={() => setOpenQuickCreate(true)} />
-              <NavDocuments items={data.documents} />
-              <NavSecondary items={data.navSecondary} className="mt-auto" />
-            </SidebarContent>
-          </>
-        )}
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="w-full data-[slot=sidebar-menu-button]:p-1.5!">
+                <CommandIcon className="mr-2 h-4 w-4" />
+                <span className="truncate text-base font-semibold">
+                  {selectedOrganisation ? organisations.find(o => o.id === selectedOrganisation)?.name || "Organisation" : "Select Organisation"}
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <NavMain items={filteredNavMain} onQuickCreate={() => setOpenQuickCreate(true)} />
+          <NavDocuments items={data.documents} />
+          <NavSecondary items={data.navSecondary} className="mt-auto" />
+        </SidebarContent>
       </Sidebar>
     </>
   )

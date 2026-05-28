@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
+import { getDialCode, prependCountryCode } from "@/lib/phone"
+import { profileSchema, fieldErrors, type ProfileFormData } from "@/lib/validation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,10 +27,12 @@ export default function EditProfilePage() {
   const { user: authUser, refreshUser } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({})
   const [formData, setFormData] = useState({
     name: "",
     phoneNumber: "",
   })
+  const [orgCountry, setOrgCountry] = useState("IN")
 
   useEffect(() => {
     if (!authUser) {
@@ -43,6 +47,10 @@ export default function EditProfilePage() {
           name: userRes.name || "",
           phoneNumber: userRes.phoneNumber || "",
         })
+        if (authUser.organisationId) {
+          const org: any = await api.get(`/organisations/${authUser.organisationId}`)
+          if (org?.countryCode) setOrgCountry(org.countryCode)
+        }
       } catch (error) {
         console.error("Failed to fetch profile:", error)
       } finally {
@@ -55,10 +63,17 @@ export default function EditProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const result = profileSchema.safeParse(formData)
+    if (!result.success) {
+      setErrors(fieldErrors<ProfileFormData>(result))
+      return
+    }
+    setErrors({})
     setSaving(true)
 
     try {
-      await api.put<UserProfile>("/users/me", formData)
+      await api.put<UserProfile>("/users/me", result.data)
       await refreshUser()
       router.push("/profile")
     } catch (error) {
@@ -99,13 +114,14 @@ export default function EditProfilePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Your full name"
-              />
-            </div>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => { setErrors({ ...errors, name: undefined }); setFormData({ ...formData, name: e.target.value }) }}
+                  placeholder="Your full name"
+                />
+                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+              </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -125,9 +141,11 @@ export default function EditProfilePage() {
               <Input
                 id="phoneNumber"
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                placeholder="+1 (555) 000-0000"
+                onChange={(e) => { setErrors({ ...errors, phoneNumber: undefined }); setFormData({ ...formData, phoneNumber: e.target.value }) }}
+                onBlur={(e) => { const v = e.target.value; if (v) setFormData(f => ({ ...f, phoneNumber: prependCountryCode(v, orgCountry) })) }}
+                placeholder={getDialCode(orgCountry) + " 9000000000"}
               />
+                {errors.phoneNumber && <p className="text-sm text-red-500">{errors.phoneNumber}</p>}
             </div>
 
             <Separator />

@@ -22,6 +22,7 @@ export class NotificationPreferencesService {
         whatsappEnabled: true,
         inTransitNotifications: true,
         deliveredNotifications: true,
+      exceptionsNotifications: true,
       };
     }
 
@@ -30,6 +31,7 @@ export class NotificationPreferencesService {
       whatsappEnabled: prefs.whatsappEnabled ?? true,
       inTransitNotifications: prefs.inTransitNotifications ?? true,
       deliveredNotifications: prefs.deliveredNotifications ?? true,
+      exceptionsNotifications: prefs.exceptionsNotifications ?? true,
     };
   }
 
@@ -41,6 +43,7 @@ export class NotificationPreferencesService {
       whatsappEnabled?: boolean;
       inTransitNotifications?: boolean;
       deliveredNotifications?: boolean;
+      exceptionsNotifications?: boolean;
     },
   ) {
     const existing = await db
@@ -90,7 +93,7 @@ export class NotificationPreferencesService {
   async shouldSendNotification(
     organisationId: string,
     userId: string,
-    notificationType: 'in_transit' | 'delivered',
+    notificationType: 'in_transit' | 'delivered' | 'exception',
   ): Promise<boolean> {
     const prefs = await this.getPreferences(organisationId, userId);
 
@@ -98,6 +101,8 @@ export class NotificationPreferencesService {
       return prefs.inTransitNotifications;
     } else if (notificationType === 'delivered') {
       return prefs.deliveredNotifications;
+    } else if (notificationType === 'exception') {
+      return prefs.exceptionsNotifications;
     }
 
     return true;

@@ -4,45 +4,35 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Mail, Lock, User, Phone, Plane, ArrowRight, Eye, EyeOff, Globe, Package, Shield } from 'lucide-react';
+import { Mail, Lock, Plane, ArrowRight, Eye, EyeOff, Globe, Package, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { api } from '@/lib/api-client';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    phone: '',
     password: '',
-    confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [mounted, setMounted] = useState(false);
 
-  // Handle client-side only mounting
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Redirect to shipments if already logged in (on initial load)
   useEffect(() => {
     if (mounted && !authLoading && isAuthenticated) {
-      console.log('[Register] Already authenticated, redirecting to shipments');
-      // Use Next.js router for client-side navigation
-      setTimeout(() => {
-        router.push('/shipments');
-      }, 100);
+      setTimeout(() => router.push('/shipments'), 100);
     }
   }, [mounted, authLoading, isAuthenticated, router]);
 
-  // Show loading while checking auth state or if authenticated (will redirect soon)
   if (!mounted || authLoading || isAuthenticated) {
     return (
-      <div className='min-h-screen flex items-center justify-center' style={{ backgroundColor: '#131818' }}>
+      <div className='min-h-screen flex items-center justify-center bg-zinc-50'>
         <div className='w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin' />
       </div>
     );
@@ -51,11 +41,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
 
     if (formData.password.length < 12) {
       setError('Password must be at least 12 characters');
@@ -72,32 +57,24 @@ export default function RegisterPage() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          name: formData.name,
-          phoneNumber: formData.phone || undefined,
         }),
       });
 
       const result = await response.json();
-      console.log('Full API response:', result);
       
       if (!response.ok) {
         throw new Error(result.message || 'Registration failed');
       }
-      
-      // Handle the verification token (might be in result directly or in result.data)
-      const token = result.verificationToken || result.data?.verificationToken;
-      console.log('Extracted token:', token);
-      
-      if (token) {
-        alert(`Verification code: ${token}`);
-        // Store email for verification page
-        localStorage.setItem('pendingVerificationEmail', formData.email);
-        localStorage.setItem('pendingVerificationToken', token);
-        router.push('/verify-email');
-      } else {
-        console.error('Response structure:', JSON.stringify(result, null, 2));
-        setError('Registration successful but no verification code received. Check console for details.');
+
+      if (result.accessToken) {
+        localStorage.setItem('gt_access_token', result.accessToken);
+        localStorage.setItem('user', JSON.stringify(result.user));
       }
+
+      localStorage.setItem('pendingVerificationEmail', formData.email);
+
+      setSuccessMessage(result.message || 'Registration successful.');
+      setTimeout(() => router.push('/onboarding'), 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -106,46 +83,42 @@ export default function RegisterPage() {
   };
 
   const handleGoogleLogin = () => {
-    // Google OAuth to be implemented later
     alert('Google OAuth coming soon!');
   };
 
   return (
-    <div className='min-h-screen flex' style={{ backgroundColor: '#131818' }}>
-      <div className='hidden lg:flex lg:w-1/2 relative overflow-hidden'>
-        <div className='absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent' />
-        <div className='absolute inset-0' style={{ background: 'radial-gradient(circle at 30% 50%, rgba(255, 191, 101, 0.15) 0%, transparent 50%)' }} />
-        <div className='absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl' />
-        <div className='absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl' />
+    <div className='min-h-screen flex bg-zinc-50'>
+      <div className='hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary/5 via-primary/[0.02] to-zinc-50'>
+        <div className='absolute top-1/4 left-1/4 w-96 h-96 bg-primary/[0.08] rounded-full blur-3xl' />
+        <div className='absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-500/[0.06] rounded-full blur-3xl' />
         
-        <div className='relative z-10 flex flex-col justify-center px-20 py-20'>
+        <div className='relative z-10 flex flex-col justify-center pl-20 pr-12 py-20'>
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
             className='flex items-center gap-3 mb-8'
           >
-            <div className='w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center backdrop-blur-sm'>
+            <div className='w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center'>
               <Plane className='w-8 h-8 text-primary' />
             </div>
-            <span className='text-2xl font-bold text-white tracking-tight'>Gajan Traders</span>
+            <span className='text-xl font-semibold text-zinc-900 tracking-tight font-heading'>Gajan Traders</span>
           </motion.div>
 
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className='text-4xl font-black text-white mb-4 leading-tight'
+            className='text-3xl font-semibold text-zinc-900 mb-4 leading-tight font-heading'
           >
-            Start Shipping<br />
-            <span className='text-primary'>Globally Today</span>
+            Start Shipping <span className='text-primary'>Globally Today</span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className='text-lg text-white/60 mb-10 max-w-md'
+            className='text-lg text-zinc-500 mb-10 max-w-md'
           >
             Join thousands of businesses who trust Gajan Traders for their international logistics needs.
           </motion.p>
@@ -161,11 +134,29 @@ export default function RegisterPage() {
               { icon: Package, text: 'Real-time Tracking' },
               { icon: Shield, text: 'Secure Customs Handling' },
             ].map((feature, i) => (
-              <div key={i} className='flex items-center gap-3 text-white/70'>
+              <div key={i} className='flex items-center gap-3 text-zinc-600'>
                 <div className='w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center'>
                   <feature.icon className='w-4 h-4 text-primary' />
                 </div>
                 <span>{feature.text}</span>
+              </div>
+            ))}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className='mt-10 grid grid-cols-3 gap-6'
+          >
+            {[
+              { value: '10K+', label: 'Shipments' },
+              { value: '99%', label: 'On-Time' },
+              { value: '50+', label: 'Countries' },
+            ].map((stat, i) => (
+              <div key={i} className='text-center'>
+                <div className='text-xl font-semibold text-zinc-900'>{stat.value}</div>
+                <div className='text-xs text-zinc-400 mt-1'>{stat.label}</div>
               </div>
             ))}
           </motion.div>
@@ -178,20 +169,20 @@ export default function RegisterPage() {
           >
             <div className='flex -space-x-2'>
               {['JD', 'AS', 'RK', 'MK'].map((initials, i) => (
-                <div key={i} className='w-8 h-8 rounded-full bg-primary/60 border-2 border-[#131818] flex items-center justify-center text-xs font-bold text-white'>
+                <div key={i} className='w-8 h-8 rounded-full bg-primary/20 border-2 border-zinc-50 flex items-center justify-center text-xs font-bold text-primary'>
                   {initials}
                 </div>
               ))}
             </div>
-            <span className='text-sm text-white/50'>Join 2000+ happy customers</span>
+            <span className='text-sm text-zinc-400'>Join 2000+ happy customers</span>
           </motion.div>
         </div>
       </div>
 
       <div className='flex-1 flex items-center justify-center px-8 py-16 relative'>
         <div className='absolute inset-0 overflow-hidden lg:hidden'>
-          <div className='absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl' />
-          <div className='absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl' />
+          <div className='absolute top-1/4 left-1/4 w-96 h-96 bg-primary/[0.06] rounded-full blur-3xl' />
+          <div className='absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/[0.04] rounded-full blur-3xl' />
         </div>
 
         <motion.div
@@ -200,115 +191,84 @@ export default function RegisterPage() {
           className='relative w-full max-w-md'
         >
           <div className='lg:hidden flex items-center justify-center gap-2 mb-8'>
-            <div className='w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center'>
+            <div className='w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center'>
               <Plane className='w-5 h-5 text-primary' />
             </div>
-            <span className='text-xl font-bold text-white'>Gajan Traders</span>
+            <span className='text-lg font-semibold text-zinc-900 font-heading'>Gajan Traders</span>
           </div>
 
-          <div className='bg-white/[0.03] border border-white/10 backdrop-blur-xl rounded-3xl p-6 shadow-2xl'>
-            <div className='text-center mb-6'>
-              <h1 className='text-2xl font-bold text-white mb-2'>Create Account</h1>
-              <p className='text-white/50 text-sm'>Start shipping globally with Gajan Traders</p>
+          <div className='bg-white border border-zinc-200 rounded-3xl p-8 shadow-sm'>
+            <div className='text-center mb-8'>
+              <h1 className='text-xl font-semibold text-zinc-900 font-heading mb-2'>Create Account</h1>
+              <p className='text-zinc-500 text-sm'>Start shipping globally with Gajan Traders</p>
             </div>
+
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className='mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700'
+              >
+                <p className="font-medium mb-1">Registration Successful!</p>
+                <p>{successMessage}</p>
+                <p className="text-xs text-emerald-600/70 mt-2">Redirecting to verification page...</p>
+              </motion.div>
+            )}
 
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className='mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400'
+                className='mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600'
               >
                 {error}
               </motion.div>
             )}
 
-            <form onSubmit={handleSubmit} className='space-y-3'>
+            {!successMessage && (
+            <form onSubmit={handleSubmit} className='space-y-4'>
               <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Full Name</label>
+                <label className='block text-xs font-medium text-zinc-500 mb-1'>Email Address</label>
                 <div className='relative'>
-                  <User className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                  <input
-                    type='text'
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder='John Doe'
-                    className='w-full pl-10 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Email Address</label>
-                <div className='relative'>
-                  <Mail className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
+                  <Mail className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400' />
                   <input
                     type='email'
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder='you@example.com'
-                    className='w-full pl-10 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
+                    className='w-full pl-10 pr-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Phone Number</label>
+                <label className='block text-xs font-medium text-zinc-500 mb-1'>Password</label>
                 <div className='relative'>
-                  <Phone className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                  <input
-                    type='tel'
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder='+1 234 567 890'
-                    className='w-full pl-10 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Password</label>
-                <div className='relative'>
-                  <Lock className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
+                  <Lock className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400' />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder='Min. 12 characters'
-                    className='w-full pl-10 pr-10 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
+                    className='w-full pl-10 pr-10 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
                     required
                     minLength={12}
                   />
                   <button
                     type='button'
                     onClick={() => setShowPassword(!showPassword)}
-                    className='absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/50 transition-colors cursor-pointer'
+                    className='absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer'
                   >
                     {showPassword ? <EyeOff className='w-4 h-4' /> : <Eye className='w-4 h-4' />}
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Confirm Password</label>
-                <div className='relative'>
-                  <Lock className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    placeholder='Confirm password'
-                    className='w-full pl-10 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
-                    required
-                  />
-                </div>
-              </div>
-
               <button
                 type='submit'
                 disabled={isLoading}
-                className='w-full flex items-center justify-center gap-2 py-2.5 bg-primary hover:bg-[#4C833E] text-white font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                className='w-full flex items-center justify-center gap-2 py-2.5 bg-primary hover:bg-[#172554] text-white font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
               >
                 {isLoading ? (
                   <div className='w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin' />
@@ -320,20 +280,23 @@ export default function RegisterPage() {
                 )}
               </button>
             </form>
+            )}
 
-            <div className='relative my-4'>
+            {!successMessage && (
+            <>
+            <div className='relative my-6'>
               <div className='absolute inset-0 flex items-center'>
-                <div className='w-full border-t border-white/10' />
+                <div className='w-full border-t border-zinc-200' />
               </div>
               <div className='relative flex justify-center text-xs'>
-                <span className='px-3 bg-[#131818] text-white/40'>or continue with</span>
+                <span className='px-3 bg-white text-zinc-400'>or continue with</span>
               </div>
             </div>
 
             <button
               type='button'
               onClick={handleGoogleLogin}
-              className='w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 text-white font-medium rounded-lg hover:bg-white/10 transition-all duration-200 cursor-pointer'
+              className='w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-medium rounded-lg transition-all duration-200 cursor-pointer'
             >
               <svg className='w-4 h-4' viewBox='0 0 24 24'>
                 <path fill='#4285F4' d='M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z'/>
@@ -344,23 +307,25 @@ export default function RegisterPage() {
               Google
             </button>
 
-            <div className='mt-4 text-center'>
-              <p className='text-sm text-white/50'>
+            <div className='mt-6 text-center'>
+              <p className='text-sm text-zinc-500'>
                 Already have an account?{' '}
                 <Link href='/login' className='text-primary hover:text-primary/80 font-medium transition-colors'>
                   Sign in
                 </Link>
               </p>
             </div>
+            </>
+            )}
           </div>
 
-          <p className='text-center text-xs text-white/30 mt-4'>
+          <p className='text-center text-xs text-zinc-400 mt-4'>
             By signing up, you agree to our{' '}
-            <Link href='/terms' className='text-white/40 hover:text-white/60 transition-colors'>
+            <Link href='/terms' className='text-zinc-500 hover:text-zinc-700 transition-colors'>
               Terms
             </Link>{' '}
             and{' '}
-            <Link href='/privacy' className='text-white/40 hover:text-white/60 transition-colors'>
+            <Link href='/privacy' className='text-zinc-500 hover:text-zinc-700 transition-colors'>
               Privacy Policy
             </Link>
           </p>

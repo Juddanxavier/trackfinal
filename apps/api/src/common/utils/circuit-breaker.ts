@@ -1,16 +1,16 @@
 import { Logger } from '@nestjs/common';
 
 export enum CircuitState {
-  CLOSED = 'CLOSED',     // Normal operation
-  OPEN = 'OPEN',         // Failing, rejecting requests
+  CLOSED = 'CLOSED', // Normal operation
+  OPEN = 'OPEN', // Failing, rejecting requests
   HALF_OPEN = 'HALF_OPEN', // Testing if recovered
 }
 
 export interface CircuitBreakerOptions {
-  failureThreshold: number;      // Number of failures before opening
-  resetTimeout: number;          // Time before attempting reset (ms)
-  halfOpenMaxCalls: number;      // Max calls in half-open state
-  successThreshold: number;      // Successes needed to close
+  failureThreshold: number; // Number of failures before opening
+  resetTimeout: number; // Time before attempting reset (ms)
+  halfOpenMaxCalls: number; // Max calls in half-open state
+  successThreshold: number; // Successes needed to close
 }
 
 export class CircuitBreaker {
@@ -49,7 +49,9 @@ export class CircuitBreaker {
       // Transition to half-open
       this.state = CircuitState.HALF_OPEN;
       this.halfOpenCalls = 0;
-      this.logger.log(`Circuit HALF_OPEN for ${this.name}, testing recovery...`);
+      this.logger.log(
+        `Circuit HALF_OPEN for ${this.name}, testing recovery...`,
+      );
     }
 
     if (this.state === CircuitState.HALF_OPEN) {
@@ -58,7 +60,9 @@ export class CircuitBreaker {
         if (fallback) {
           return fallback();
         }
-        throw new Error(`Circuit breaker HALF_OPEN limit reached for ${this.name}`);
+        throw new Error(
+          `Circuit breaker HALF_OPEN limit reached for ${this.name}`,
+        );
       }
       this.halfOpenCalls++;
     }

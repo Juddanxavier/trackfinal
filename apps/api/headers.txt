@@ -1,0 +1,24 @@
+HTTP/1.1 200 OK
+X-Correlation-ID: 694c1bb7d50cf9e5
+Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-DNS-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: Set-Cookie
+Content-Type: application/json; charset=utf-8
+Content-Length: 294
+ETag: W/"126-/IxODTccSglwdOGNJEGa5WXjK5M"
+Date: Wed, 20 May 2026 15:10:06 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

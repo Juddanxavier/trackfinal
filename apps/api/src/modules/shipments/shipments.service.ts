@@ -8,7 +8,7 @@ import {
 import { db } from '../../database';
 import { shipments, shipmentEvents } from '../../database/schema/shipments';
 import { organisations } from '../../database/schema/organisations';
-import { eq, and, desc, sql, isNull, isNotNull, inArray } from 'drizzle-orm';
+import { eq, and, or, desc, sql, isNull, isNotNull, inArray } from 'drizzle-orm';
 import { SeventeenTrackService } from '../tracking/seventeen-track.service';
 import { CarriersService } from '../carriers/carriers.service';
 import { NotificationService } from '../notifications/notification.service';
@@ -55,6 +55,9 @@ export class ShipmentsService {
     recipientEmail?: string;
     recipientPhone: string;
     userId?: string;
+    assignedToId?: string | null;
+    branchId?: string | null;
+    billAmount?: number | null;
   }) {
     this.logger.log('[CREATE] Tracking:', data.trackingNumber);
 
@@ -66,7 +69,9 @@ export class ShipmentsService {
       data.carrierCode,
     );
     if (!isValidCarrier && data.carrierCode !== 'unknown') {
-      this.logger.warn(`Invalid carrier code: ${data.carrierCode}, defaulting to unknown`);
+      this.logger.warn(
+        `Invalid carrier code: ${data.carrierCode}, defaulting to unknown`,
+      );
     }
 
     const [existing] = await db
@@ -191,6 +196,7 @@ export class ShipmentsService {
       .insert(shipments)
       .values({
         organisationId: data.organisationId,
+        branchId: data.branchId || null,
         trackingNumber: data.trackingNumber,
         whiteLabelTrackingCode: generateWhiteLabelCode(orgSlug),
         carrierCode,
@@ -200,9 +206,10 @@ export class ShipmentsService {
         recipientEmail: data.recipientEmail || null,
         recipientPhone: data.recipientPhone || null,
         userId: data.userId || null,
+        assignedToId: data.assignedToId || null,
         status,
+        billAmount: data.billAmount != null ? String(data.billAmount) : null,
         notifyEmail: data.recipientEmail || null,
-        notifyPhone: data.recipientPhone || null,
         track17Data: {
           lastSync: new Date().toISOString(),
           originCountry,
@@ -231,18 +238,21 @@ export class ShipmentsService {
 
     const initialStatusToNotify =
       status === 'in_transit' || status === 'delivered';
+    const isSelfAssigned = shipment.userId && shipment.userId === shipment.assignedToId;
     if (
+      !isSelfAssigned &&
       initialStatusToNotify &&
       (shipment.recipientEmail || shipment.recipientPhone || shipment.userId)
     ) {
       const titleKey =
         status === 'delivered' ? 'shipment.delivered' : 'shipment.in_transit';
 
-      const trackingDomain = org?.trackingDomain 
-      || org?.websiteUrl 
-      || process.env.DEFAULT_TRACKING_DOMAIN 
-      || 'https://www.gajantraders.com';
-    const trackingUrl = `${trackingDomain}/track/${shipment.whiteLabelTrackingCode}`;
+      const trackingDomain =
+        org?.trackingDomain ||
+        org?.websiteUrl ||
+        process.env.DEFAULT_TRACKING_DOMAIN ||
+        'https://www.gajantraders.com';
+      const trackingUrl = `${trackingDomain}/track/${shipment.whiteLabelTrackingCode}`;
 
       const results = await this.notificationService.sendToAll({
         organisationId: shipment.organisationId,
@@ -275,6 +285,7 @@ export class ShipmentsService {
 
   async findAll(data: {
     organisationId: string;
+    branchId?: string;
     page?: number;
     limit?: number;
     search?: string;
@@ -287,6 +298,10 @@ export class ShipmentsService {
     const offset = (page - 1) * limit;
 
     const where = [eq(shipments.organisationId, data.organisationId)];
+
+    if (data.branchId) {
+      where.push(eq(shipments.branchId, data.branchId));
+    }
 
     if (data.search) {
       where.push(
@@ -334,7 +349,7 @@ export class ShipmentsService {
           : [];
       carrierMap = new Map(carriers.map((c) => [c.key, c.name_en]));
     } catch (err) {
-      console.warn('Failed to load carrier names:', err);
+      this.logger.warn('Failed to load carrier names:', err);
     }
 
     const enrichedResult = result.map((shipment) => ({
@@ -468,15 +483,21 @@ export class ShipmentsService {
       .from(organisations)
       .where(eq(organisations.id, existing.organisationId));
 
-    const trackingDomain = org?.trackingDomain 
-      || org?.websiteUrl 
-      || process.env.DEFAULT_TRACKING_DOMAIN 
-      || 'https://www.gajantraders.com';
+    const trackingDomain =
+      org?.trackingDomain ||
+      org?.websiteUrl ||
+      process.env.DEFAULT_TRACKING_DOMAIN ||
+      'https://www.gajantraders.com';
     const trackingUrl = `${trackingDomain}/track/${existing.whiteLabelTrackingCode}`;
 
     if (existing.status === status) {
       this.logger.debug(`Status unchanged (${status}), skipping notification`);
       return existing;
+    }
+
+    const isSelfAssigned = existing.userId && existing.userId === existing.assignedToId;
+    if (isSelfAssigned) {
+      this.logger.debug(`Self-assigned shipment, skipping notification`);
     }
 
     const [updated] = await db
@@ -500,7 +521,7 @@ export class ShipmentsService {
       });
     }
 
-    if (updated.userId || updated.recipientEmail || updated.recipientPhone) {
+    if (!isSelfAssigned && (updated.userId || updated.recipientEmail || updated.recipientPhone)) {
       const titleKey =
         status === 'delivered'
           ? 'shipment.delivered'
@@ -772,19 +793,125 @@ export class ShipmentsService {
 
   async findByUserId(userId: string) {
     this.logger.log(`[FIND BY USER] Fetching shipments for user: ${userId}`);
-    
+
     const results = await db
-      .select()
+      .select({
+        shipment: shipments,
+        latestLocation: sql<string | null>`(
+          SELECT location FROM shipment_events 
+          WHERE shipment_events.shipment_id = shipments.id 
+          ORDER BY event_time DESC LIMIT 1
+        )`.as('latest_location'),
+        latestStatus: sql<string | null>`(
+          SELECT status FROM shipment_events 
+          WHERE shipment_events.shipment_id = shipments.id 
+          ORDER BY event_time DESC LIMIT 1
+        )`.as('latest_status'),
+      })
+      .from(shipments)
+      .where(and(
+        or(eq(shipments.userId, userId), eq(shipments.assignedToId, userId)),
+        isNull(shipments.deletedAt)
+      ))
+      .orderBy(desc(shipments.createdAt));
+
+    const shipmentsWithLocation = results.map(row => ({
+      ...row.shipment,
+      currentLocation: row.latestLocation,
+      currentStatus: row.latestStatus,
+    }));
+
+    this.logger.log(
+      `[FIND BY USER] Found ${shipmentsWithLocation.length} shipments for user ${userId}`,
+    );
+    return shipmentsWithLocation;
+  }
+
+  async findByUserAndOrganisation(userId: string, organisationId: string | null) {
+    this.logger.log(`[FIND BY USER+ORG] Fetching shipments for user: ${userId}, org: ${organisationId}`);
+
+    if (organisationId) {
+      const results = await db
+        .select()
+        .from(shipments)
+        .where(
+          and(
+            eq(shipments.organisationId, organisationId),
+            isNull(shipments.deletedAt)
+          )
+        )
+        .orderBy(desc(shipments.createdAt));
+
+      this.logger.log(`[FIND BY USER+ORG] Found ${results.length} shipments for org ${organisationId}`);
+      return results;
+    }
+
+    return this.findByUserId(userId);
+  }
+
+  async findByOrganisation(organisationId: string) {
+    this.logger.log(`[FIND BY ORG] Fetching all shipments for organisation: ${organisationId}`);
+
+    const results = await db
+      .select({
+        shipment: shipments,
+        latestLocation: sql<string | null>`(
+          SELECT location FROM shipment_events
+          WHERE shipment_events.shipment_id = shipments.id
+          ORDER BY event_time DESC LIMIT 1
+        )`.as('latest_location'),
+        latestStatus: sql<string | null>`(
+          SELECT status FROM shipment_events
+          WHERE shipment_events.shipment_id = shipments.id
+          ORDER BY event_time DESC LIMIT 1
+        )`.as('latest_status'),
+      })
       .from(shipments)
       .where(
         and(
-          eq(shipments.userId, userId),
-          isNull(shipments.deletedAt),
-        ),
+          eq(shipments.organisationId, organisationId),
+          isNull(shipments.deletedAt)
+        )
       )
       .orderBy(desc(shipments.createdAt));
 
-    this.logger.log(`[FIND BY USER] Found ${results.length} shipments for user ${userId}`);
-    return results;
+    const shipmentsWithLocation = results.map(row => ({
+      ...row.shipment,
+      currentLocation: row.latestLocation,
+      currentStatus: row.latestStatus,
+    }));
+
+    this.logger.log(`[FIND BY ORG] Found ${shipmentsWithLocation.length} shipments`);
+    return shipmentsWithLocation;
+  }
+
+  async update(
+    id: string,
+    data: { recipientName?: string; recipientEmail?: string; recipientPhone?: string; branchId?: string; billAmount?: number | null },
+  ) {
+    const [existing] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, id));
+
+    if (!existing) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    const updateData: Record<string, any> = {
+      ...data,
+      updatedAt: new Date(),
+    };
+    if (data.billAmount !== undefined) {
+      updateData.billAmount = data.billAmount != null ? String(data.billAmount) : null;
+    }
+
+    const [updated] = await db
+      .update(shipments)
+      .set(updateData)
+      .where(eq(shipments.id, id))
+      .returning();
+
+    return updated;
   }
 }

@@ -1,0 +1,241 @@
+{
+  "shipments": [
+    {
+      "id": "shp_001",
+      "trackingNumber": "GT2024ABC123",
+      "whiteLabelTrackingCode": "GT-ABC-123-DEF",
+      "carrierCode": "FedEx",
+      "recipientName": "Priya Sharma",
+      "recipientEmail": "priya.sharma@gmail.com",
+      "recipientPhone": "+91 98765 43210",
+      "recipientAddress": "123 MG Road, Bangalore, Karnataka 560001",
+      "originCountry": "India",
+      "destinationCountry": "United States",
+      "status": "in_transit",
+      "goodsType": "Documents",
+      "weight": 2.5,
+      "createdAt": "2026-05-10T09:30:00Z",
+      "updatedAt": "2026-05-12T14:22:00Z",
+      "events": [
+        {
+          "id": "evt_001",
+          "status": "Picked Up",
+          "description": "Package picked up from sender",
+          "location": "Mumbai, India",
+          "eventTime": "2026-05-10T09:30:00Z"
+        },
+        {
+          "id": "evt_002",
+          "status": "In Transit",
+          "description": "Package arrived at Mumbai hub",
+          "location": "Mumbai, India",
+          "eventTime": "2026-05-10T18:00:00Z"
+        },
+        {
+          "id": "evt_003",
+          "status": "Customs",
+          "description": "Package cleared customs",
+          "location": "Dubai, UAE",
+          "eventTime": "2026-05-11T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "shp_002",
+      "trackingNumber": "GT2024XYZ456",
+      "whiteLabelTrackingCode": "GT-XYZ-456-GHI",
+      "carrierCode": "DHL",
+      "recipientName": "Raj Patel",
+      "recipientEmail": "raj.patel@outlook.com",
+      "recipientPhone": "+1 555-123-4567",
+      "recipientAddress": "456 Main Street, New York, NY 10001",
+      "originCountry": "India",
+      "destinationCountry": "United States",
+      "status": "delivered",
+      "goodsType": "Electronics",
+      "weight": 5.2,
+      "createdAt": "2026-04-28T11:00:00Z",
+      "updatedAt": "2026-05-05T16:45:00Z",
+      "deliveredAt": "2026-05-05T16:45:00Z",
+      "events": [
+        {
+          "id": "evt_004",
+          "status": "Picked Up",
+          "description": "Package picked up from sender",
+          "location": "Delhi, India",
+          "eventTime": "2026-04-28T11:00:00Z"
+        },
+        {
+          "id": "evt_005",
+          "status": "In Transit",
+          "description": "Package arrived at Delhi hub",
+          "location": "Delhi, India",
+          "eventTime": "2026-04-28T20:00:00Z"
+        },
+        {
+          "id": "evt_006",
+          "status": "In Transit",
+          "description": "Package departed from origin",
+          "location": "Delhi, India",
+          "eventTime": "2026-04-29T08:00:00Z"
+        },
+        {
+          "id": "evt_007",
+          "status": "Customs",
+          "description": "Customs clearance completed",
+          "location": "New York, USA",
+          "eventTime": "2026-05-03T14:00:00Z"
+        },
+        {
+          "id": "evt_008",
+          "status": "Out for Delivery",
+          "description": "Out for delivery",
+          "location": "New York, USA",
+          "eventTime": "2026-05-05T08:00:00Z"
+        },
+        {
+          "id": "evt_009",
+          "status": "Delivered",
+          "description": "Package delivered",
+          "location": "New York, USA",
+          "eventTime": "2026-05-05T16:45:00Z"
+        }
+      ]
+    },
+    {
+      "id": "shp_003",
+      "trackingNumber": "GT2024DEF789",
+      "whiteLabelTrackingCode": "GT-DEF-789-JKL",
+      "carrierCode": "UPS",
+      "recipientName": "Aisha Khan",
+      "recipientEmail": "aisha.khan@yahoo.com",
+      "recipientPhone": "+44 20 1234 5678",
+      "recipientAddress": "78 Oxford Street, London W1D 1BS",
+      "originCountry": "India",
+      "destinationCountry": "United Kingdom",
+      "status": "pending",
+      "goodsType": "Clothing",
+      "weight": 3.0,
+      "createdAt": "2026-05-12T15:00:00Z",
+      "updatedAt": "2026-05-12T15:00:00Z"
+    },
+    {
+      "id": "shp_004",
+      "trackingNumber": "GT2024GHI012",
+      "whiteLabelTrackingCode": "GT-GHI-012-MNO",
+      "carrierCode": "FedEx",
+      "recipientName": "Michael Chen",
+      "recipientEmail": "michael.chen@icloud.com",
+      "recipientPhone": "+1 555-987-6543",
+      "recipientAddress": "101 Silicon Valley Blvd, San Jose, CA 95110",
+      "originCountry": "India",
+      "destinationCountry": "United States",
+      "status": "exception",
+      "goodsType": "Food Items",
+      "weight": 8.5,
+      "createdAt": "2026-05-08T10:30:00Z",
+      "updatedAt": "2026-05-11T09:15:00Z",
+      "events": [
+        {
+          "id": "evt_010",
+          "status": "Picked Up",
+          "description": "Package picked up from sender",
+          "location": "Chennai, India",
+          "eventTime": "2026-05-08T10:30:00Z"
+        },
+        {
+          "id": "evt_011",
+          "status": "In Transit",
+          "description": "Package in transit",
+          "location": "Chennai, India",
+          "eventTime": "2026-05-09T14:00:00Z"
+        },
+        {
+          "id": "evt_012",
+          "status": "Exception",
+          "description": "Customs hold - additional documentation required",
+          "location": "San Francisco, USA",
+          "eventTime": "2026-05-11T09:15:00Z"
+        }
+      ]
+    },
+    {
+      "id": "shp_005",
+      "trackingNumber": "GT2024JKL345",
+      "whiteLabelTrackingCode": "GT-JKL-345-PQR",
+      "carrierCode": "DHL",
+      "recipientName": "Sarah Williams",
+      "recipientEmail": "sarah.w@protonmail.com",
+      "recipientPhone": "+61 2 9876 5432",
+      "recipientAddress": "200 George Street, Sydney NSW 2000",
+      "originCountry": "India",
+      "destinationCountry": "Australia",
+      "status": "in_transit",
+      "goodsType": "Books",
+      "weight": 4.0,
+      "createdAt": "2026-05-11T08:00:00Z",
+      "updatedAt": "2026-05-12T11:30:00Z",
+      "events": [
+        {
+          "id": "evt_013",
+          "status": "Picked Up",
+          "description": "Package picked up from sender",
+          "location": "Hyderabad, India",
+          "eventTime": "2026-05-11T08:00:00Z"
+        },
+        {
+          "id": "evt_014",
+          "status": "In Transit",
+          "description": "Package arrived at processing center",
+          "location": "Hyderabad, India",
+          "eventTime": "2026-05-11T16:00:00Z"
+        },
+        {
+          "id": "evt_015",
+          "status": "In Transit",
+          "description": "Package departed from origin",
+          "location": "Mumbai, India",
+          "eventTime": "2026-05-12T06:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "shp_006",
+      "trackingNumber": "GT2024MNO678",
+      "whiteLabelTrackingCode": "GT-MNO-678-STU",
+      "carrierCode": "FedEx",
+      "recipientName": "Emma Thompson",
+      "recipientEmail": "emma.t@gmail.com",
+      "recipientPhone": "+1 555-456-7890",
+      "recipientAddress": "350 Fifth Avenue, New York, NY 10118",
+      "originCountry": "India",
+      "destinationCountry": "United States",
+      "status": "cancelled",
+      "goodsType": "Fragile Items",
+      "weight": 1.5,
+      "createdAt": "2026-05-09T14:00:00Z",
+      "updatedAt": "2026-05-10T09:00:00Z"
+    }
+  ],
+  "stats": {
+    "total": 6,
+    "in_transit": 2,
+    "delivered": 1,
+    "pending": 1,
+    "cancelled": 1,
+    "exception": 1
+  },
+  "popularRoutes": [
+    { "from": "India", "to": "United States", "count": 4 },
+    { "from": "India", "to": "United Kingdom", "count": 1 },
+    { "from": "India", "to": "Australia", "count": 1 }
+  ],
+  "goodsTypes": [
+    { "type": "Documents", "count": 1 },
+    { "type": "Electronics", "count": 1 },
+    { "type": "Clothing", "count": 1 },
+    { "type": "Food Items", "count": 1 },
+    { "type": "Books", "count": 1 },
+    { "type": "Fragile Items", "count": 1 }
+  ]
+}

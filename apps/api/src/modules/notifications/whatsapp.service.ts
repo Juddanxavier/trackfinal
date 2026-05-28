@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface WhatsAppTemplate {
@@ -8,6 +8,7 @@ export interface WhatsAppTemplate {
 
 @Injectable()
 export class WhatsAppService {
+  private readonly logger = new Logger(WhatsAppService.name);
   private readonly apiKey: string;
   private readonly sender: string;
   private readonly baseUrl = 'https://api.msg91.com/api/v5';
@@ -21,13 +22,13 @@ export class WhatsAppService {
     phone: string,
     template: WhatsAppTemplate,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    console.log(
+    this.logger.log(
       `📱 [WhatsApp TEST] Phone: ${phone} | Template: ${template.templateName} | Variables:`,
       template.variables,
     );
 
     if (!this.apiKey) {
-      console.log(
+      this.logger.log(
         '📱 [DEV] WhatsApp notification (no API key configured):',
         phone,
         template.templateName,
@@ -66,7 +67,7 @@ export class WhatsAppService {
         return { success: false, error: result.message || 'Unknown error' };
       }
     } catch (error) {
-      console.error('WhatsApp send error:', error);
+      this.logger.error('WhatsApp send error:', error);
       return {
         success: false,
         error:

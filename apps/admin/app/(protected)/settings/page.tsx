@@ -3,8 +3,12 @@
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { useAuth } from "@/components/auth-context"
+import { TwoFactorSetup } from "@/components/two-factor-setup"
 import { api, ApiError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { getDialCode, prependCountryCode, formatPhoneDisplay } from "@/lib/phone"
+import { settingsOrgSchema, fieldErrors, type SettingsOrgFormData } from "@/lib/validation"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -28,71 +32,73 @@ import {
   SaveIcon,
   Loader2Icon,
   BellIcon,
+  MonitorIcon,
+  ShieldIcon,
+  WebhookIcon,
 } from "lucide-react"
 import { AnimatedPage } from "@/components/animated-page"
 
-interface OrganisationSettings {
+interface OrganisationData {
   id: string
   name: string
   slug: string
-  email: string
-  phone: string
-  address: string
-  city: string
-  state: string
-  postalCode: string
-  countryCode: string
-  currency: string
-  logoUrl: string
-  timezone: string
-  dateFormat: string
-  emailNotifications: boolean
-  pushNotifications: boolean
-  theme: string
+  email: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  postalCode: string | null
+  countryCode: string | null
+  currency: string | null
+  logoUrl: string | null
+  timezone: string | null
+  dateFormat: string | null
+  isActive: boolean
 }
 
-const DEFAULT_SETTINGS: OrganisationSettings = {
-  id: "",
-  name: "",
-  slug: "",
-  email: "",
-  phone: "",
-  address: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  countryCode: "US",
-  currency: "USD",
-  logoUrl: "",
-  timezone: "America/New_York",
-  dateFormat: "MM/DD/YYYY",
-  emailNotifications: true,
-  pushNotifications: true,
-  theme: "system",
+interface NotificationPrefs {
+  emailEnabled: boolean
+  whatsappEnabled: boolean
+  inTransitNotifications: boolean
+  deliveredNotifications: boolean
+  exceptionsNotifications: boolean
 }
 
 export default function SettingsPage() {
-  const { selectedOrganisation } = useAuth()
+  const { user, selectedOrganisation } = useAuth()
   const { theme, setTheme } = useTheme()
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
-  const [settings, setSettings] = useState<OrganisationSettings>(DEFAULT_SETTINGS)
+  const [org, setOrg] = useState<OrganisationData | null>(null)
+  const [errors, setErrors] = useState<Partial<Record<keyof SettingsOrgFormData, string>>>({})
+  const [prefs, setPrefs] = useState<NotificationPrefs>({
+    emailEnabled: true,
+    whatsappEnabled: true,
+    inTransitNotifications: true,
+    deliveredNotifications: true,
+    exceptionsNotifications: true,
+  })
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       if (!selectedOrganisation) {
         setFetching(false)
         return
       }
 
       try {
-        const res = await api.get<OrganisationSettings>(
-          `/settings?organisationId=${selectedOrganisation}`,
-          { throwOnError: false }
-        )
-        if (res) {
-          setSettings(res)
-        }
+        const [orgData, prefsData] = await Promise.all([
+          api.get<OrganisationData | null>(
+            `/organisations/${selectedOrganisation}`,
+            { throwOnError: false }
+          ),
+          api.get<NotificationPrefs>(
+            `/notifications/preferences`,
+            { throwOnError: false }
+          ),
+        ])
+        if (orgData) setOrg(orgData)
+        if (prefsData) setPrefs(prefsData)
       } catch (err) {
         console.error("Failed to fetch settings:", err)
       } finally {
@@ -100,33 +106,41 @@ export default function SettingsPage() {
       }
     }
 
-    fetchSettings()
+    fetchData()
   }, [selectedOrganisation])
 
-  const handleSave = async () => {
-    if (!selectedOrganisation) {
-      toast.error("No organisation selected")
+  const handleSaveOrg = async () => {
+    if (!selectedOrganisation || !org) return
+
+    const result = settingsOrgSchema.safeParse(org)
+    if (!result.success) {
+      setErrors(fieldErrors<SettingsOrgFormData>(result))
       return
     }
-
+    setErrors({})
     setLoading(true)
     try {
-      await api.put(`/settings/${settings.id || selectedOrganisation}`, {
-        ...settings,
-      })
-      toast.success("Settings saved successfully")
+      await api.patch(`/organisations/${selectedOrganisation}`, result.data)
+      toast.success("Organisation settings saved")
     } catch (err) {
-      console.error("Failed to save settings:", err)
-      toast.error("Failed to save settings")
+      console.error("Failed to save organisation:", err)
+      toast.error("Failed to save organisation settings")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleThemeChange = (checked: boolean) => {
-    const newTheme = checked ? "dark" : "light"
-    setTheme(newTheme)
-    setSettings({ ...settings, theme: newTheme })
+  const handleSavePrefs = async () => {
+    setLoading(true)
+    try {
+      await api.patch(`/notifications/preferences`, prefs)
+      toast.success("Notification preferences saved")
+    } catch (err) {
+      console.error("Failed to save notification prefs:", err)
+      toast.error("Failed to save notification preferences")
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (fetching) {
@@ -148,7 +162,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="organisation" className="w-full">
-        <TabsList className="grid w-full max-w-sm grid-cols-3">
+        <TabsList className="grid w-full max-w-lg grid-cols-4">
           <TabsTrigger value="organisation" className="gap-2">
             <Building2Icon className="h-4 w-4" />
             <span className="hidden sm:inline">Organisation</span>
@@ -156,6 +170,10 @@ export default function SettingsPage() {
           <TabsTrigger value="appearance" className="gap-2">
             <PaletteIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Appearance</span>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2">
+            <ShieldIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             <BellIcon className="h-4 w-4" />
@@ -176,17 +194,18 @@ export default function SettingsPage() {
                 <Label htmlFor="name">Organisation Name</Label>
                 <Input
                   id="name"
-                  value={settings.name}
-                  onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                  value={org?.name || ""}
+                  onChange={(e) => { setErrors({ ...errors, name: undefined }); setOrg(org ? { ...org, name: e.target.value } : null) }}
                   placeholder="Your organisation name"
                 />
+                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="slug">Slug</Label>
                 <Input
                   id="slug"
-                  value={settings.slug}
-                  onChange={(e) => setSettings({ ...settings, slug: e.target.value })}
+                  value={org?.slug || ""}
+                  disabled
                   placeholder="your-org"
                 />
               </div>
@@ -195,26 +214,34 @@ export default function SettingsPage() {
                 <Input
                   id="email"
                   type="email"
-                  value={settings.email}
-                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                  value={org?.email || ""}
+                  onChange={(e) => { setErrors({ ...errors, email: undefined }); setOrg(org ? { ...org, email: e.target.value } : null) }}
                   placeholder="org@example.com"
                 />
+                {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
                 <Input
                   id="phone"
-                  value={settings.phone}
-                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                  placeholder="+1 (555) 000-0000"
+                  value={org?.phone || ""}
+                  onChange={(e) => { setErrors({ ...errors, phone: undefined }); setOrg(org ? { ...org, phone: e.target.value } : null) }}
+                  onBlur={(e) => {
+                    const val = e.target.value
+                    if (val && org) {
+                      setOrg({ ...org, phone: prependCountryCode(val, org.countryCode || "IN") })
+                    }
+                  }}
+                  placeholder={getDialCode(org?.countryCode || "IN") + " 9000000000"}
                 />
+                {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="address">Address</Label>
                 <Input
                   id="address"
-                  value={settings.address}
-                  onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                  value={org?.address || ""}
+                  onChange={(e) => { setErrors({ ...errors, address: undefined }); setOrg(org ? { ...org, address: e.target.value } : null) }}
                   placeholder="123 Business St"
                 />
               </div>
@@ -222,39 +249,43 @@ export default function SettingsPage() {
                 <Label htmlFor="city">City</Label>
                 <Input
                   id="city"
-                  value={settings.city}
-                  onChange={(e) => setSettings({ ...settings, city: e.target.value })}
+                  value={org?.city || ""}
+                  onChange={(e) => { setErrors({ ...errors, city: undefined }); setOrg(org ? { ...org, city: e.target.value } : null) }}
                   placeholder="City"
                 />
+                {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="state">State</Label>
                 <Input
                   id="state"
-                  value={settings.state}
-                  onChange={(e) => setSettings({ ...settings, state: e.target.value })}
+                  value={org?.state || ""}
+                  onChange={(e) => { setErrors({ ...errors, state: undefined }); setOrg(org ? { ...org, state: e.target.value } : null) }}
                   placeholder="State"
                 />
+                {errors.state && <p className="text-sm text-red-500">{errors.state}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="postalCode">Postal Code</Label>
                 <Input
                   id="postalCode"
-                  value={settings.postalCode}
-                  onChange={(e) => setSettings({ ...settings, postalCode: e.target.value })}
+                  value={org?.postalCode || ""}
+                  onChange={(e) => { setErrors({ ...errors, postalCode: undefined }); setOrg(org ? { ...org, postalCode: e.target.value } : null) }}
                   placeholder="12345"
                 />
+                {errors.postalCode && <p className="text-sm text-red-500">{errors.postalCode}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="countryCode">Country</Label>
                 <Select
-                  value={settings.countryCode}
-                  onValueChange={(value) => setSettings({ ...settings, countryCode: value })}
+                  value={org?.countryCode || "IN"}
+                  onValueChange={(value) => setOrg(org ? { ...org, countryCode: value } : null)}
                 >
                   <SelectTrigger id="countryCode">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="IN">India</SelectItem>
                     <SelectItem value="US">United States</SelectItem>
                     <SelectItem value="CA">Canada</SelectItem>
                     <SelectItem value="GB">United Kingdom</SelectItem>
@@ -264,8 +295,48 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <Select
+                  value={org?.currency || "INR"}
+                  onValueChange={(value) => setOrg(org ? { ...org, currency: value } : null)}
+                >
+                  <SelectTrigger id="currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INR">INR (₹)</SelectItem>
+                    <SelectItem value="USD">USD ($)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                    <SelectItem value="GBP">GBP (£)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end mt-6">
+              <Button onClick={handleSaveOrg} disabled={loading || !org} className="gap-2">
+                {loading ? (
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                ) : (
+                  <SaveIcon className="h-4 w-4" />
+                )}
+                {loading ? "Saving..." : "Save Organisation"}
+              </Button>
             </div>
           </div>
+
+          <Link href="/sessions">
+            <Button variant="outline" className="w-full gap-2">
+              <MonitorIcon className="h-4 w-4" />
+              Manage Sessions
+            </Button>
+          </Link>
+          <Link href="/settings/webhooks">
+            <Button variant="outline" className="w-full gap-2">
+              <WebhookIcon className="h-4 w-4" />
+              Webhooks
+            </Button>
+          </Link>
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-6">
@@ -276,19 +347,26 @@ export default function SettingsPage() {
                 Customise the look and feel
               </p>
             </div>
-            <div className="flex items-center justify-between rounded-lg border p-4 mt-4">
-              <div className="flex flex-col space-y-1">
-                <Label className="text-base">Dark Mode</Label>
-                <p className="text-sm text-muted-foreground">
-                  Switch between light and dark theme
-                </p>
+              <div className="flex items-center justify-between rounded-lg border p-4 mt-4">
+                <div className="flex flex-col space-y-1">
+                  <Label className="text-base">Dark Mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Switch between light and dark theme
+                  </p>
+                </div>
+                <Switch
+                  checked={theme === "dark"}
+                  onCheckedChange={(checked) => {
+                    const newTheme = checked ? "dark" : "light"
+                    setTheme(newTheme)
+                  }}
+                />
               </div>
-              <Switch
-                checked={theme === "dark"}
-                onCheckedChange={handleThemeChange}
-              />
-            </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-6">
+          {user && <TwoFactorSetup userId={user.id} />}
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">
@@ -308,9 +386,9 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.emailNotifications}
-                  onCheckedChange={(checked) => 
-                    setSettings({ ...settings, emailNotifications: checked })
+                  checked={prefs.emailEnabled}
+                  onCheckedChange={(checked) =>
+                    setPrefs({ ...prefs, emailEnabled: checked })
                   }
                 />
               </div>
@@ -322,9 +400,9 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.pushNotifications}
-                  onCheckedChange={(checked) => 
-                    setSettings({ ...settings, pushNotifications: checked })
+                  checked={prefs.whatsappEnabled}
+                  onCheckedChange={(checked) =>
+                    setPrefs({ ...prefs, whatsappEnabled: checked })
                   }
                 />
               </div>
@@ -346,7 +424,12 @@ export default function SettingsPage() {
                     Notify when shipment is in transit
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={prefs.inTransitNotifications}
+                  onCheckedChange={(checked) =>
+                    setPrefs({ ...prefs, inTransitNotifications: checked })
+                  }
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -355,7 +438,12 @@ export default function SettingsPage() {
                     Notify when shipment is delivered
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={prefs.deliveredNotifications}
+                  onCheckedChange={(checked) =>
+                    setPrefs({ ...prefs, deliveredNotifications: checked })
+                  }
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -364,22 +452,26 @@ export default function SettingsPage() {
                     Notify on delivery exceptions
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={prefs.exceptionsNotifications}
+                  onCheckedChange={(checked) =>
+                    setPrefs({ ...prefs, exceptionsNotifications: checked })
+                  }
+                />
               </div>
+            </div>
+            <div className="flex justify-end mt-6">
+              <Button onClick={handleSavePrefs} disabled={loading} className="gap-2">
+                {loading ? (
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                ) : (
+                  <SaveIcon className="h-4 w-4" />
+                )}
+                {loading ? "Saving..." : "Save Notification Preferences"}
+              </Button>
             </div>
           </div>
         </TabsContent>
-
-        <div className="flex justify-end pt-6">
-          <Button onClick={handleSave} disabled={loading} className="gap-2">
-            {loading ? (
-              <Loader2Icon className="h-4 w-4 animate-spin" />
-            ) : (
-              <SaveIcon className="h-4 w-4" />
-            )}
-            {loading ? "Saving..." : "Save Changes"}
-          </Button>
-        </div>
       </Tabs>
     </AnimatedPage>
   )

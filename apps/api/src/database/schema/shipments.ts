@@ -6,9 +6,11 @@ import {
   jsonb,
   pgEnum,
   integer,
+  numeric,
   index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { branches } from './index';
 
 export const shipmentStatusEnum = pgEnum('shipment_status', [
   'pending',
@@ -23,6 +25,7 @@ export const shipments = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     organisationId: uuid('organisation_id').notNull(),
+    branchId: uuid('branch_id').references(() => branches.id), // Branch assignment for staff access control
     userId: uuid('user_id'),
     assignedToId: uuid('assigned_to_id'),
     trackingNumber: text('tracking_number').notNull(),
@@ -48,7 +51,8 @@ export const shipments = pgTable(
       sms: false,
     }),
     notifyEmail: text('notify_email'),
-    notifyPhone: text('notify_phone'),
+    billAmount: numeric('bill_amount', { precision: 10, scale: 2 }),
+    lastInvoiceEmailSentAt: timestamp('last_invoice_email_sent_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -80,7 +84,11 @@ export const shipmentEvents = pgTable(
   ],
 );
 
-export const shipmentsRelations = relations(shipments, ({ many }) => ({
+export const shipmentsRelations = relations(shipments, ({ one, many }) => ({
+  branch: one(branches, {
+    fields: [shipments.branchId],
+    references: [branches.id],
+  }),
   events: many(shipmentEvents),
 }));
 

@@ -6,12 +6,33 @@ import { jwtDecode } from 'jwt-decode';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 const TOKEN_KEY = 'gt_access_token';
 
-interface User {
+export class TwoFactorRequiredError extends Error {
+  sessionToken: string;
+  constructor(sessionToken: string, message: string) {
+    super(message);
+    this.name = 'TwoFactorRequiredError';
+    this.sessionToken = sessionToken;
+  }
+}
+
+export interface User {
   id: string;
   email: string;
   name: string;
   role: string;
   organisationId: string | null;
+  phoneNumber?: string | null;
+  emailVerified?: boolean;
+}
+
+interface LoginResponse {
+  accessToken?: string;
+  refreshToken?: string;
+  sessionId?: string;
+  user?: User;
+  requiresTwoFactor?: boolean;
+  sessionToken?: string;
+  message?: string;
 }
 
 interface AuthContextType {
@@ -19,9 +40,11 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  login2fa: (sessionToken: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
   hasValidSession: () => boolean;
+  updateUser: (user: User) => void;
 }
 
 interface JwtPayload {
@@ -74,11 +97,11 @@ function decodeUserFromToken(token: string): User | null {
   }
 }
 
-// Check if token is expired
-function isTokenExpired(token: string): boolean {
+// Check if token is expired (with 5-minute buffer for proactive refresh)
+function isTokenExpired(token: string, bufferMs = 5 * 60 * 1000): boolean {
   try {
     const decoded = jwtDecode<JwtPayload>(token);
-    return Date.now() >= decoded.exp * 1000;
+    return Date.now() >= (decoded.exp * 1000) - bufferMs;
   } catch {
     return true;
   }
@@ -94,18 +117,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return !!token && !isTokenExpired(token);
   }, []);
 
+  // Directly update user state (used by profile page after edit)
+  const updateUser = useCallback((updatedUser: User) => {
+    setUser(updatedUser);
+  }, []);
+
   // Refresh token function - defined before useEffect to avoid reference issues
   const refreshToken = useCallback(async (): Promise<boolean> => {
     try {
-      console.log('[Auth] Refreshing token...');
-      const res = await fetch(`${API_URL}/auth/refresh`, {
+      const url = `${API_URL}/auth/refresh`;
+      console.log('[Auth] Refreshing token at', url);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(url, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         console.log('[Auth] Refresh failed:', res.status);
@@ -120,8 +156,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
       }
       return true;
-    } catch (error) {
-      console.error('[Auth] Refresh error:', error);
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        console.warn('[Auth] Refresh aborted (timeout)');
+      } else {
+        console.error('[Auth] Refresh error:', error?.message || error);
+      }
       return false;
     }
   }, []);
@@ -175,6 +215,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshToken]);
 
+  // Proactive token refresh: refresh every 50 minutes before the 1h expiry
+  // Also refresh when the page regains focus (user returns to an open tab)
+  useEffect(() => {
+    // Interval: refresh token every 50 minutes
+    const interval = setInterval(async () => {
+      const token = getStoredToken();
+      if (token) {
+        await refreshToken();
+      }
+    }, 50 * 60 * 1000);
+
+    // Page visibility/focus: refresh when user comes back to the tab
+    const onFocus = async () => {
+      const token = getStoredToken();
+      if (token && isTokenExpired(token)) {
+        await refreshToken();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        onFocus();
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [refreshToken]);
+
   // Login function
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     console.log('[Auth] Logging in:', email);
@@ -194,8 +265,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(error.message || 'Login failed');
     }
 
-    const data = await response.json();
+    const data: LoginResponse = await response.json();
+    
+    // Handle 2FA challenge
+    if (data.requiresTwoFactor) {
+      throw new TwoFactorRequiredError(data.sessionToken || '', data.message || 'Two-factor authentication required');
+    }
+    
     console.log('[Auth] Login successful');
+    setStoredToken(data.accessToken!);
+    setUser(data.user!);
+  }, []);
+
+  // Complete 2FA challenge after login
+  const login2fa = useCallback(async (sessionToken: string, code: string): Promise<void> => {
+    console.log('[Auth] Completing 2FA challenge');
+    const response = await fetch(`${API_URL}/auth/2fa/challenge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ sessionToken, code }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || '2FA verification failed');
+    }
+
+    const data = await response.json();
+    console.log('[Auth] 2FA challenge successful');
     setStoredToken(data.accessToken);
     setUser(data.user);
   }, []);
@@ -230,9 +331,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        login2fa,
         logout,
         refreshToken,
         hasValidSession,
+        updateUser,
       }}
     >
       {children}

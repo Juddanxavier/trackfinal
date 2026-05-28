@@ -20,14 +20,14 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { QuotesService } from './quotes.service';
+import { UsersService, OrganisationsService } from '../users/services';
 import {
   CreateQuoteDto,
   UpdateQuoteDto,
   DeleteQuoteDto,
 } from './dto/quotes.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { Role } from '../../common/enums/role.enum';
 
 interface PaginationQuery {
@@ -37,12 +37,11 @@ interface PaginationQuery {
   search?: string;
   sortBy?: string;
   sortOrder?: string;
-  organisationId?: string;
 }
 
 function sanitizeQuoteForCustomer(quote: any) {
   if (!quote) return null;
-  const { price, assignedToId, assignedTo, ...sanitized } = quote;
+  const { assignedToId, assignedTo, organisationId, userId, ...sanitized } = quote;
   return sanitized;
 }
 
@@ -51,15 +50,45 @@ function sanitizeQuoteForCustomer(quote: any) {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class QuotesController {
-  constructor(private readonly quotesService: QuotesService) {}
+  constructor(
+    private readonly quotesService: QuotesService,
+    private readonly usersService: UsersService,
+    private readonly organisationsService: OrganisationsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create quote request' })
   @ApiResponse({ status: 201, description: 'Quote created' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   async create(@Body() createDto: CreateQuoteDto, @Request() req: any) {
+    console.log('Create quote - user:', req.user);
+    
+    let organisationId = req.user.organisationId;
+    console.log('Initial org ID:', organisationId);
+    
+    if (!organisationId) {
+      try {
+        let org = await this.organisationsService.findBySlug('gajan-traders');
+        console.log('Found org:', org);
+        if (!org) {
+          org = await this.organisationsService.create({
+            name: 'Gajan Traders',
+            slug: 'gajan-traders',
+          });
+          console.log('Created org:', org);
+        }
+        organisationId = org.id;
+        await this.usersService.update(req.user.id, { organisationId });
+        console.log('Updated user org');
+      } catch (err) {
+        console.error('Error getting org:', err);
+        throw err;
+      }
+    }
+    
     return this.quotesService.create({
-      organisationId: req.user.organisationId,
+      organisationId,
+      branchId: req.user.branchId || null,
       userId: req.user.id,
       originCountry: createDto.originCountry,
       destinationCountry: createDto.destinationCountry,
@@ -76,12 +105,12 @@ export class QuotesController {
   @ApiResponse({ status: 200, description: 'List of my quotes' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findMyQuotes(@Request() req: any) {
-    const quotes = await this.quotesService.findByUser(req.user.id);
+    const quotes = await this.quotesService.findByUser(req.user.id, req.user.organisationId);
     return quotes.map(sanitizeQuoteForCustomer);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'quotes', action: 'read' })
   @Get()
   @ApiOperation({ summary: 'Get all organisation quotes with pagination' })
   @ApiResponse({ status: 200, description: 'List of organisation quotes' })
@@ -92,47 +121,39 @@ export class QuotesController {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
     const isAdmin = userRole === Role.ADMIN;
+    const isStaff = userRole === Role.STAFF;
 
-    if (
-      !isAdmin &&
-      query.organisationId &&
-      query.organisationId !== userOrgId
-    ) {
-      throw new ForbiddenException('You can only access your own organisation');
-    }
-
-    const organisationId =
-      isAdmin && query.organisationId
-        ? query.organisationId
-        : isAdmin && !query.organisationId
-          ? undefined
-          : userOrgId;
+    const organisationId = userOrgId;
+    const branchId = isStaff ? req.user.branchId : undefined;
 
     return this.quotesService.findWithPagination({
       organisationId,
+      branchId,
       userId: query.userId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 1000,
       search: query.search,
-      status: query.status as any,
+      status: query.status,
       sortBy: query.sortBy || 'createdAt',
       sortOrder: query.sortOrder || 'desc',
     });
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'quotes', action: 'read' })
   @Get('pending')
   @ApiOperation({ summary: 'Get pending quotes' })
   @ApiResponse({ status: 200, description: 'List of pending quotes' })
   async findPending(@Request() req: any) {
+    const branchId = req.user.role === Role.STAFF ? req.user.branchId : undefined;
     return this.quotesService.findPendingByOrganisation(
       req.user.organisationId,
+      branchId,
     );
   }
 
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'quotes', action: 'read' })
   @Patch(':id')
   @ApiOperation({ summary: 'Update quote status/price' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
@@ -220,65 +241,43 @@ export class QuotesController {
     return this.quotesService.delete(id, userId, body?.reason);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'quotes', action: 'read' })
   @Get('stats')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get quote statistics' })
   @ApiResponse({ status: 200, description: 'Quote statistics' })
   async getStats(
     @Request() req: any,
-    @Query() query: { organisationId?: string },
+    @Query() query: { branchId?: string },
   ) {
-    const userRole = req.user.role;
-    const userOrgId = req.user.organisationId;
-    const isAdmin = userRole === Role.ADMIN;
-
-    if (
-      !isAdmin &&
-      query.organisationId &&
-      query.organisationId !== userOrgId
-    ) {
-      throw new ForbiddenException(
-        'You can only access your own organisation stats',
-      );
-    }
-
-    const organisationId =
-      isAdmin && query.organisationId ? query.organisationId : userOrgId;
-
-    return this.quotesService.getStats(organisationId);
+    const organisationId = req.user.organisationId;
+    const branchId = req.user.role === Role.STAFF ? req.user.branchId : query.branchId;
+    return this.quotesService.getStats(organisationId, branchId);
   }
 
   @Get('activity')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(JwtAuthGuard, CasbinGuard)
+  @Require({ resource: 'quotes', action: 'read' })
   @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Get quote activity history',
-    description: 'Get daily quote creation counts for charting',
-  })
+  @ApiOperation({ summary: 'Get quote activity history', description: 'Get daily quote creation counts for charting' })
   @ApiResponse({ status: 200, description: 'Activity history data' })
   async getActivityHistory(
     @Request() req: any,
-    @Query() query: { organisationId?: string; days?: string },
+    @Query() query: { days?: string },
   ) {
-    if (
-      req.user.role !== Role.ADMIN &&
-      query.organisationId &&
-      query.organisationId !== req.user.organisationId
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
+    const organisationId = req.user.organisationId;
+    const branchId = req.user.role === Role.STAFF ? req.user.branchId : undefined;
     return this.quotesService.getActivityHistory(
-      query.organisationId || req.user.organisationId,
+      organisationId,
+      branchId,
       query.days ? parseInt(query.days) : 30,
     );
   }
 
   @Post(':id/send-email')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'quotes', action: 'read' })
   @ApiOperation({ summary: 'Send custom email to quote customer' })
   @ApiResponse({ status: 200, description: 'Email sent' })
   async sendEmail(

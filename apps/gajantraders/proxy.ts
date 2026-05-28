@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Note: This middleware only handles basic path checks
-// Actual auth validation happens client-side via ProtectedRoute component
-// We cannot access localStorage from middleware, only cookies
+const protectedRoutes = ['/profile', '/shipments', '/quotes', '/onboarding'];
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow all paths - auth is handled client-side
-  // This prevents hydration mismatches and redirect loops
+  const isProtected = protectedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + '/'),
+  );
+
+  if (isProtected) {
+    const refreshToken = request.cookies.get('refresh_token')?.value;
+    if (!refreshToken) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   return NextResponse.next();
 }
 

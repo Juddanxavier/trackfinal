@@ -2,15 +2,18 @@ import { jwtDecode } from 'jwt-decode';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-// Log the API URL for debugging
-if (typeof window !== 'undefined') {
-  console.log('[API] Base URL:', API_BASE_URL);
+const isDev = process.env.NODE_ENV === 'development';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function log(...args: any[]) {
+  if (isDev) console.log(...args);
 }
 
 const DEFAULT_TIMEOUT = 10000;
 const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
 
 const TOKEN_KEY = 'track_access_token';
+const REFRESH_TOKEN_KEY = 'track_refresh_token';
 const CSRF_TOKEN_KEY = 'csrf_token';
 
 // CSRF Token management
@@ -43,13 +46,33 @@ function getToken(): string | null {
   }
 }
 
-function setToken(token: string | null): void {
+export function setToken(token: string | null): void {
   if (typeof window === 'undefined') return;
   try {
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
     } else {
       localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {}
+}
+
+function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setRefreshToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
     }
   } catch {}
 }
@@ -72,7 +95,7 @@ interface ApiOptions extends RequestInit {
 let refreshPromise: Promise<string> | null = null;
 const listeners: Set<() => void> = new Set();
 
-function notifyAuthChange() {
+export function notifyAuthChange() {
   listeners.forEach(cb => cb());
 }
 
@@ -108,9 +131,9 @@ class ApiClient {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      console.log(`[API] Making request to: ${url}`, { method: options.method || 'GET' });
+      log(`[API] Making request to: ${url}`, { method: options.method || 'GET' });
       const response = await fetch(url, { ...options, signal: controller.signal });
-      console.log(`[API] Response from ${url}:`, response.status);
+      log(`[API] Response from ${url}:`, response.status);
       return response;
     } catch (error) {
       console.error(`[API] Fetch failed for ${url}:`, error);
@@ -136,7 +159,10 @@ class ApiClient {
 
     refreshPromise = (async () => {
       try {
-        console.log('[API] Attempting token refresh...');
+        log('[API] Attempting token refresh...');
+        const storedRefreshToken = getRefreshToken();
+        const body = storedRefreshToken ? { refreshToken: storedRefreshToken } : undefined;
+
         const res = await this.fetchWithTimeout(
           this.getUrl('auth/refresh'),
           {
@@ -146,6 +172,7 @@ class ApiClient {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
+            body: body ? JSON.stringify(body) : undefined,
           },
           DEFAULT_TIMEOUT
         );
@@ -153,14 +180,16 @@ class ApiClient {
         if (!res.ok) {
           console.error('[API] Token refresh failed:', res.status);
           setToken(null);
+          setRefreshToken(null);
           notifyAuthChange();
           throw new ApiError('Session expired', 401);
         }
 
         const data = await res.json();
         setToken(data.accessToken);
+        if (data.refreshToken) setRefreshToken(data.refreshToken);
         notifyAuthChange();
-        console.log('[API] Token refresh successful');
+        log('[API] Token refresh successful');
         return data.accessToken;
       } finally {
         refreshPromise = null;
@@ -201,7 +230,7 @@ class ApiClient {
     let res: Response;
     try {
       const url = this.getUrl(path);
-      console.log(`[API] Fetching: ${url}`, {
+      log(`[API] Fetching: ${url}`, {
         method: fetchOptions.method || 'GET',
         hasAuth: !!token,
         path: path
@@ -223,7 +252,7 @@ class ApiClient {
     if (res.status === 403 && !hasRetried) {
       const errorData = await res.json().catch(() => ({}));
       if (errorData.message?.includes('CSRF') || errorData.error?.includes('CSRF')) {
-        console.log('[API] Got 403 CSRF error, fetching new token...');
+        log('[API] Got 403 CSRF error, fetching new token...');
         hasRetried = true;
         const newCsrfToken = await fetchCsrfToken();
         if (newCsrfToken) {
@@ -237,9 +266,10 @@ class ApiClient {
       }
     }
 
-    // Handle 401 - try to refresh token
-    if (res.status === 401 && !hasRetried) {
-      console.log('[API] Got 401, attempting token refresh...');
+    // Handle 401 - try to refresh token (skip for public auth endpoints)
+    const isAuthEndpoint = path.includes('auth/login') || path.includes('auth/refresh') || path.includes('auth/register');
+    if (res.status === 401 && !hasRetried && !isAuthEndpoint) {
+      log('[API] Got 401, attempting token refresh...');
       hasRetried = true;
       try {
         const newToken = await this.refreshAccessToken();
@@ -249,7 +279,7 @@ class ApiClient {
           { ...fetchOptions, credentials: 'include', headers },
           timeout
         );
-        console.log('[API] Retry after refresh successful:', res.status);
+        log('[API] Retry after refresh successful:', res.status);
       } catch (refreshError) {
         console.error('[API] Token refresh failed:', refreshError);
         setToken(null);
@@ -328,13 +358,18 @@ export async function logout() {
     await api.post('auth/logout');
   } finally {
     setToken(null);
+    setRefreshToken(null);
     notifyAuthChange();
   }
 }
 
 export async function login(email: string, password: string) {
-  const data = await api.post<{ accessToken: string; user: AuthUser }>('auth/login', { email, password });
+  const data = await api.post<{ accessToken: string; refreshToken?: string; user: AuthUser; requiresTwoFactor?: boolean; sessionToken?: string }>('auth/login', { email, password });
+  if (data.requiresTwoFactor) {
+    return { requiresTwoFactor: true as const, sessionToken: data.sessionToken! };
+  }
   setToken(data.accessToken);
+  if (data.refreshToken) setRefreshToken(data.refreshToken);
   notifyAuthChange();
   return data.user;
 }
@@ -345,8 +380,11 @@ export interface AuthUser {
   name: string;
   role: string;
   organisationId: string | null;
+  branchId: string | null;
   emailVerified: boolean;
   avatar: string;
+  phoneNumber?: string;
+  permissions?: Record<string, string[]>;
 }
 
 export function getCurrentUser(): AuthUser | null {
@@ -361,6 +399,7 @@ export function getCurrentUser(): AuthUser | null {
       name: decoded.name || decoded.email,
       role: decoded.role,
       organisationId: decoded.organisationId,
+      branchId: decoded.branchId || null,
       emailVerified: decoded.email_verified || true,
       avatar: '',
     };
@@ -377,21 +416,27 @@ export async function restoreSession(): Promise<AuthUser | null> {
   // Check if we have a token
   const token = getToken();
   if (!token) {
-    console.log('[Auth] No token to restore');
+    log('[Auth] No token to restore');
     return null;
   }
 
   // Try to validate token by calling auth/me
   try {
-    console.log('[Auth] Validating token with auth/me...');
+    log('[Auth] Validating token with auth/me...');
     const user = await api.get<AuthUser>('auth/me');
-    console.log('[Auth] Token valid, user:', user.email);
+    log('[Auth] Token valid, user:', user.email);
     return user;
   } catch (error) {
-    console.log('[Auth] Token validation failed, trying refresh...');
+    log('[Auth] Token validation failed, trying refresh...');
     
     // Token might be expired, try to refresh
     try {
+      const storedRefreshToken = getRefreshToken();
+      
+      const refreshBody = storedRefreshToken 
+        ? { refreshToken: storedRefreshToken }
+        : undefined;
+      
       const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
@@ -399,17 +444,19 @@ export async function restoreSession(): Promise<AuthUser | null> {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        body: refreshBody ? JSON.stringify(refreshBody) : undefined,
       });
 
       if (!res.ok) {
-        console.log('[Auth] Refresh failed, clearing session');
+        log('[Auth] Refresh failed, clearing session');
         setToken(null);
         return null;
       }
 
       const data = await res.json();
       setToken(data.accessToken);
-      console.log('[Auth] Refresh successful');
+      if (data.refreshToken) setRefreshToken(data.refreshToken);
+      log('[Auth] Refresh successful');
       
       // Get user info with new token
       const user = await api.get<AuthUser>('auth/me');

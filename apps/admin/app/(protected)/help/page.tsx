@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
+import { contactFormSchema, fieldErrors, type ContactFormData } from "@/lib/validation"
 import {
   CircleHelpIcon,
   MailIcon,
@@ -153,6 +155,7 @@ export default function HelpPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [contactErrors, setContactErrors] = useState<Partial<Record<keyof ContactFormData, string>>>({})
 
   const filteredFaqs = FAQS.map(category => ({
     ...category,
@@ -165,20 +168,36 @@ export default function HelpPage() {
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const result = contactFormSchema.safeParse(contactForm)
+    if (!result.success) {
+      setContactErrors(fieldErrors<ContactFormData>(result))
+      return
+    }
+    setContactErrors({})
     setIsSubmitting(true)
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      await api.post("/notifications", {
+        titleKey: "help.contact",
+        data: result.data,
+        userId: undefined,
+      })
 
-    setSubmitted(true)
-    setIsSubmitting(false)
-    toast.success("Support request submitted successfully")
+      setSubmitted(true)
+      toast.success("Support request submitted successfully")
 
-    setContactForm({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    })
+      setContactForm({
+        name: "",
+        email: "",
+        subject: "",
+        message: "",
+      })
+    } catch {
+      toast.error("Failed to submit support request. Please try again or email us directly.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -338,29 +357,33 @@ export default function HelpPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Your Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="John Doe"
-                    value={contactForm.name}
-                    onChange={(e) =>
-                      setContactForm({ ...contactForm, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={contactForm.email}
-                    onChange={(e) =>
-                      setContactForm({ ...contactForm, email: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+                    <Input
+                      id="name"
+                      placeholder="John Doe"
+                      value={contactForm.name}
+                      onChange={(e) => {
+                        setContactErrors({ ...contactErrors, name: undefined })
+                        setContactForm({ ...contactForm, name: e.target.value })
+                      }}
+                      required
+                    />
+                    {contactErrors.name && <p className="text-sm text-red-500">{contactErrors.name}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={contactForm.email}
+                      onChange={(e) => {
+                        setContactErrors({ ...contactErrors, email: undefined })
+                        setContactForm({ ...contactForm, email: e.target.value })
+                      }}
+                      required
+                    />
+                    {contactErrors.email && <p className="text-sm text-red-500">{contactErrors.email}</p>}
+                  </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="subject">Subject</Label>
@@ -368,11 +391,13 @@ export default function HelpPage() {
                   id="subject"
                   placeholder="How do I..."
                   value={contactForm.subject}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setContactErrors({ ...contactErrors, subject: undefined })
                     setContactForm({ ...contactForm, subject: e.target.value })
-                  }
+                  }}
                   required
                 />
+                {contactErrors.subject && <p className="text-sm text-red-500">{contactErrors.subject}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="message">Message</Label>
@@ -380,12 +405,14 @@ export default function HelpPage() {
                   id="message"
                   placeholder="Describe your question or issue..."
                   value={contactForm.message}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setContactErrors({ ...contactErrors, message: undefined })
                     setContactForm({ ...contactForm, message: e.target.value })
-                  }
+                  }}
                   className="min-h-32"
                   required
                 />
+                {contactErrors.message && <p className="text-sm text-red-500">{contactErrors.message}</p>}
               </div>
               <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? (

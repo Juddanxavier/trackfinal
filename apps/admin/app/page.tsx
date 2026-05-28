@@ -1,11 +1,12 @@
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect } from 'react'
 
 export default function Home() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('track_access_token') : null
+  useEffect(() => {
+    const token = localStorage.getItem('track_access_token')
+    window.location.href = token ? '/dashboard' : '/login'
+  }, [])
   
-  if (token) {
-    redirect('/dashboard')
-  } else {
-    redirect('/login')
-  }
+  return null
 }

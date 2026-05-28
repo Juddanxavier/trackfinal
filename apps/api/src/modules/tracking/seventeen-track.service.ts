@@ -149,7 +149,7 @@ export class SeventeenTrackService {
     if (!this.apiKey) {
       throw new Error('SEVENTEEN_API_KEY is required');
     }
-    
+
     // Initialize circuit breaker for 17Track API
     this.circuitBreaker = CircuitBreakerRegistry.getOrCreate('17track-api', {
       failureThreshold: 5,
@@ -246,7 +246,7 @@ export class SeventeenTrackService {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
+
       const response = await fetch(`${this.baseUrl}/getquota`, {
         method: 'POST',
         headers: {
@@ -256,7 +256,7 @@ export class SeventeenTrackService {
         body: JSON.stringify([]),
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       const data = await response.json();
@@ -333,12 +333,17 @@ export class SeventeenTrackService {
           return {
             code: -1,
             data: {
-              rejected: [{
-                number: trackingNumber,
-                error: { code: -1, message: 'Service temporarily unavailable' },
-              }],
+              rejected: [
+                {
+                  number: trackingNumber,
+                  error: {
+                    code: -1,
+                    message: 'Service temporarily unavailable',
+                  },
+                },
+              ],
             },
-          } as RegisterResponse;
+          };
         },
       );
 

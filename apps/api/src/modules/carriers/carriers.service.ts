@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { db } from '../../database';
 import { carriers } from '../../database/schema/carriers';
 import { eq } from 'drizzle-orm';
@@ -11,6 +11,7 @@ export interface Carrier {
 
 @Injectable()
 export class CarriersService {
+  private readonly logger = new Logger(CarriersService.name);
   async onModuleInit() {
     await this.loadCarriers();
   }
@@ -26,9 +27,9 @@ export class CarriersService {
         })
         .from(carriers);
       this.carriers = result.map((r) => ({ key: r.key, name_en: r.nameEn }));
-      console.log(`[CarriersService] Loaded ${this.carriers.length} carriers`);
+      this.logger.log(`[CarriersService] Loaded ${this.carriers.length} carriers`);
     } catch (err) {
-      console.error('[CarriersService] Failed to load carriers:', err);
+      this.logger.error('[CarriersService] Failed to load carriers:', err);
       this.carriers = [];
     }
   }

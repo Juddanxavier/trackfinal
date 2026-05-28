@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -17,9 +18,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
+import { CasbinGuard, Require } from '../../common/casbin';
 import { NotificationsService } from './notifications.service';
 import { UsersService } from '../users/services';
 import { CreateNotificationDto, QueryNotificationsDto } from './dto';
@@ -35,8 +34,8 @@ export class NotificationsController {
   ) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.STAFF)
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'notifications', action: 'write' })
   @ApiOperation({ summary: 'Create a new notification (admin/staff only)' })
   @ApiResponse({
     status: 201,
@@ -120,6 +119,19 @@ export class NotificationsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   markAllRead(@Request() req: any) {
     return this.notificationsService.markAllRead(
+      req.user.organisationId,
+      req.user.id,
+    );
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a notification' })
+  @ApiResponse({ status: 200, description: 'Notification deleted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  remove(@Request() req: any, @Param('id') id: string) {
+    return this.notificationsService.delete(
+      id,
       req.user.organisationId,
       req.user.id,
     );

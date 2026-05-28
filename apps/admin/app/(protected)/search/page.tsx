@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useDebounce } from "@/hooks/use-debounce"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
@@ -41,6 +42,11 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const debouncedQuery = useDebounce(query, 300)
+
+  useEffect(() => {
+    handleSearch(debouncedQuery)
+  }, [debouncedQuery])
 
   const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -137,10 +143,7 @@ export default function SearchPage() {
           <Input
             placeholder="Search for quotes, shipments, users..."
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              handleSearch(e.target.value)
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             className="h-14 text-lg pl-12"
           />
           <SearchIcon className="absolute left-4 top-5 h-5 w-5 text-muted-foreground" />

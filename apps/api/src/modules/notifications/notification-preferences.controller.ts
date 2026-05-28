@@ -6,9 +6,11 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { UpdateNotificationPreferencesDto } from './dto/notification-preferences.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationPreferencesController {
   constructor(private preferencesService: NotificationPreferencesService) {}
@@ -27,6 +29,7 @@ export class NotificationPreferencesController {
       whatsappEnabled: prefs.whatsappEnabled,
       inTransitNotifications: prefs.inTransitNotifications,
       deliveredNotifications: prefs.deliveredNotifications,
+      exceptionsNotifications: prefs.exceptionsNotifications,
     };
   }
 

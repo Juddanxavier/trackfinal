@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateShipmentDto {
@@ -32,13 +32,52 @@ export class CreateShipmentDto {
   @IsOptional()
   recipientCountry?: string;
 
-  @ApiPropertyOptional({ description: 'User ID if recipient is a known user' })
+  @ApiPropertyOptional({ description: 'User ID (optional - the customer who owns this shipment)' })
   @IsString()
   @IsOptional()
   userId?: string;
 
-  @ApiPropertyOptional({ description: 'Organisation ID (required for admins without assigned org)' })
+  @ApiPropertyOptional({
+    description: 'Organisation ID (required for admins without assigned org)',
+  })
   @IsString()
   @IsOptional()
   organisationId?: string;
+
+  @ApiPropertyOptional({ description: 'Branch ID to assign the shipment to' })
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @ApiPropertyOptional({ description: 'Bill amount' })
+  @IsNumber()
+  @IsOptional()
+  billAmount?: number;
+}
+
+export class UpdateShipmentDto {
+  @ApiProperty({ description: 'Recipient name' })
+  @IsString()
+  @IsNotEmpty()
+  recipientName: string;
+
+  @ApiPropertyOptional({ description: 'Recipient email' })
+  @IsString()
+  @IsOptional()
+  recipientEmail?: string;
+
+  @ApiProperty({ description: 'Recipient phone' })
+  @IsString()
+  @IsNotEmpty()
+  recipientPhone: string;
+
+  @ApiProperty({ description: 'Branch ID' })
+  @IsString()
+  @IsNotEmpty()
+  branchId: string;
+
+  @ApiPropertyOptional({ description: 'Bill amount' })
+  @IsNumber()
+  @IsOptional()
+  billAmount?: number;
 }

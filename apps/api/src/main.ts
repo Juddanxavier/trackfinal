@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
+import { TenantInterceptor } from './common/interceptors/tenant.interceptor';
 
 async function migrateCarriers() {
   console.log('[Carrier Migration] Starting...');
@@ -16,7 +17,10 @@ async function migrateCarriers() {
     const { carriers } = await import('./database/schema/carriers.js');
 
     try {
-      const [existing] = await db.select({ key: carriers.key }).from(carriers).limit(1);
+      const [existing] = await db
+        .select({ key: carriers.key })
+        .from(carriers)
+        .limit(1);
       if (existing) {
         console.log('[Carrier Migration] Already loaded, skipping');
         return;
@@ -41,12 +45,12 @@ async function migrateCarriers() {
     const path = await import('path');
     const csvPath = path.join(__dirname, 'carriers.csv');
     console.log('[Carrier Migration] CSV path:', csvPath);
-    
+
     if (!fs.existsSync(csvPath)) {
       console.error('[Carrier Migration] CSV file not found at:', csvPath);
       return;
     }
-    
+
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n').slice(1);
     console.log('[Carrier Migration] Lines to process:', lines.length);
@@ -82,13 +86,23 @@ async function migrateAdditionalColumns() {
   console.log('[Additional Columns Migration] Starting...');
   try {
     const db = await import('./database/index.js').then((m) => m.db);
-    
-    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_on_update JSONB DEFAULT '{"email":true,"sms":false}'`);
-    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_email TEXT`);
-    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_phone TEXT`);
-    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`);
-    await db.execute(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
-    
+
+    await db.execute(
+      `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_on_update JSONB DEFAULT '{"email":true,"sms":false}'`,
+    );
+    await db.execute(
+      `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_email TEXT`,
+    );
+    await db.execute(
+      `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS notify_phone TEXT`,
+    );
+    await db.execute(
+      `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`,
+    );
+    await db.execute(
+      `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`,
+    );
+
     console.log('[Additional Columns Migration] Complete');
   } catch (err) {
     console.error('[Additional Columns Migration] FAILED:', err);
@@ -104,7 +118,9 @@ Sentry.init({
 async function migrateQuotesColumns() {
   try {
     const db = await import('./database/index.js').then((m) => m.db);
-    await db.execute(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`);
+    await db.execute(
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`,
+    );
     console.log('[Quotes Migration] archived_at column ready');
   } catch (err) {
     console.error('[Quotes Migration] FAILED:', err.message);
@@ -114,7 +130,7 @@ async function migrateQuotesColumns() {
 async function migrateTrackingTables() {
   try {
     const db = await import('./database/index.js').then((m) => m.db);
-    
+
     await db.execute(`
       CREATE TABLE IF NOT EXISTS tracking_jobs (
         id VARCHAR(36) PRIMARY KEY,
@@ -136,7 +152,7 @@ async function migrateTrackingTables() {
       )
     `);
     console.log('[Tracking Migration] tracking_jobs table ready');
-    
+
     await db.execute(`
       CREATE TABLE IF NOT EXISTS tracking_api_rate_limits (
         id SERIAL PRIMARY KEY,
@@ -149,7 +165,7 @@ async function migrateTrackingTables() {
       )
     `);
     console.log('[Tracking Migration] tracking_api_rate_limits table ready');
-    
+
     await db.execute(`
       CREATE TABLE IF NOT EXISTS tracking_settings (
         id SERIAL PRIMARY KEY,
@@ -165,10 +181,16 @@ async function migrateTrackingTables() {
       )
     `);
     console.log('[Tracking Migration] tracking_settings table ready');
-    
-    await db.execute(`ALTER TABLE organisations ADD COLUMN IF NOT EXISTS website_url TEXT`);
-    await db.execute(`ALTER TABLE organisations ADD COLUMN IF NOT EXISTS tracking_domain TEXT`);
-    console.log('[Org Migration] website_url and tracking_domain columns ready');
+
+    await db.execute(
+      `ALTER TABLE organisations ADD COLUMN IF NOT EXISTS website_url TEXT`,
+    );
+    await db.execute(
+      `ALTER TABLE organisations ADD COLUMN IF NOT EXISTS tracking_domain TEXT`,
+    );
+    console.log(
+      '[Org Migration] website_url and tracking_domain columns ready',
+    );
   } catch (err) {
     console.error('[Tracking Migration] FAILED:', err.message);
   }
@@ -192,18 +214,14 @@ async function bootstrap() {
 
   // Security
   app.use(helmet());
-  const corsOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'https://track.corncob.my',
-    'http://127.0.0.1:3000',
-    'https://admin.gajantraders.com',
-    'https://api.gajantraders.com',
-  ];
-  if (process.env.CORS_ORIGIN) {
-    corsOrigins.push(...process.env.CORS_ORIGIN.split(','));
-  }
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
+    : [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+      ];
   app.enableCors({
     origin: corsOrigins,
     credentials: true,
@@ -240,6 +258,9 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
+
+  // Global interceptors
+  app.useGlobalInterceptors(new TenantInterceptor());
 
   // Global filters
   app.useGlobalFilters(new AllExceptionsFilter());

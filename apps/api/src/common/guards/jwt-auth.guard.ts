@@ -31,7 +31,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
     return result as boolean;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handleRequest(err: any, user: any, info: any): any {
     if (err) {
       const errorMessage = err?.message || 'Unknown error';

@@ -33,10 +33,10 @@ export class EmailChannel implements NotificationChannel {
     }
 
     const template = getTemplate(payload.titleKey);
-    const subject = template 
+    const subject = template
       ? parseTemplate(template.subject, payload.data || {})
       : `Shipment Update: ${payload.titleKey}`;
-    const body = template 
+    const body = template
       ? parseTemplate(template.body, payload.data || {})
       : JSON.stringify(payload.data);
 

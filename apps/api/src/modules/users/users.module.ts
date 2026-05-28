@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
 import { UsersController } from './users.controller';
-import {
-  UsersService,
-  OrganisationsService,
-  SessionsService,
-} from './services';
+import { UsersService } from './users.service';
+import { OrganisationsService } from './organisations.service';
+import { SessionsService } from './sessions.service';
 import { EmailModule } from '../email/email.module';
 
 @Module({

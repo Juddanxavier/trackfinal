@@ -16,6 +16,10 @@ export class UpdateNotificationPreferencesDto {
   @IsOptional()
   @IsBoolean()
   deliveredNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  exceptionsNotifications?: boolean;
 }
 
 export class NotificationPreferencesResponseDto {
@@ -23,4 +27,5 @@ export class NotificationPreferencesResponseDto {
   whatsappEnabled: boolean;
   inTransitNotifications: boolean;
   deliveredNotifications: boolean;
+  exceptionsNotifications: boolean;
 }
