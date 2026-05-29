@@ -47,10 +47,10 @@ function NotificationBell() {
     try {
       const [notifs, countRes] = await Promise.all([
         api.get<Notification[]>('/notifications?limit=5'),
-        api.get<{ count: number }>('/notifications/unread-count'),
+        api.get<number>('/notifications/unread-count'),
       ]);
       setNotifications(notifs);
-      setUnreadCount(countRes.count);
+      setUnreadCount(countRes);
     } catch (err) {
       console.error('Failed to fetch notifications', err);
     }
