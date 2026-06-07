@@ -121,7 +121,7 @@ export default function ProhibitedPage() {
               <h1 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
                 Prohibited Items
               </h1>
-              <p className='text-base sm:text-lg text-zinc-500 max-w-2xl mt-6 leading-relaxed'>
+              <p className='text-base sm:text-lg text-zinc-700 max-w-2xl mt-6 leading-relaxed'>
                 To maintain safe and compliant logistics, certain items cannot be shipped.
                 These restrictions protect people, goods, and operations. Please ensure your
                 shipment meets the guidelines before booking.
@@ -135,7 +135,7 @@ export default function ProhibitedPage() {
                 </Link>
                 <Link
                   href='/faqs'
-                  className='inline-flex items-center gap-2 px-6 py-3 border border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 text-base font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
+                  className='inline-flex items-center gap-2 px-6 py-3 border border-zinc-300 text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-base font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
                 >
                   View FAQs
                 </Link>
@@ -162,11 +162,11 @@ export default function ProhibitedPage() {
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <div className='flex flex-col lg:flex-row-reverse gap-10 lg:gap-16 items-center'>
             <motion.div {...fadeIn} className='flex-1'>
-              <p className='text-base text-zinc-400 uppercase tracking-widest mb-2 font-medium'>Why It Matters</p>
+              <p className='text-base text-zinc-500 uppercase tracking-widest mb-2 font-medium'>Why It Matters</p>
               <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight tracking-tight font-heading'>
                 Safety & Compliance First
               </h2>
-              <p className='text-base text-zinc-500 mt-4 leading-relaxed'>
+              <p className='text-base text-zinc-700 mt-4 leading-relaxed'>
                 International shipping regulations exist to protect everyone involved in the logistics chain —
                 from our pickup team to airline crew to the final recipient. Violating these rules can result
                 in severe penalties, legal action, and safety hazards.
@@ -180,7 +180,7 @@ export default function ProhibitedPage() {
                 ].map((item, i) => (
                   <div key={i} className='flex items-start gap-3'>
                     <CheckCircle className='w-4 h-4 text-primary mt-0.5 shrink-0' />
-                    <span className='text-base text-zinc-600'>{item}</span>
+                    <span className='text-base text-zinc-700'>{item}</span>
                   </div>
                 ))}
               </div>
@@ -204,7 +204,7 @@ export default function ProhibitedPage() {
       <section className='py-14 lg:py-20 bg-zinc-50'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn}>
-            <p className='text-base text-zinc-400 uppercase tracking-widest mb-2 font-medium'>Banned Commodities</p>
+            <p className='text-base text-zinc-500 uppercase tracking-widest mb-2 font-medium'>Banned Commodities</p>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight tracking-tight font-heading'>
               Following commodities are banned
             </h2>
@@ -235,7 +235,7 @@ export default function ProhibitedPage() {
                   </div>
                 </div>
                 <div className='p-4'>
-                  <p className='text-base text-zinc-500 leading-relaxed'>{item.description}</p>
+                  <p className='text-base text-zinc-700 leading-relaxed'>{item.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -247,11 +247,11 @@ export default function ProhibitedPage() {
       <section className='py-14 lg:py-20'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn}>
-            <p className='text-base text-zinc-400 uppercase tracking-widest mb-2 font-medium'>Detailed Classification</p>
+            <p className='text-base text-zinc-500 uppercase tracking-widest mb-2 font-medium'>Detailed Classification</p>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight tracking-tight font-heading'>
               Prohibited Item Categories
             </h2>
-            <p className='text-base text-zinc-500 mt-4 max-w-3xl leading-relaxed'>
+            <p className='text-base text-zinc-700 mt-4 max-w-3xl leading-relaxed'>
               Below is a comprehensive classification of items that cannot be shipped through our services.
               This list is not exhaustive and may vary by destination country.
             </p>
@@ -281,7 +281,7 @@ export default function ProhibitedPage() {
                 <div className='p-4'>
                   <ul className='space-y-2'>
                     {cat.items.map((item) => (
-                      <li key={item} className='flex items-start gap-2 text-base text-zinc-600'>
+                      <li key={item} className='flex items-start gap-2 text-base text-zinc-700'>
                         <XCircle className='w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0' />
                         {item}
                       </li>
@@ -299,11 +299,11 @@ export default function ProhibitedPage() {
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <div className='grid lg:grid-cols-2 gap-10 lg:gap-16 items-center'>
             <motion.div {...fadeIn}>
-              <p className='text-base text-zinc-400 uppercase tracking-widest mb-2 font-medium'>Penalties</p>
+              <p className='text-base text-zinc-500 uppercase tracking-widest mb-2 font-medium'>Penalties</p>
               <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight tracking-tight font-heading'>
                 Consequences of Shipping Prohibited Items
               </h2>
-              <p className='text-base text-zinc-500 mt-4 leading-relaxed'>
+              <p className='text-base text-zinc-700 mt-4 leading-relaxed'>
                 Shipping prohibited items can have serious consequences. Understanding these risks helps
                 ensure compliance and avoids penalties.
               </p>
@@ -318,7 +318,7 @@ export default function ProhibitedPage() {
                     <ThreeDIcon icon={item.icon} iconClass='w-9 h-9 bg-red-50 text-red-500' />
                     <div>
                       <p className='text-sm font-semibold text-zinc-900'>{item.label}</p>
-                      <p className='text-sm text-zinc-500 mt-0.5'>{item.desc}</p>
+                      <p className='text-sm text-zinc-700 mt-0.5'>{item.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -355,11 +355,11 @@ export default function ProhibitedPage() {
               </div>
             </motion.div>
             <motion.div {...fadeIn}>
-              <p className='text-base text-zinc-400 uppercase tracking-widest mb-2 font-medium'>Unsure?</p>
+              <p className='text-base text-zinc-500 uppercase tracking-widest mb-2 font-medium'>Unsure?</p>
               <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight tracking-tight font-heading'>
                 Not Sure If Your Item Is Allowed?
               </h2>
-              <p className='text-base text-zinc-500 mt-4 leading-relaxed'>
+              <p className='text-base text-zinc-700 mt-4 leading-relaxed'>
                 Our support team can help you determine if your shipment meets all regulatory requirements
                 before you book. We&apos;re available 24/7 to assist.
               </p>
@@ -367,14 +367,14 @@ export default function ProhibitedPage() {
                 <div className='flex items-center gap-3'>
                   <ThreeDIcon icon={Mail} iconClass='w-9 h-9 bg-primary/10 text-primary' />
                   <div>
-                    <p className='text-sm text-zinc-400 uppercase tracking-wider'>Email</p>
+                    <p className='text-sm text-zinc-500 uppercase tracking-wider'>Email</p>
                     <p className='text-base font-medium text-zinc-900'>support@gajantraders.com</p>
                   </div>
                 </div>
                 <div className='flex items-center gap-3'>
                   <ThreeDIcon icon={Phone} iconClass='w-9 h-9 shrink-0 [&>div]:bg-primary/10 [&>div]:text-primary' />
                   <div>
-                    <p className='text-sm text-zinc-400 uppercase tracking-wider'>Phone</p>
+                    <p className='text-sm text-zinc-500 uppercase tracking-wider'>Phone</p>
                     <p className='text-base font-medium text-zinc-900'>+91 22 2344 5678</p>
                   </div>
                 </div>

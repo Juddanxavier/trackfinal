@@ -96,7 +96,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className='bg-foreground'>
+      <main className='bg-[#1a1a1a]'>
         <motion.section
           style={{ opacity: heroOpacity, scale: heroScale }}
           className='relative min-h-screen overflow-hidden'>
@@ -107,14 +107,17 @@ export default function Home() {
               animate={{ scale: 1 }}
               transition={{ duration: 1.5 }}>
               <Image
-                src='/images/herobg.jpg'
-                alt='Cargo plane'
+                src='/images/hero.png'
+                alt='Logistics cargo port'
                 fill
                 className='object-cover'
                 priority
               />
             </motion.div>
-            <div className='absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/98 via-[#0a0a0a]/80 to-[#0a0a0a]/40' />
+            <div className='absolute inset-0 bg-gradient-to-r from-[#1a1a1a] via-[#1a1a1a]/80 to-transparent' />
+            <div className='absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/60 via-transparent to-transparent' />
+            <div className='absolute bottom-0 left-0 right-0 h-32'
+                 style={{ background: 'linear-gradient(to top, rgba(20, 20, 20, 0.40) 0%, transparent 100%)' }} />
           </div>
 
           {/* Animated route lines */}
@@ -135,6 +138,12 @@ export default function Home() {
             </motion.svg>
           </div>
 
+          {/* Radial glow behind content */}
+          <div className='absolute inset-0 z-[1] pointer-events-none'
+               style={{
+                 background: 'radial-gradient(ellipse 80% 80% at 30% 40%, rgba(40, 40, 40, 0.80) 0%, transparent 80%)',
+               }} />
+
           <div className='relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16'>
             <div className='grid lg:grid-cols-12 gap-8 xl:gap-12 items-center min-h-[calc(100vh-6rem)]'>
               {/* Left Content */}
@@ -143,13 +152,14 @@ export default function Home() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
-                  className='inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.06]'>
+                  className='inline-flex items-center gap-3 px-4 py-2 rounded-full border border-white/[0.08]'
+                  style={{ background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)' }}>
                   <span className='relative flex h-2 w-2'>
                     <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75' />
                     <span className='relative inline-flex rounded-full h-2 w-2 bg-primary' />
                   </span>
-                  <span className='text-xs text-white/60 font-medium tracking-wide'>
-                    Trusted by 50,000+ customers worldwide
+                  <span className='text-sm text-white/60 font-medium tracking-wide'>
+                    Trusted by 5000+ customers worldwide
                   </span>
                 </motion.div>
 
@@ -158,9 +168,10 @@ export default function Home() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.1 }}
-                    className='text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-semibold text-white leading-[0.9] tracking-tight font-heading'>
+                    className='font-heading text-white leading-[1] -tracking-[1.76px] text-balance max-w-6xl mx-auto'
+                    style={{ fontSize: 'clamp(2.5rem, 8vw, 3.5rem)' }}>
                     Send Your Parcel{' '}
-                    <span className='inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-blue-400 to-primary/60'>
+                    <span className='text-primary'>
                       Anywhere Fast
                     </span>
                   </motion.h1>
@@ -169,9 +180,9 @@ export default function Home() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
-                    className='text-base md:text-lg text-white/40 max-w-lg leading-relaxed'>
-                    Premium international courier services. Fast, secure delivery
-                    to 200+ countries with real-time tracking and door-step pickup.
+                    className='text-base text-white/40 max-w-prose leading-relaxed'>
+                    Ship parcels from India to 200+ countries. Door-to-door
+                    pickup, real-time tracking, delivery you can count on.
                   </motion.p>
                 </div>
 
@@ -182,11 +193,12 @@ export default function Home() {
                   className='flex flex-wrap gap-4'>
                   <Link
                     href='/register'
-                    className='group inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary hover:bg-[#172554] text-sm font-bold text-white rounded-xl transition-all duration-300 font-heading uppercase tracking-wider shadow-lg shadow-primary/25'>
+                    className='group inline-flex items-center gap-2.5 px-7 py-3.5 text-sm font-semibold text-white rounded-xl transition-all duration-300 shadow-lg shadow-primary/25'
+                    style={{ background: 'linear-gradient(135deg, #e63329 0%, #cc2b22 100%)' }}>
                     Get Started
                     <ArrowRight className='w-4 h-4 transition-transform group-hover:translate-x-1' />
                   </Link>
-                  <button className='inline-flex items-center gap-2.5 px-7 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-white/80 hover:text-white rounded-xl border border-white/[0.08] hover:border-white/[0.15] transition-all duration-300 font-heading uppercase tracking-wider cursor-pointer'>
+                  <button className='inline-flex items-center gap-2.5 px-7 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-medium text-white/80 hover:text-white rounded-xl border border-white/[0.08] hover:border-white/[0.15] transition-all duration-300 cursor-pointer'>
                     <Search className='w-3.5 h-3.5' />
                     Track Shipment
                   </button>
@@ -199,15 +211,15 @@ export default function Home() {
                   className='flex flex-wrap items-center gap-5 pt-6 border-t border-white/[0.06]'>
                   <div className='flex items-center gap-2'>
                     <ShieldIcon className='w-4 h-4 text-primary' />
-                    <span className='text-xs text-white/40'>Secure & Insured</span>
+                    <span className='text-sm text-white/40'>Secure & Insured</span>
                   </div>
                   <div className='flex items-center gap-2'>
                     <Zap className='w-4 h-4 text-amber-400' />
-                    <span className='text-xs text-white/40'>Express Available</span>
+                    <span className='text-sm text-white/40'>Express Available</span>
                   </div>
                   <div className='flex items-center gap-2'>
                     <Star className='w-4 h-4 text-primary' />
-                    <span className='text-xs text-white/40'>4.9/5 Rating</span>
+                    <span className='text-sm text-white/40'>4.9/5 Rating</span>
                   </div>
                 </motion.div>
 
@@ -283,7 +295,7 @@ export default function Home() {
                     {activeTab === 'track' ? (
                       <div className='space-y-5'>
                         <div>
-                          <label className='block text-xs font-medium text-white/50 mb-2 tracking-wide uppercase'>
+                          <label className='block text-sm font-medium text-white/50 mb-2 tracking-wide uppercase'>
                             Tracking Number
                           </label>
                           <div className='relative group'>
@@ -317,7 +329,7 @@ export default function Home() {
                       <div className='space-y-4'>
                         <div className='grid grid-cols-2 gap-3'>
                           <div>
-                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                            <label className='block text-sm font-medium text-white/50 mb-1.5'>
                               From
                             </label>
                             <div className='relative'>
@@ -332,12 +344,12 @@ export default function Home() {
                                   })
                                 }
                                 placeholder='City'
-                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs'
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-sm'
                               />
                             </div>
                           </div>
                           <div>
-                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                            <label className='block text-sm font-medium text-white/50 mb-1.5'>
                               To
                             </label>
                             <div className='relative'>
@@ -349,14 +361,14 @@ export default function Home() {
                                   setFormData({ ...formData, to: e.target.value })
                                 }
                                 placeholder='City'
-                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs'
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-sm'
                               />
                             </div>
                           </div>
                         </div>
                         <div className='grid grid-cols-2 gap-3'>
                           <div>
-                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                            <label className='block text-sm font-medium text-white/50 mb-1.5'>
                               Weight (kg)
                             </label>
                             <div className='relative'>
@@ -371,12 +383,12 @@ export default function Home() {
                                   })
                                 }
                                 placeholder='0.0'
-                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-xs'
+                                className='w-full pl-10 pr-3 py-3 bg-white/[0.04] border border-white/[0.06] rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all text-sm'
                               />
                             </div>
                           </div>
                           <div>
-                            <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                            <label className='block text-sm font-medium text-white/50 mb-1.5'>
                               Date
                             </label>
                             <div className='relative'>
@@ -396,7 +408,7 @@ export default function Home() {
                           </div>
                         </div>
                         <div>
-                          <label className='block text-xs font-medium text-white/50 mb-1.5'>
+                          <label className='block text-sm font-medium text-white/50 mb-1.5'>
                             Service Type
                           </label>
                           <select
@@ -434,7 +446,7 @@ export default function Home() {
                             className='flex-1 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-medium text-white/50 rounded-xl border border-white/[0.06] transition-all duration-300 cursor-pointer'>
                             Clear
                           </button>
-                          <button className='flex-[2] py-3.5 bg-primary hover:bg-[#172554] text-sm font-bold text-white rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-primary/20'>
+                          <button className='flex-[2] py-3.5 bg-primary hover:bg-[#172554] text-sm font-semibold text-white rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-primary/20'>
                             Get Quote
                             <ArrowRight className='w-4 h-4' />
                           </button>
@@ -447,44 +459,188 @@ export default function Home() {
             </div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.8 }}
-            className='absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2'>
-            <motion.div
-              animate={{ y: [0, 6, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className='w-px h-10 bg-gradient-to-b from-transparent via-white/20 to-transparent'
-            />
-            <motion.span
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className='text-[10px] text-white/20 uppercase tracking-[0.2em]'>
-              Scroll
-            </motion.span>
-          </motion.div>
         </motion.section>
 
-        <section className='py-14 px-4 bg-foreground'>
+        <section className='py-16 md:py-23 px-4 bg-[#1a1a1a] overflow-hidden'>
+          <div className='max-w-7xl mx-auto'>
+            {/* ---- Cinematic Center Header with Inline Image ---- */}
+            <div className='text-center mb-24 md:mb-32'>
+              <motion.h2
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                className='font-heading text-white leading-[1.05] tracking-tight mx-auto max-w-6xl'
+                style={{ fontSize: 'clamp(2.5rem, 5vw, 4.5rem)' }}
+              >
+                Global freight,{' '}
+                <span
+                  className='inline-block w-14 h-14 md:w-20 md:h-14 rounded-full align-middle bg-cover bg-center mx-3 -mt-1 border-2 border-white/10 shadow-xl contrast-125'
+                  style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=200&q=80&fit=crop)' }}
+                />{' '}
+                delivered with precision
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                className='text-white/40 text-base max-w-prose mx-auto mt-6 leading-relaxed'
+              >
+                Express, air, and ocean freight solutions spanning 200+ countries.
+                Every shipment tracked, every parcel protected.
+              </motion.p>
+            </div>
+
+            {/* ---- Gapless Bento Grid ---- */}
+            <div className='grid grid-cols-2 md:grid-cols-4 auto-rows-[200px] md:auto-rows-[240px] gap-4 md:gap-5 grid-flow-dense'>
+              {/* Card 1: Express Freight — hero card */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className='relative group rounded-2xl overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-all duration-500 col-span-2 row-span-2'
+              >
+                <div className='absolute inset-0'>
+                  <Image
+                    src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&q=80'
+                    alt='Express Freight'
+                    fill
+                    className='object-cover group-hover:scale-105 transition-transform duration-700 ease-out grayscale-[30%] contrast-125'
+                  />
+                  <div className='absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#1a1a1a]/40 to-transparent' />
+                </div>
+                <div className='absolute bottom-0 left-0 right-0 p-6 md:p-8'>
+                  <div className='flex items-center gap-3 mb-3'>
+                    <div className='w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center'>
+                      <PlaneIcon className='w-4 h-4 text-primary' />
+                    </div>
+                    <span className='text-sm font-semibold text-primary/80 uppercase tracking-[0.05em] leading-relaxed'>
+                      Priority
+                    </span>
+                  </div>
+                  <h3 className='text-xl md:text-2xl font-bold text-white mb-1'>
+                    Express Freight
+                  </h3>
+                  <p className='text-sm text-white/60 max-w-md leading-relaxed'>
+                    Fast and reliable delivery for time-sensitive shipments worldwide
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Card 2: Air Freight — wide */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className='relative group rounded-2xl overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-all duration-500 col-span-2 row-span-1'
+              >
+                <div className='absolute inset-0'>
+                  <Image
+                    src='https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80'
+                    alt='Air Freight'
+                    fill
+                    className='object-cover group-hover:scale-105 transition-transform duration-700 ease-out contrast-125'
+                  />
+                  <div className='absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/90 via-[#1a1a1a]/30 to-transparent' />
+                </div>
+                <div className='absolute bottom-0 left-0 right-0 p-5 md:p-6'>
+                  <h3 className='text-base md:text-lg font-bold text-white mb-0.5'>
+                    Air Freight
+                  </h3>
+                  <p className='text-xs md:text-sm text-white/60'>
+                    Global air cargo for international shipping
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Card 3: Ocean Cargo — compact */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className='relative group rounded-2xl overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-all duration-500 col-span-1 row-span-1'
+              >
+                <div className='absolute inset-0'>
+                  <Image
+                    src='https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=400&q=80'
+                    alt='Ocean Cargo'
+                    fill
+                    className='object-cover group-hover:scale-105 transition-transform duration-700 ease-out grayscale-[20%]'
+                  />
+                  <div className='absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#1a1a1a]/30 to-transparent' />
+                </div>
+                <div className='absolute bottom-0 left-0 right-0 p-4'>
+                  <h3 className='text-sm font-bold text-white mb-0.5'>
+                    Ocean Cargo
+                  </h3>
+                  <p className='text-xs text-white/60'>
+                    Volume shipments worldwide
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Card 4: Secure Packaging — solid bg with icon */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className='relative group rounded-2xl overflow-hidden border border-white/[0.06] hover:border-primary/40 hover:bg-primary/[0.03] transition-all duration-500 col-span-1 row-span-1 bg-gradient-to-br from-[#222] to-[#1a1a1a]'
+              >
+                <div className='h-full w-full flex flex-col justify-center p-4 md:p-5'>
+                  <div className='w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors duration-500'>
+                    <ShieldCheck className='w-5 h-5 text-primary' />
+                  </div>
+                  <h3 className='text-sm font-bold text-white mb-0.5'>
+                    Secure Packaging
+                  </h3>
+                  <p className='text-xs md:text-sm text-white/60'>
+                    Protected parcels, guaranteed
+                  </p>
+                </div>
+              </motion.div>
+
+            </div>
+          </div>
+        </section>
+
+        <section className='py-14 px-4 bg-[#1a1a1a]'>
           <div className='max-w-7xl mx-auto'>
             <StaggeredSlideIn
               direction='up'
               delayBetween={0.08}
-              className='grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8'>
+              className='grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8'
+            >
               {stats.map((stat, i) => (
                 <motion.div
                   key={i}
                   whileHover={{ scale: 1.02 }}
-                  className='flex items-center gap-3 p-4 md:p-5 rounded-xl bg-white/[0.02] border border-white/5'>
-                  <div className='w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0'>
-                    <stat.icon className='w-5 h-5 text-primary' />
+                  className={`flex items-center gap-3 p-4 md:p-5 rounded-xl ${
+                    i === 0
+                      ? 'bg-primary border border-primary/20'
+                      : 'bg-white/[0.02] border border-white/5'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                    i === 0
+                      ? 'bg-white/15'
+                      : 'bg-primary/10'
+                  }`}>
+                    <stat.icon className={`w-5 h-5 ${i === 0 ? 'text-white' : 'text-primary'}`} />
                   </div>
                   <div>
-                    <div className='text-lg md:text-xl font-bold text-white'>
+                    <div className={`text-lg md:text-xl font-bold ${
+                      i === 0 ? 'text-white' : 'text-white'
+                    }`}>
                       {stat.value}
                     </div>
-                    <div className='text-[10px] md:text-xs text-white/40'>
+                    <div className={`text-xs md:text-sm ${
+                      i === 0 ? 'text-white/60' : 'text-white/40'
+                    }`}>
                       {stat.label}
                     </div>
                   </div>
@@ -494,254 +650,320 @@ export default function Home() {
           </div>
         </section>
 
-        <section className='py-14 px-4 bg-white'>
-          <div className='max-w-7xl mx-auto'>
-            <SlideIn direction='up'>
-              <div className='text-center mb-16'>
-                <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
-                  Simple Process
-                </span>
-                <h2 className='text-lg md:text-xl font-semibold text-zinc-900 mt-3 font-heading'>
-                  Send a Parcel Abroad in 4 Steps
-                </h2>
-              </div>
-            </SlideIn>
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-8 relative'>
-              <div className='hidden md:block absolute top-10 left-[8%] right-[8%] h-0.5'>
-                <div className='h-full bg-gradient-to-r from-zinc-200 via-primary to-zinc-200 rounded-full' />
-              </div>
-              {[
-                {
-                  num: '01',
-                  title: 'Get Quote',
-                  desc: 'Enter your shipment details and get instant pricing. Transparent rates with no hidden fees.',
-                  icon: PackageIcon,
-                },
-                {
-                  num: '02',
-                  title: 'Pack & Process',
-                  desc: 'Our experts will handle safe packing and documentation. We ensure your parcel is securely packaged.',
-                  icon: ShieldIcon,
-                },
-                {
-                  num: '03',
-                  title: 'Ship Worldwide',
-                  desc: 'Fast global courier delivery network. Your parcel travels via our reliable air and sea routes.',
-                  icon: PlaneIcon,
-                },
-                {
-                  num: '04',
-                  title: 'Deliver & Track',
-                  desc: 'Real-time live tracking until it reaches the doorstep. Get updates at every milestone.',
-                  icon: TruckIcon,
-                },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 40 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.15, duration: 0.5 }}
-                  className='flex flex-col items-center text-center relative'>
-                  <div className='w-20 h-20 rounded-full bg-primary flex items-center justify-center z-10 shadow-lg shadow-primary/20'>
-                    <item.icon className='w-10 h-10 text-white' />
-                  </div>
-                  <span className='absolute top-0 w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center text-xs font-bold text-white mt-2'>
-                    {item.num}
-                  </span>
-                  <h3 className='text-sm font-semibold text-zinc-900 mt-6 mb-2'>
-                    {item.title}
-                  </h3>
-                  <p className='text-sm text-zinc-500 leading-relaxed max-w-[260px]'>
-                    {item.desc}
-                  </p>
-                </motion.div>
-              ))}
+        <section className='bg-[#f5f5f5] py-16 overflow-hidden'>
+          <div className='max-w-7xl mx-auto px-6'>
+
+            {/* TITLE */}
+            <div className='text-center mb-12'>
+              <h2 className='text-zinc-900 font-heading font-semibold leading-[1.05] -tracking-[0.48px] text-balance'
+                  style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)' }}>
+                How Shipments Move
+              </h2>
             </div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-              className='flex justify-center mt-16'>
-              <button className='group px-8 py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 cursor-pointer flex items-center gap-2'>
-                Book Your First Shipment
-                <ChevronRight className='w-5 h-5 transition-transform group-hover:translate-x-1' />
-              </button>
-            </motion.div>
-            <p className='text-xs text-zinc-400 text-center mt-6 max-w-md mx-auto'>
-              * Free pickup available in select cities. Delivery times vary by
-              destination. T&C apply.
-            </p>
+
+              {/* CONTENT */}
+            <div className='relative flex flex-col xl:flex-row items-center justify-between gap-8 xl:gap-12'>
+
+              {/* LEFT — Steps 1 & 2 */}
+              <div className='w-full xl:w-[32%] relative flex flex-col justify-between gap-12 xl:gap-0 order-1 xl:order-none'>
+                {/* ITEM 1 */}
+                <div className='text-center xl:text-left relative'>
+                  <div className='w-[48px] h-[56px] bg-white rounded-b-[24px] border-t-[3px] border-primary flex items-center justify-center text-primary text-lg font-bold mx-auto xl:mx-0 mb-4'>
+                    01
+                  </div>
+                  <h3 className='text-zinc-900 text-xl font-bold mb-2'>
+                    Receive Packages
+                  </h3>
+                    <p className='text-gray-500 text-base leading-normal max-w-[280px] mx-auto xl:mx-0'>
+                      We receive and organize your parcels with care.
+                    </p>
+                  <div className='relative xl:absolute flex justify-center xl:block left-1/2 xl:left-0 -translate-x-1/2 xl:translate-x-0 mt-6 xl:mt-4'>
+                    <div className='flex items-center'>
+                      <div className='w-[100px] h-[100px] border-2 border-primary/50 rounded-[28px] rotate-45 overflow-hidden bg-white shrink-0'>
+                        <Image
+                          src='/images/step1.png'
+                          alt='Step 1'
+                          width={100}
+                          height={100}
+                          className='-rotate-45 w-full h-full object-contain p-3'
+                        />
+                      </div>
+                      <div className='hidden xl:block w-[200px] border-t-2 border-dashed border-primary/30' />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ITEM 2 */}
+                <div className='text-center xl:text-left relative'>
+                  <div className='relative xl:absolute flex justify-center xl:block xl:right-0 left-1/2 xl:left-auto -translate-x-1/2 mt-4 xl:translate-x-0 bg-white mx-auto xl:mx-0'>
+                    <div className='w-[100px] h-[100px] border-2 border-primary/50 rounded-[28px] rotate-45 flex items-center justify-center overflow-hidden bg-white shrink-0'>
+                      <Image
+                        src='/images/step2.png'
+                        alt='Step 2'
+                        width={100}
+                        height={100}
+                        className='-rotate-45 w-full h-full object-contain p-2'
+                      />
+                    </div>
+                  </div>
+                  <div className='xl:pt-36 text-center xl:text-right'>
+                    <h3 className='text-zinc-900 text-xl font-bold mb-2 ml-auto max-w-[280px]'>
+                      Transport Packages
+                    </h3>
+                    <p className='text-gray-500 text-base leading-normal max-w-[280px] ml-auto'>
+                      We transport your packages quickly and securely.
+                    </p>
+                    <div className='w-[48px] h-[56px] bg-white rounded-b-[24px] border-t-[3px] border-primary flex items-center justify-center text-primary text-lg font-bold ml-auto mt-4'>
+                      02
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CENTER — order second on mobile */}
+              <div className='relative w-full xl:w-[36%] flex justify-center order-2 xl:order-none'>
+                <div className='absolute w-[280px] h-[280px] sm:w-[380px] sm:h-[380px] rounded-full' style={{ backgroundColor: '#f0ece9' }} />
+                <Image
+                  src='/images/gtman.png'
+                  alt='Delivery Man'
+                  width={400}
+                  height={400}
+                  className='relative z-10 max-w-[280px] sm:max-w-[380px] w-full object-contain'
+                  style={{ mixBlendMode: 'multiply' }}
+                />
+              </div>
+
+              {/* RIGHT — Steps 3 & 4 */}
+              <div className='w-full xl:w-[32%] relative flex flex-col justify-between gap-12 xl:gap-0 order-3 xl:order-none'>
+                {/* ITEM 3 */}
+                <div className='text-center xl:text-left relative'>
+                  <div className='w-[48px] h-[56px] bg-white rounded-b-[24px] border-t-[3px] border-primary flex items-center justify-center text-primary text-lg font-bold mx-auto xl:mx-0 mb-4'>
+                    03
+                  </div>
+                  <h3 className='text-zinc-900 text-xl font-bold mb-2 max-w-[280px]'>
+                    Deliver Packages
+                  </h3>
+                    <p className='text-gray-500 text-base leading-normal max-w-[280px]'>
+                      We deliver your packages right to your doorstep.
+                  </p>
+                  <div className='relative xl:absolute flex justify-center xl:block right-0 -translate-x-1/2 xl:translate-x-0 mt-6 xl:mt-4'>
+                    <div className='flex items-center'>
+                      <div className='hidden xl:block w-[200px] border-t-2 border-dashed border-primary/30' />
+                      <div className='w-[100px] h-[100px] border-2 border-primary/50 rounded-[28px] rotate-45 flex items-center justify-center overflow-hidden bg-white shrink-0'>
+                        <Image
+                          src='/images/step3.png'
+                          alt='Step 3'
+                          width={100}
+                          height={100}
+                          className='-rotate-45 w-full h-full object-contain p-2'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ITEM 4 */}
+                <div className='text-center xl:text-right relative'>
+                  <div className='relative xl:absolute flex justify-center xl:block w-full xl:w-auto bg-white mt-6 xl:mt-4'>
+                    <div className='w-[100px] h-[100px] border-2 border-primary/50 rounded-[28px] rotate-45 flex items-center justify-center overflow-hidden bg-white mx-auto xl:mx-0'>
+                      <Image
+                        src='/images/step4.png'
+                        alt='Step 4'
+                        width={100}
+                        height={100}
+                        className='-rotate-45 w-full h-full object-contain p-2'
+                      />
+                    </div>
+                  </div>
+                  <div className='xl:pt-36 text-center xl:text-right'>
+                    <h3 className='text-zinc-900 text-xl font-bold mb-2'>
+                      Parcel Information
+                    </h3>
+                    <p className='text-gray-500 text-base leading-normal max-w-[280px] ml-auto'>
+                      We provide real-time tracking for your shipments.
+                    </p>
+                    <div className='w-[48px] h-[56px] bg-white rounded-b-[24px] border-t-[3px] border-primary flex items-center justify-center text-primary text-lg font-bold ml-auto mt-4'>
+                      04
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </section>
 
         <section
           id='coverage'
-          className='py-2 px-4 bg-zinc-100 overflow-hidden'>
+          className='py-32 md:py-48 px-4 bg-zinc-100 overflow-hidden'>
           <div className='max-w-7xl mx-auto'>
-            <div className='grid grid-cols-1 lg:grid-cols-2 gap-12 items-center'>
-              <SlideIn direction='left' className='py-14'>
-                <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
-                  Global Network
-                </span>
-                <h2 className='text-lg md:text-xl font-semibold text-zinc-900 mt-3 mb-4 font-heading'>
+            <div className='grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-center'>
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}>
+                <h2 className='font-heading font-semibold text-zinc-900 leading-[1.05] -tracking-[0.48px] text-balance'
+                    style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)' }}>
                   Delivering Across the Globe
                 </h2>
-                <p className='text-base text-zinc-500 mb-8 leading-relaxed'>
+                <p className='text-base text-zinc-700 mt-6 leading-relaxed max-w-prose'>
                   With partnerships in 200+ countries and territories, we ensure
                   your packages reach even the most remote corners of the world.
                   Our extensive network of airlines, shipping partners, and
-                  local agents guarantees seamless delivery.
+                  local agents guarantee on-time delivery.
                 </p>
-                <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+
+                <div className='grid grid-cols-2 gap-x-8 gap-y-6 mt-10'>
                   {[
-                    { value: '200+', label: 'Countries', icon: GlobeIcon },
-                    { value: '500+', label: 'Cities Served', icon: MapPin },
-                    { value: '50+', label: 'Air Routes', icon: PlaneIcon },
-                    { value: '10K+', label: 'Partners', icon: Users },
+                    { value: '200+', label: 'Countries', icon: GlobeIcon, color: 'bg-primary/10 text-primary' },
+                    { value: '500+', label: 'Cities Served', icon: MapPin, color: 'bg-blue-500/10 text-blue-600' },
+                    { value: '50+', label: 'Air Routes', icon: PlaneIcon, color: 'bg-amber-500/10 text-amber-600' },
+                    { value: '10K+', label: 'Partners', icon: Users, color: 'bg-emerald-500/10 text-emerald-600' },
                   ].map((stat, i) => (
                     <motion.div
                       key={i}
-                      whileHover={{ scale: 1.02 }}
-                      className='p-4 rounded-xl bg-white border border-zinc-200 text-center hover:border-primary/30 hover:shadow-lg transition-all duration-300'>
-                      <stat.icon className='w-5 h-5 text-primary mx-auto mb-2' />
-                      <div className='text-lg font-semibold text-zinc-900'>
-                        {stat.value}
+                      initial={{ opacity: 0, y: 15 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.5, delay: 0.15 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                      className='flex items-start gap-4'
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${stat.color}`}>
+                        <stat.icon className='w-4 h-4' />
                       </div>
-                      <div className='text-sm text-zinc-500 mt-1'>
-                        {stat.label}
+                      <div>
+                        <div className='text-xl font-semibold text-zinc-900 leading-none'>
+                          {stat.value}
+                        </div>
+                        <div className='text-sm text-zinc-400 mt-1'>
+                          {stat.label}
+                        </div>
                       </div>
                     </motion.div>
                   ))}
                 </div>
-              </SlideIn>
-              <SlideIn direction='right' delay={0.2}>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}>
                 <WorldMap />
-              </SlideIn>
+              </motion.div>
             </div>
           </div>
         </section>
 
-        {/* Trust & Services Section - Split Layout */}
-        <section className='py-16 px-4 bg-white overflow-hidden'>
+        {/* Editorial Split — International Courier */}
+        <section className='py-32 md:py-48 px-4 bg-white overflow-hidden'>
           <div className='max-w-7xl mx-auto'>
-            <div className='grid lg:grid-cols-2 gap-12 lg:gap-20 items-center'>
-              {/* Left: Large Image */}
+            <div className='grid lg:grid-cols-12 gap-12 lg:gap-16 items-center'>
+              {/* Left: Large Artistic Image */}
               <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.7 }}
-                className='relative'>
-                {/* Main Image */}
-                <div className='relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl'>
+                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                className='relative lg:col-span-7'
+              >
+                <div className='relative aspect-[4/5] rounded-2xl overflow-hidden border border-zinc-100 shadow-xl'>
                   <Image
-                    src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&q=80'
-                    alt='International courier service'
+                    src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=700&q=80'
+                    alt='International parcels from India'
                     fill
-                    className='object-cover'
+                    className='object-cover grayscale-[40%] contrast-125 group-hover:scale-105 transition-transform duration-700'
                   />
-                  <div className='absolute inset-0 bg-gradient-to-t from-black/30 to-transparent' />
+                  <div className='absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/5' />
+                  {/* Flat stat badges — no glassmorphism */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    className='absolute bottom-6 left-6 flex gap-3'
+                  >
+                    <div className='px-4 py-2.5 rounded-xl bg-white'>
+                      <p className='text-lg font-semibold text-zinc-900 leading-none'>200+</p>
+                      <p className='text-sm text-zinc-400 mt-0.5'>Countries</p>
+                    </div>
+                    <div className='px-4 py-2.5 rounded-xl bg-white'>
+                      <p className='text-lg font-semibold text-zinc-900 leading-none'>13+</p>
+                      <p className='text-sm text-zinc-400 mt-0.5'>Years</p>
+                    </div>
+                  </motion.div>
                 </div>
-
-                {/* Floating Stats Card */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                  className='absolute -bottom-6 -right-6 lg:right-8 bg-white rounded-2xl shadow-xl p-6 border border-zinc-100'>
-                  <div className='flex items-center gap-4'>
-                    <div className='w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center'>
-                      <GlobeIcon className='w-7 h-7 text-primary' />
-                    </div>
-                    <div>
-                      <p className='text-xl font-semibold text-zinc-900'>200+</p>
-                      <p className='text-sm text-zinc-500'>Countries Served</p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Floating Experience Badge */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                  className='absolute -top-4 -left-4 lg:left-8 bg-primary text-white rounded-2xl shadow-xl px-5 py-3'>
-                  <p className='text-xl font-semibold'>13+</p>
-                  <p className='text-xs font-medium opacity-90'>
-                    Years Experience
-                  </p>
-                </motion.div>
               </motion.div>
 
-              {/* Right: Content */}
+              {/* Right: Content with Inline Typography */}
               <motion.div
-                initial={{ opacity: 0, x: 50 }}
+                initial={{ opacity: 0, x: 30 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.7, delay: 0.2 }}
-                className='space-y-8'>
-                {/* Trust Badge */}
-                <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/5 border border-primary/10'>
-                  <div className='flex -space-x-2'>
-                    {[1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        className='w-7 h-7 rounded-full bg-gradient-to-br from-primary/60 to-primary border-2 border-white flex items-center justify-center'>
-                        <Users className='w-3.5 h-3.5 text-white' />
-                      </div>
-                    ))}
-                  </div>
-                  <span className='text-sm font-semibold text-primary'>
-                    Trusted by 1M+ NRI families
-                  </span>
-                </div>
-
-                {/* Heading */}
+                transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className='lg:col-span-5 space-y-8'
+              >
+                {/* Heading with inline image — no redundant eyebrow */}
                 <div>
-                  <h2 className='text-xl md:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-tight font-heading mb-4'>
-                    International Courier
-                    <span className='text-primary'> Services from India</span>
+                  <h2
+                    className='font-heading text-zinc-900 leading-[1.05] tracking-tight max-w-3xl'
+                    style={{ fontSize: 'clamp(2.5rem, 4.5vw, 4rem)' }}
+                  >
+                    International{' '}
+                    <span
+                      className='inline-block w-14 h-14 md:w-20 md:h-14 rounded-full align-middle bg-cover bg-center mx-3 -mt-1 border-2 border-zinc-200 shadow-md contrast-125'
+                      style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=200&q=80&fit=crop)' }}
+                    />{' '}
+                    Courier from India
                   </h2>
-                  <p className='text-base text-zinc-600 leading-relaxed'>
-                    Fast, Secure & Worldwide Delivery. Gajan Traders is
-                    India&apos;s trusted international courier service, shipping
-                    parcels to 200+ countries with door-to-door pickup,
-                    real-time tracking, and on-time delivery.
+                  <p className='text-base text-zinc-700 leading-relaxed mt-6 max-w-prose'>
+                    Gajan Traders ships parcels from India to 200+ countries.
+                    Door-to-door pickup, real-time tracking, delivery you can
+                    count on.
                   </p>
                 </div>
 
-                {/* Feature Grid */}
-                <div className='grid grid-cols-2 gap-4'>
-                  {[
-                    { icon: ShieldCheck, text: 'Secure Packaging' },
-                    { icon: ClockIcon, text: 'On-Time Delivery' },
-                    { icon: GlobeIcon, text: '200+ Countries' },
-                    { icon: Award, text: '13+ Years Experience' },
-                  ].map((feature, i) => (
-                    <div
-                      key={i}
-                      className='flex items-center gap-3 p-4 bg-zinc-50 rounded-xl border border-zinc-100'>
-                      <div className='w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0'>
-                        <feature.icon className='w-5 h-5 text-primary' />
-                      </div>
-                      <span className='text-sm font-semibold text-zinc-700'>
-                        {feature.text}
-                      </span>
+                {/* Differentiated highlights — not identical cards */}
+                <div className='space-y-5 pt-2'>
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className='flex items-start gap-5'
+                  >
+                    <div className='w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0'>
+                      <MapPin className='w-5 h-5 text-primary' />
                     </div>
-                  ))}
+                    <div>
+                      <p className='text-base font-semibold text-zinc-900'>Door-to-door pickup</p>
+                      <p className='text-sm text-zinc-400 mt-1'>We collect from your doorstep anywhere in India, packed and ready for customs.</p>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                    className='flex items-start gap-5'
+                  >
+                    <div className='w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0'>
+                      <span className='text-lg font-semibold text-zinc-700'>13+</span>
+                    </div>
+                    <div>
+                      <p className='text-base font-semibold text-zinc-900'>Years serving the diaspora</p>
+                      <p className='text-sm text-zinc-400 mt-1'>Since 2012, trusted by NRI families and export businesses across every continent.</p>
+                    </div>
+                  </motion.div>
                 </div>
 
                 {/* CTA Buttons */}
-                <div className='flex flex-wrap gap-4 pt-2'>
-                  <button className='group px-8 py-4 bg-primary hover:bg-primary/90 text-sm font-bold text-white rounded-xl transition-all duration-300 cursor-pointer flex items-center gap-2 shadow-lg shadow-primary/20'>
+                <div className='flex flex-wrap gap-4 pt-4'>
+                  <button className='group inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary/90 text-sm font-semibold text-white rounded-xl transition-all duration-300 cursor-pointer'>
                     Get a Free Quote
-                    <ArrowRight className='w-4 h-4 transition-transform group-hover:translate-x-1' />
+                    <ArrowRight className='w-4 h-4 transition-transform duration-300 group-hover:translate-x-1' />
                   </button>
-                  <button className='px-8 py-4 bg-white hover:bg-zinc-50 text-sm font-semibold text-zinc-900 rounded-xl border-2 border-zinc-200 hover:border-zinc-300 transition-all duration-300 cursor-pointer'>
+                  <button className='inline-flex items-center gap-2 px-8 py-4 bg-white hover:bg-zinc-50 text-sm font-semibold text-zinc-900 rounded-xl border border-zinc-200 hover:border-zinc-300 transition-all duration-300 cursor-pointer'>
                     Contact Sales
                   </button>
                 </div>
@@ -753,23 +975,14 @@ export default function Home() {
         <section
           id='testimonials'
           className='py-16 px-4 overflow-hidden'
-          style={{ backgroundColor: '#131818' }}>
+          style={{ backgroundColor: '#1a1a1a' }}>
           <div className='max-w-7xl mx-auto'>
             <div className='text-center mb-16'>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6'>
-                <StarIcon className='w-4 h-4 text-primary fill-primary' />
-                <span className='text-sm font-medium text-primary'>
-                  Testimonials
-                </span>
-              </motion.div>
-              <h2 className='text-3xl md:text-4xl font-semibold text-white mb-4 font-heading'>
+              <h2 className='font-heading font-semibold text-white leading-[1.05] -tracking-[0.48px] text-balance mb-4'
+                  style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)' }}>
                 Loved by <span className='text-primary'>2000+</span> Customers
               </h2>
-              <p className='text-lg text-white/50 max-w-xl mx-auto'>
+              <p className='text-base text-white/50 max-w-prose mx-auto'>
                 Real feedback from businesses worldwide who trust us with their
                 shipments.
               </p>
@@ -857,7 +1070,7 @@ export default function Home() {
                       <span className='absolute -top-4 -left-2 text-5xl text-primary/15 font-serif'>
                         "
                       </span>
-                      <p className='text-sm text-white/70 leading-relaxed pl-5'>
+                      <p className='text-base text-white/70 leading-relaxed pl-5'>
                         {item.quote}
                       </p>
                     </div>
@@ -887,32 +1100,14 @@ export default function Home() {
               ))}
             </div>
 
-            <div className='mt-16 pt-8 border-t border-white/5'>
-              <p className='text-center text-sm text-white/30 mb-6'>
-                Powering growth for 2000+ businesses
-              </p>
-              <div className='flex flex-wrap items-center justify-center gap-12 opacity-30'>
-                {['Flipkart', 'Amazon', 'Myntra', 'Shopify', 'FedEx'].map(
-                  (brand, i) => (
-                    <span
-                      key={i}
-                      className='text-xl font-bold text-white tracking-wider'>
-                      {brand.toUpperCase()}
-                    </span>
-                  ),
-                )}
-              </div>
-            </div>
           </div>
         </section>
 
-        <section className='py-14 px-4' style={{ backgroundColor: '#131818' }}>
+        <section className='py-14 px-4' style={{ backgroundColor: '#1a1a1a' }}>
           <div className='max-w-4xl mx-auto'>
             <div className='text-center mb-12'>
-              <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
-                FAQ
-              </span>
-              <h2 className='text-lg md:text-xl font-semibold text-white mt-3 font-heading'>
+              <h2 className='font-heading font-semibold text-white leading-[1.05] -tracking-[0.48px] text-balance'
+                  style={{ fontSize: 'clamp(1.25rem, 3vw, 1.625rem)' }}>
                 Frequently Asked Questions
               </h2>
             </div>
@@ -953,7 +1148,7 @@ export default function Home() {
                     <ChevronRight className='w-4 h-4 text-white/40 transition-transform duration-300 group-open:rotate-90 shrink-0' />
                   </summary>
                   <div className='px-5 pb-5'>
-                    <p className='text-sm text-white/50 leading-relaxed'>
+                    <p className='text-base text-white/50 leading-relaxed max-w-prose'>
                       {item.a}
                     </p>
                   </div>
@@ -963,16 +1158,14 @@ export default function Home() {
           </div>
         </section>
 
-        <section className='py-14 px-4' style={{ backgroundColor: '#121212' }}>
+        <section className='py-14 px-4' style={{ backgroundColor: '#1a1a1a' }}>
           <div className='max-w-4xl mx-auto text-center'>
             <SlideIn direction='up'>
-              <span className='text-primary text-xs font-semibold tracking-wider uppercase'>
-                Get In Touch
-              </span>
-              <h2 className='text-lg md:text-xl font-semibold text-white mt-3 mb-4 font-heading'>
+              <h2 className='font-heading font-semibold text-white leading-[1.05] -tracking-[0.48px] text-balance mb-4'
+                  style={{ fontSize: 'clamp(1.25rem, 3vw, 1.625rem)' }}>
                 Ready to Ship?
               </h2>
-              <p className='text-base text-white/50 mb-8 max-w-md mx-auto'>
+              <p className='text-base text-white/50 mb-8 max-w-prose mx-auto'>
                 Contact us today for a free consultation and quote. Our team is
                 available 24/7 to assist you.
               </p>
@@ -997,25 +1190,7 @@ export default function Home() {
           </div>
         </section>
 
-        <footer
-          className='py-8 px-4 border-t border-white/10'
-          style={{ backgroundColor: '#121212' }}>
-          <div className='max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4'>
-            <div className='flex items-center gap-2'>
-              <PlaneIcon className='w-5 h-5 text-primary' />
-              <span className='text-sm font-bold text-white'>
-                Gajan Traders
-              </span>
-            </div>
-            <p className='text-xs text-white/40'>
-              &copy; 2026 Gajan Traders. All rights reserved.
-            </p>
-            <div className='flex items-center gap-4'>
-              <Mail className='w-4 h-4 text-white/30 cursor-pointer hover:text-white/60 transition-colors' />
-              <Phone className='w-4 h-4 text-white/30 cursor-pointer hover:text-white/60 transition-colors' />
-            </div>
-          </div>
-        </footer>
+        
       </main>
     </>
   );

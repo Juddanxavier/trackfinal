@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-02T00:00:00.000Z",
+  "title": "Design System: Gajan Traders",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Signal Red", "canonical": "oklch(55% 0.22 25)", "tonalRamp": ["#5c110d", "#8a1a14", "#b3221a", "#e63329", "#f06050", "#f58a7a", "#fab4a8", "#fdd9d2"] },
+      "secondary": { "role": "secondary", "displayName": "Mint", "canonical": "oklch(85% 0.18 130)", "tonalRamp": ["#2a4d1a", "#4a7a30", "#6aa646", "#8ad15c", "#a5e07a", "#c0ed9e", "#d8f4be", "#edfade"] },
+      "neutral-bg": { "role": "neutral", "displayName": "Warm Paper", "canonical": "oklch(94% 0.012 80)", "tonalRamp": ["#2a2825", "#4a4743", "#6a6661", "#8a8680", "#aaa6a0", "#c5c2bd", "#e0deda", "#f5f4f2"] },
+      "neutral-ink": { "role": "neutral", "displayName": "Ink", "canonical": "oklch(18% 0.015 80)", "tonalRamp": [] },
+      "neutral-muted": { "role": "neutral", "displayName": "Muted Ink", "canonical": "oklch(42% 0.01 80)", "tonalRamp": [] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines on landing page. Reserved for main value proposition." },
+      "heading": { "displayName": "Heading", "purpose": "Section headers, modal titles, card headings." },
+      "title": { "displayName": "Title", "purpose": "Sub-section headers, feature titles." },
+      "body": { "displayName": "Body", "purpose": "Paragraphs, descriptions, tracking event descriptions. Max 65ch." },
+      "label": { "displayName": "Label", "purpose": "Navigation links, section eyebrows, form labels, metadata tags. Uppercase." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for state transitions (hover, focus)." },
+      { "name": "duration-fast", "value": "200ms", "purpose": "Button hover, focus transitions." },
+      { "name": "duration-standard", "value": "300ms", "purpose": "Panel open/close, scroll-triggered reveals." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary CTA button. Signal red background, white text, rounded. Used for Track Now, Get Started, and primary form submissions.",
+      "html": "<button class=\"ds-btn-primary\">Track Now</button>",
+      "css": ".ds-btn-primary { background: #e63329; color: #fff; border: none; border-radius: 12px; padding: 16px 28px; font-family: Inter, ui-sans-serif, sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: filter 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { filter: brightness(0.92); } .ds-btn-primary:focus-visible { outline: 2px solid #e63329; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary/ghost button. Transparent with border, ink text.",
+      "html": "<button class=\"ds-btn-secondary\">Learn More</button>",
+      "css": ".ds-btn-secondary { background: transparent; color: #131818; border: 1px solid rgba(19,24,24,0.12); border-radius: 12px; padding: 16px 28px; font-family: Inter, ui-sans-serif, sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-secondary:hover { background: rgba(19,24,24,0.05); } .ds-btn-secondary:focus-visible { outline: 2px solid #e63329; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Standard text input with search icon. White background, warm border, red focus ring.",
+      "html": "<div style=\"position:relative\"><svg style=\"position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:#5a5a5a\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35\"/></svg><input class=\"ds-input\" placeholder=\"Enter tracking number\" /></div>",
+      "css": ".ds-input { width: 100%; padding: 16px 16px 16px 48px; border: 1px solid #e4e4e4; border-radius: 12px; font-family: Inter, ui-sans-serif, sans-serif; font-size: 1rem; color: #131818; background: #fff; transition: border-color 0.2s cubic-bezier(0.4,0,0.2,1); box-sizing: border-box; } .ds-input::placeholder { color: #5a5a5a; } .ds-input:focus { outline: none; border-color: #e63329; box-shadow: 0 0 0 2px rgba(230,51,41,0.1); }"
+    },
+    {
+      "name": "Default Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Standard surface card. White on warm paper, no shadow, rounded corners.",
+      "html": "<div class=\"ds-card\"><h3 style=\"font-family:'ABC Normal',ui-sans-serif,sans-serif;font-size:1.25rem;font-weight:600;margin:0 0 8px;color:#131818\">Tracking Result</h3><p style=\"font-family:Inter,ui-sans-serif,sans-serif;font-size:1rem;color:#5a5a5a;margin:0\">Shipment status and timeline information.</p></div>",
+      "css": ".ds-card { background: #fff; border-radius: 16px; padding: 20px; border: 1px solid #e4e4e4; }"
+    },
+    {
+      "name": "Timeline Event",
+      "kind": "custom",
+      "refersTo": "card-default",
+      "description": "Tracking timeline row with dot, vertical line, event info.",
+      "html": "<div style=\"display:flex;gap:16px\"><div style=\"display:flex;flex-direction:column;align-items:center;width:34px;flex-shrink:0\"><div style=\"width:34px;height:34px;border-radius:50%;background:#e63329;display:flex;align-items:center;justify-content:center\"><div style=\"width:10px;height:10px;border-radius:50%;background:#fff\"></div></div><div style=\"width:2px;flex:1;background:#e4e4e4;margin-top:4px\"></div></div><div><p style=\"font-family:Inter,ui-sans-serif,sans-serif;font-size:0.875rem;font-weight:600;color:#131818;margin:6px 0 2px\">In Transit</p><p style=\"font-family:Inter,ui-sans-serif,sans-serif;font-size:0.875rem;color:#5a5a5a;margin:0 0 4px\">Package arrived at sorting facility</p><span style=\"font-family:Inter,ui-sans-serif,sans-serif;font-size:0.75rem;color:#5a5a5a\">Jun 2, 2026 · 10:30 AM</span></div></div>",
+      "css": ".ds-timeline-dot-active { width: 34px; height: 34px; border-radius: 50%; background: #e63329; display: flex; align-items: center; justify-content: center; } .ds-timeline-dot-active::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #fff; } .ds-timeline-dot-past { width: 34px; height: 34px; border-radius: 50%; background: #f0eeeb; display: flex; align-items: center; justify-content: center; } .ds-timeline-dot-past::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #131818; opacity: 0.3; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Manifest",
+    "overview": "A logistics manifest is functional, precise, and trustworthy. Every item has its place. No decorative flourishes, no ornament — just clear information in a deliberate hierarchy. The interface earns trust through clarity and speed, not visual appeal.\n\nThe system treats red as signal, not decoration. #e63329 appears only where action is demanded. Against the warm neutral ground (#f0eeeb), the red doesn't shout — it directs.",
+    "keyCharacteristics": [
+      "Flat by default: depth through tonal layering, not shadows",
+      "Red as a functional signal, not an accent for its own sake",
+      "Two-typeface system: ABC Normal for display/headings, Inter for body",
+      "Generous whitespace around information blocks; tight spacing inside them",
+      "No decorative borders, no gradient text, no glass effects"
+    ],
+    "rules": [
+      { "name": "The Signal Rule", "body": "Red is used on less than 10% of any given screen. It appears on interactive elements only — never on backgrounds, dividers, or decorative accents. If red occupies more than one element per viewport tier, one of them is wrong.", "section": "colors" },
+      { "name": "The Manifest Rule", "body": "Every heading earns its place. If a heading can be removed without losing information, remove it. The typography hierarchy is a cargo list, not a table of contents.", "section": "typography" }
+    ],
+    "dos": [
+      "Do use Signal Red for exactly one interactive element per viewport tier.",
+      "Do separate surfaces through background color, never shadows.",
+      "Do keep body text at Muted Ink (#5a5a5a) or darker. No light gray text on white.",
+      "Do use the two-typeface system: ABC Normal for display/headings, Inter for everything else.",
+      "Do let white space replace decorative elements."
+    ],
+    "donts": [
+      "Don't use red for backgrounds, dividers, or decorative accents.",
+      "Don't use gradient text. Emphasis comes from weight or size.",
+      "Don't use glassmorphism, blurred backdrops, or frosted effects.",
+      "Don't use side-stripe borders (border-left/right > 1px as accent).",
+      "Don't stack cards inside cards.",
+      "Don't use bounce or elastic easing.",
+      "Don't use marketing buzzwords in UI text.",
+      "Don't use tiny uppercase tracked eyebrows above every section.",
+      "Don't ship motion that has no prefers-reduced-motion fallback."
+    ]
+  }
+}

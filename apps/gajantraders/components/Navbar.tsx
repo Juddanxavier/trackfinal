@@ -3,9 +3,9 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Menu, X, Plane, Bell, Check, Trash2, ChevronDown } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
@@ -51,8 +51,8 @@ function NotificationBell() {
       ]);
       setNotifications(notifs);
       setUnreadCount(countRes);
-    } catch (err) {
-      console.error('Failed to fetch notifications', err);
+    } catch {
+      /* API unreachable — silent fail */
     }
   };
 
@@ -262,11 +262,13 @@ interface NavLink {
 
 const navLinks: NavLink[] = [
   { href: '/', label: 'Home' },
+  { href: '/track', label: 'Track' },
   { href: '#services', label: 'Services' },
   {
     label: 'Company',
     children: [
       { href: '/about', label: 'About Us' },
+      { href: '/branches', label: 'Branches' },
       { href: '/careers', label: 'Careers' },
     ],
   },
@@ -275,21 +277,18 @@ const navLinks: NavLink[] = [
     children: [
       { href: '/faqs', label: 'FAQs' },
       { href: '/prohibited', label: 'Prohibited Items' },
+      { href: '/volumetric-calculator', label: 'Volumetric Calculator' },
+      { href: '/currency-converter', label: 'Currency Converter' },
     ],
   },
   { href: '/contact', label: 'Contact' },
 ];
 
-// Pages with light backgrounds that need dark text
-const lightBgPages = ['/shipments', '/quotes', '/about', '/contact', '/profile', '/prohibited', '/faqs', '/careers'];
-
 export default function Navbar() {
+  const pathname = usePathname();
+  const isHome = pathname === '/';
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = usePathname();
-  
-  // Check if current page has light background
-  const isLightBg = lightBgPages.some(page => pathname?.startsWith(page));
 
   useEffect(() => {
     const handleScroll = () => {
@@ -299,16 +298,11 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Determine text and background colors based on page and scroll state
-  const textColor = isLightBg ? 'text-slate-900' : 'text-white';
-  const textColorMuted = isLightBg ? 'text-slate-600' : 'text-white/80';
-  const bgClass = isLightBg
-    ? scrolled 
-      ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-slate-200'
-      : 'bg-white'
-    : scrolled
-      ? 'bg-foreground/95 backdrop-blur-md shadow-lg shadow-black/20 border-b border-white/10'
-      : 'bg-transparent';
+  const textColor = scrolled || !isHome ? 'text-slate-900' : 'text-white';
+  const textColorMuted = scrolled || !isHome ? 'text-slate-600' : 'text-white/80';
+  const bgClass = scrolled || !isHome
+    ? 'bg-white/95 backdrop-blur-md' + (scrolled ? ' shadow-lg' : '')
+    : 'bg-transparent';
 
   return (
     <motion.header
@@ -319,9 +313,7 @@ export default function Navbar() {
         height: scrolled ? 64 : 80,
       }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`fixed top-0 left-0 right-0 z-50 ${bgClass}`}>
-      <div className='absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent' />
-
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out ${bgClass}`}>
       <nav className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full'>
         <div className='flex items-center justify-between h-full'>
           <motion.div
@@ -333,7 +325,7 @@ export default function Navbar() {
                 transition={{ duration: 0.3 }}>
                 <Plane className='w-8 h-8 text-primary' />
               </motion.div>
-              <span className={`text-xl font-bold tracking-tight ${textColor}`}>
+              <span className={`text-xl font-bold tracking-tight transition-colors duration-300 ${textColor}`}>
                 Gajan Traders
               </span>
             </Link>
@@ -366,13 +358,13 @@ export default function Navbar() {
               transition={{ duration: 0.2 }}
               className='flex items-center gap-3'>
               <NotificationBell />
-              <AuthButton />
+              <AuthButton scrolled={scrolled} isHome={isHome} />
             </motion.div>
           </div>
 
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className={`lg:hidden p-2 cursor-pointer ${textColor}`}
+            className={`lg:hidden p-2 cursor-pointer transition-colors duration-300 ${textColor}`}
             aria-label='Toggle menu'>
             {mobileOpen ? (
               <X className='w-6 h-6' />
@@ -390,12 +382,12 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className={`lg:hidden backdrop-blur-md border-t ${isLightBg ? 'bg-white/95 border-gray-200' : 'bg-black/95 border-white/10'}`}>
+            className='lg:hidden backdrop-blur-md border-t bg-white/95 border-gray-200'>
             <div className='px-4 py-4 space-y-3'>
               {navLinks.map((link) => (
                 link.children ? (
                   <div key={link.label} className='space-y-1'>
-                    <p className={`block py-2 text-base font-semibold ${isLightBg ? 'text-gray-900' : 'text-white'}`}>
+                    <p className='block py-2 text-base font-semibold text-gray-900'>
                       {link.label}
                     </p>
                     <div className='ml-4 space-y-1 border-l-2 border-primary/30 pl-3'>
@@ -404,7 +396,7 @@ export default function Navbar() {
                           key={child.href}
                           href={child.href}
                           onClick={() => setMobileOpen(false)}
-                          className={`block py-1.5 text-sm font-bold transition-colors duration-200 cursor-pointer ${isLightBg ? 'text-gray-600 hover:text-gray-900' : 'text-white/70 hover:text-white'}`}>
+                          className='block py-1.5 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors duration-200 cursor-pointer'>
                           {child.label}
                         </a>
                       ))}
@@ -415,21 +407,21 @@ export default function Navbar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMobileOpen(false)}
-                    className={`block py-2 text-base font-bold transition-colors duration-200 cursor-pointer ${isLightBg ? 'text-gray-600 hover:text-gray-900' : 'text-white/80 hover:text-white'}`}>
+                    className='block py-2 text-base font-bold text-gray-600 hover:text-gray-900 transition-colors duration-200 cursor-pointer'>
                     {link.label}
                   </a>
                 )
               ))}
-              <div className={`pt-4 flex flex-col gap-3 border-t ${isLightBg ? 'border-gray-200' : 'border-white/10'}`}>
+              <div className='pt-4 flex flex-col gap-3 border-t border-gray-200'>
                 <div className='flex gap-3'>
                   <Link
                     href='/login'
-                    className={`flex-1 px-4 py-2.5 text-center text-sm font-bold transition-colors duration-200 rounded-lg cursor-pointer ${isLightBg ? 'text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400' : 'text-white/80 hover:text-white border border-white/20 hover:border-white/40'}`}>
+                    className='flex-1 px-4 py-2.5 text-center text-sm font-bold text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors duration-200 cursor-pointer'>
                     Log In
                   </Link>
                   <Link
                     href='/register'
-                    className='flex-1 px-4 py-2.5 text-center text-sm font-semibold bg-primary hover:bg-[#172554] text-white rounded-lg transition-colors duration-200 cursor-pointer'>
+                    className='flex-1 px-4 py-2.5 text-center text-sm font-semibold bg-primary hover:brightness-110 text-white rounded-lg transition-colors duration-200 cursor-pointer'>
                     Sign Up
                   </Link>
                 </div>

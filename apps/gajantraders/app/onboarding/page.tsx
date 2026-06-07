@@ -199,7 +199,7 @@ export default function OnboardingPage() {
 
             <form onSubmit={handleSubmit} className='space-y-4'>
               <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Full Name</label>
+                <label className='block text-sm font-medium text-white/70 mb-1'>Full Name</label>
                 <div className='relative'>
                   <User className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
                   <input
@@ -215,7 +215,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className='block text-xs font-medium text-white/70 mb-1'>Phone Number</label>
+                <label className='block text-sm font-medium text-white/70 mb-1'>Phone Number</label>
                 <div className='relative'>
                   <Phone className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
                   <input

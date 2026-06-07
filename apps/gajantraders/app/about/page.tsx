@@ -34,7 +34,7 @@ export default function AboutPage() {
             <h1 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading max-w-3xl'>
               About Gajan Traders
             </h1>
-            <p className='text-base sm:text-lg text-zinc-500 max-w-2xl mt-6 leading-relaxed'>
+            <p className='text-base sm:text-lg text-zinc-700 max-w-2xl mt-6 leading-relaxed'>
               Trusted Global Courier Partner orchestration global commerce with surgical precision and unmatched speed.
             </p>
             <div className='flex flex-wrap gap-4 mt-8'>
@@ -46,7 +46,7 @@ export default function AboutPage() {
               </Link>
               <Link
                 href='/contact'
-                className='inline-flex items-center gap-2 px-6 py-3 border border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
+                className='inline-flex items-center gap-2 px-6 py-3 border border-zinc-300 text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
               >
                 Contact Us
               </Link>
@@ -82,7 +82,7 @@ export default function AboutPage() {
               <div key={i} className='p-6 lg:p-8 text-center border-r border-zinc-100 last:border-r-0'>
                 <s.icon className='w-6 h-6 text-primary mx-auto mb-3' />
                 <div className='text-xl lg:text-2xl font-semibold text-zinc-900'>{s.value}</div>
-                <div className='text-xs text-zinc-400 mt-1 uppercase tracking-wider'>{s.label}</div>
+                <div className='text-sm text-zinc-400 mt-1 uppercase tracking-wider'>{s.label}</div>
               </div>
             ))}
           </div>
@@ -96,12 +96,12 @@ export default function AboutPage() {
             <motion.div {...fadeIn}>
               <div className='flex items-center gap-3 mb-5'>
                 <Users className='w-6 h-6 text-primary' />
-                <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Who We Are</span>
+                <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Who We Are</span>
               </div>
               <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-6'>
                 A premium logistics and courier service provider
               </h2>
-              <div className='space-y-4 text-base text-zinc-500 leading-relaxed'>
+              <div className='space-y-4 text-lg text-zinc-700 leading-relaxed'>
                 <p>
                   Gajan Traders is committed to delivering reliable, efficient, and globally connected shipping solutions. We bridge the gap between Indian businesses and international markets with precision and care.
                 </p>
@@ -152,12 +152,12 @@ export default function AboutPage() {
             <motion.div {...fadeIn} className='order-1 lg:order-2'>
               <div className='flex items-center gap-3 mb-5'>
                 <Package className='w-6 h-6 text-primary' />
-                <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>What We Do</span>
+                <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>What We Do</span>
               </div>
               <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-6'>
                 Comprehensive logistics solutions for every need
               </h2>
-              <div className='space-y-4 text-base text-zinc-500 leading-relaxed'>
+              <div className='space-y-4 text-lg text-zinc-700 leading-relaxed'>
                 <p>
                   Comprehensive logistics solutions are designed to meet the dynamic needs of individuals and businesses.
                 </p>
@@ -174,7 +174,7 @@ export default function AboutPage() {
       <section className='py-14 lg:py-20'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn} className='text-center max-w-xl mx-auto mb-16'>
-            <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase block mb-4'>Foundation of Excellence</span>
+            <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase block mb-4'>Foundation of Excellence</span>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
               Our core values drive every decision we make
             </h2>
@@ -208,7 +208,7 @@ export default function AboutPage() {
               >
                 <v.icon className='w-10 h-10 text-primary mx-auto mb-5' />
                 <h3 className='text-base font-semibold text-zinc-900 mb-3'>{v.title}</h3>
-                <p className='text-sm text-zinc-500 leading-relaxed'>{v.desc}</p>
+                <p className='text-base text-zinc-700 leading-relaxed'>{v.desc}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -219,7 +219,7 @@ export default function AboutPage() {
       <section className='py-14 lg:py-20 bg-zinc-50'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn} className='text-center max-w-xl mx-auto mb-16'>
-            <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase block mb-4'>Our Journey</span>
+            <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase block mb-4'>Our Journey</span>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
               A timeline of growth defined by vision, expansion, and innovation
             </h2>
@@ -246,8 +246,8 @@ export default function AboutPage() {
                     <span className='text-sm font-bold text-primary'>{t.year}</span>
                   </div>
                   <div>
-                    <h3 className='text-sm font-semibold text-zinc-900'>{t.title}</h3>
-                    <p className='text-sm text-zinc-500 mt-1 leading-relaxed'>{t.desc}</p>
+                    <h3 className='text-base font-semibold text-zinc-900'>{t.title}</h3>
+                    <p className='text-base text-zinc-700 mt-1 leading-relaxed'>{t.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -260,7 +260,7 @@ export default function AboutPage() {
       <section className='py-14 lg:py-20'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn} className='text-center max-w-xl mx-auto mb-16'>
-            <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase block mb-4'>The Gajan Edge</span>
+            <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase block mb-4'>The Gajan Edge</span>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
               We combine expertise with technology for a world-class experience
             </h2>
@@ -283,7 +283,7 @@ export default function AboutPage() {
               >
                 <e.icon className='w-8 h-8 text-primary mb-4' />
                 <h3 className='text-zinc-900 font-bold text-base mb-2'>{e.title}</h3>
-                <p className='text-zinc-500 text-sm leading-relaxed'>{e.desc}</p>
+                <p className='text-base text-zinc-700 leading-relaxed'>{e.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -297,7 +297,7 @@ export default function AboutPage() {
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-4'>
               Start Shipping Today
             </h2>
-            <p className='text-zinc-500 max-w-lg mx-auto mb-10 text-base'>
+            <p className='text-zinc-700 max-w-lg mx-auto mb-10 text-lg'>
               Experience the precision and velocity that thousands of businesses trust every day.
             </p>
             <div className='flex flex-wrap justify-center gap-4'>
@@ -309,7 +309,7 @@ export default function AboutPage() {
               </Link>
               <Link
                 href='/contact'
-                className='inline-flex items-center gap-2 px-8 py-4 border border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
+                className='inline-flex items-center gap-2 px-8 py-4 border border-zinc-300 text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
               >
                 Contact Us
               </Link>
@@ -317,7 +317,7 @@ export default function AboutPage() {
             <div className='flex flex-wrap justify-center gap-8 mt-10 text-sm text-zinc-400'>
               <span>No Hidden Charges</span>
               <span className='w-px h-4 bg-zinc-200' />
-              <span>Doorstep Pickup</span>
+              <span>Free Packing</span>
               <span className='w-px h-4 bg-zinc-200' />
               <span>50+ Countries Served</span>
             </div>

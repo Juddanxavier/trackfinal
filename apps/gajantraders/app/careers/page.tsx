@@ -38,7 +38,7 @@ export default function CareersPage() {
               <h1 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading max-w-3xl'>
                 Careers at Gajan Traders
               </h1>
-              <p className='text-base sm:text-lg text-zinc-500 max-w-2xl mt-6 leading-relaxed'>
+              <p className='text-base sm:text-lg text-zinc-700 max-w-2xl mt-6 leading-relaxed'>
                 Build your future with global logistics leaders. Join our growing team and shape
                 the future of international shipping.
               </p>
@@ -75,17 +75,17 @@ export default function CareersPage() {
             <div className='p-6 lg:p-8 text-center border-r border-zinc-100'>
               <Building2 className='w-6 h-6 text-primary mx-auto mb-3' />
               <div className='text-xl lg:text-2xl font-semibold text-zinc-900'>445+</div>
-              <div className='text-xs text-zinc-400 mt-1 uppercase tracking-wider'>Branches</div>
+              <div className='text-sm text-zinc-500 mt-1 uppercase tracking-wider'>Branches</div>
             </div>
             <div className='p-6 lg:p-8 text-center border-r border-zinc-100'>
               <Globe className='w-6 h-6 text-primary mx-auto mb-3' />
               <div className='text-xl lg:text-2xl font-semibold text-zinc-900'>50+</div>
-              <div className='text-xs text-zinc-400 mt-1 uppercase tracking-wider'>Countries</div>
+              <div className='text-sm text-zinc-500 mt-1 uppercase tracking-wider'>Countries</div>
             </div>
             <div className='p-6 lg:p-8 text-center'>
               <Users className='w-6 h-6 text-primary mx-auto mb-3' />
               <div className='text-xl lg:text-2xl font-semibold text-zinc-900'>2000+</div>
-              <div className='text-xs text-zinc-400 mt-1 uppercase tracking-wider'>Team Members</div>
+              <div className='text-sm text-zinc-500 mt-1 uppercase tracking-wider'>Team Members</div>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function CareersPage() {
       <section className='py-14 lg:py-20'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn} className='text-center max-w-xl mx-auto mb-16'>
-            <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase block mb-4'>Our DNA</span>
+            <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase block mb-4'>Our DNA</span>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
               The Core Values We Live By
             </h2>
@@ -112,7 +112,7 @@ export default function CareersPage() {
               >
                 <v.icon className='w-10 h-10 text-primary mx-auto mb-5' />
                 <h3 className='text-base font-semibold text-zinc-900 mb-3'>{v.title}</h3>
-                <p className='text-sm text-zinc-500 leading-relaxed'>{v.desc}</p>
+                <p className='text-base text-zinc-700 leading-relaxed'>{v.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -128,7 +128,7 @@ export default function CareersPage() {
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-4'>
               No Open Positions Right Now
             </h2>
-            <p className='text-sm text-zinc-500 leading-relaxed max-w-lg mx-auto'>
+            <p className='text-base text-zinc-700 leading-relaxed max-w-lg mx-auto'>
               We&apos;re always on the lookout for talented individuals. Submit your profile and be
               the first to know when the right opportunity opens up.
             </p>
@@ -149,7 +149,7 @@ export default function CareersPage() {
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-4'>
               Grow Beyond Borders
             </h2>
-            <p className='text-zinc-500 max-w-lg mx-auto mb-10 text-base'>
+            <p className='text-zinc-700 max-w-lg mx-auto mb-10 text-base'>
               Stay connected with us for future opportunities.
             </p>
             <div className='flex flex-wrap justify-center gap-4'>
@@ -162,7 +162,7 @@ export default function CareersPage() {
               </Link>
               <Link
                 href='/contact'
-                className='inline-flex items-center gap-2 px-8 py-4 border border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
+                className='inline-flex items-center gap-2 px-8 py-4 border border-zinc-300 text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
               >
                 Contact Us
               </Link>

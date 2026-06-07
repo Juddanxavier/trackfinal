@@ -153,7 +153,7 @@ export class QuotesController {
   }
 
   @UseGuards(CasbinGuard)
-  @Require({ resource: 'quotes', action: 'read' })
+  @Require({ resource: 'quotes', action: 'write:own' })
   @Patch(':id')
   @ApiOperation({ summary: 'Update quote status/price' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })

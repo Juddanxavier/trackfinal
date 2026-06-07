@@ -5,29 +5,37 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   Plane, Mail, Phone, MapPin, HeadphonesIcon,
-  Send
+  Send, ArrowRight
 } from 'lucide-react';
 
 const company = {
   name: 'Gajan Traders',
   description:
-    'Trusted international courier and logistics provider connecting businesses worldwide with reliable, real-time tracking and customs-cleared delivery since 2015.',
+    'Trusted international courier and logistics provider offering free packing, real-time tracking, and customs-cleared delivery since 2015.',
 };
 
 const quickLinks = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About Us' },
+  { href: '/branches', label: 'Branches' },
   { href: '/careers', label: 'Careers' },
   { href: '/contact', label: 'Contact' },
   { href: '/faqs', label: 'FAQs' },
   { href: '/prohibited', label: 'Prohibited Items' },
 ];
 
-const services = [
+const tools = [
   { href: '/quotes', label: 'Get a Quote' },
   { href: '/shipments', label: 'Track Shipment' },
-  { href: '/about', label: 'Why Us' },
-  { href: '/contact', label: 'Support' },
+  { href: '/volumetric-calculator', label: 'Volumetric Calculator' },
+  { href: '/currency-converter', label: 'Currency Converter' },
+];
+
+const services = [
+  { href: '/about', label: 'About Us' },
+  { href: '/branches', label: 'Branches' },
+  { href: '/careers', label: 'Careers' },
+  { href: '/contact', label: 'Contact' },
 ];
 
 const contactDetails = [
@@ -89,7 +97,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className='relative bg-[#0d1117] border-t border-white/5 overflow-hidden'>
+    <footer className='relative border-t border-white/5 overflow-hidden' style={{ backgroundColor: '#1a1a1a' }}>
       <div className='absolute inset-0 pointer-events-none'>
         <div className='absolute -top-24 -right-24 w-96 h-96 bg-primary/[0.06] rounded-full blur-3xl' />
         <div className='absolute -bottom-32 -left-32 w-[30rem] h-[30rem] bg-primary/[0.04] rounded-full blur-3xl' />
@@ -97,7 +105,7 @@ export default function Footer() {
       <div className='absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent' />
       <div className='relative max-w-7xl mx-auto px-6 lg:px-8'>
         <div className='py-16'>
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-8'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-8'>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -105,17 +113,17 @@ export default function Footer() {
               className='lg:col-span-2'
             >
               <Link href='/' className='inline-flex items-center gap-2.5 mb-4'>
-                <div className='w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center'>
+                <div className='w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center'>
                   <Plane className='w-5 h-5 text-primary' />
                 </div>
-                <span className='text-xl font-bold text-white tracking-tight font-heading'>{company.name}</span>
+                <span className='text-xl font-semibold text-white tracking-tight font-heading'>{company.name}</span>
               </Link>
-              <p className='text-sm text-slate-400 leading-relaxed mb-6 max-w-sm'>
+              <p className='text-sm text-white/40 leading-relaxed mb-6 max-w-sm'>
                 {company.description}
               </p>
               <div className='space-y-2.5'>
                 {contactDetails.map((item, i) => (
-                  <div key={i} className='flex items-start gap-2.5 text-sm text-slate-400'>
+                  <div key={i} className='flex items-start gap-2.5 text-sm text-white/40'>
                     <item.icon className='w-4 h-4 text-primary shrink-0 mt-0.5' />
                     <span>{item.text}</span>
                   </div>
@@ -126,7 +134,7 @@ export default function Footer() {
                   <Link
                     key={social.label}
                     href={social.href}
-                    className='w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200'
+                    className='w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200'
                     aria-label={social.label}
                   >
                     {social.icon}
@@ -141,13 +149,13 @@ export default function Footer() {
               viewport={{ once: true }}
               transition={{ delay: 0.05 }}
             >
-              <h4 className='text-sm font-bold text-white mb-5 tracking-wide uppercase'>Quick Links</h4>
+              <h4 className='text-xs font-semibold text-white tracking-wider uppercase mb-5'>Quick Links</h4>
               <ul className='space-y-3'>
                 {quickLinks.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className='inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors'
+                      className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'
                     >
                       <span>{link.label}</span>
                     </Link>
@@ -162,13 +170,34 @@ export default function Footer() {
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
             >
-              <h4 className='text-sm font-bold text-white mb-5 tracking-wide uppercase'>Services</h4>
+              <h4 className='text-xs font-semibold text-white tracking-wider uppercase mb-5'>Services</h4>
               <ul className='space-y-3'>
                 {services.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className='inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors'
+                      className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'
+                    >
+                      <span>{link.label}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.12 }}
+            >
+              <h4 className='text-xs font-semibold text-white tracking-wider uppercase mb-5'>Tools</h4>
+              <ul className='space-y-3'>
+                {tools.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'
                     >
                       <span>{link.label}</span>
                     </Link>
@@ -183,25 +212,25 @@ export default function Footer() {
               viewport={{ once: true }}
               transition={{ delay: 0.15 }}
             >
-              <h4 className='text-sm font-bold text-white mb-5 tracking-wide uppercase'>More</h4>
+              <h4 className='text-xs font-semibold text-white tracking-wider uppercase mb-5'>More</h4>
               <ul className='space-y-3'>
                 <li>
-                  <Link href='/login' className='inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors'>
+                  <Link href='/login' className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'>
                     Sign In
                   </Link>
                 </li>
                 <li>
-                  <Link href='/register' className='inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors'>
+                  <Link href='/register' className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'>
                     Create Account
                   </Link>
                 </li>
                 <li>
-                  <Link href='/profile' className='inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors'>
+                  <Link href='/profile' className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'>
                     My Profile
                   </Link>
                 </li>
                 <li>
-                  <Link href='/contact' className='inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors'>
+                  <Link href='/contact' className='inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors'>
                     <HeadphonesIcon className='w-3.5 h-3.5' />
                     <span>24/7 Support</span>
                   </Link>
@@ -215,28 +244,28 @@ export default function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className='mt-14 p-6 rounded-2xl bg-white/5 border border-white/10'
+            className='mt-14 p-6 rounded-xl bg-white/[0.03] border border-white/[0.06]'
           >
             <div className='flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6'>
               <div className='flex-1'>
-                <h4 className='text-sm font-bold text-white'>Stay Updated</h4>
-                <p className='text-xs text-slate-400 mt-1'>Get shipping tips, industry news, and exclusive offers.</p>
+                <h4 className='text-sm font-semibold text-white'>Stay Updated</h4>
+                <p className='text-xs text-white/40 mt-1'>Get shipping tips, industry news, and exclusive offers.</p>
               </div>
               <form onSubmit={handleSubscribe} className='flex items-center gap-2 w-full sm:w-auto'>
                 <div className='relative flex-1 sm:flex-initial'>
-                  <Mail className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500' />
+                  <Mail className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30' />
                   <input
                     type='email'
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder='your@email.com'
                     required
-                    className='w-full sm:w-60 pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all'
+                    className='w-full sm:w-60 pl-10 pr-3 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all'
                   />
                 </div>
                 <button
                   type='submit'
-                  className='flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-[#172554] transition-all active:scale-95 shrink-0 uppercase tracking-wider'
+                  className='flex items-center gap-2 px-5 py-2.5 text-white text-sm font-semibold rounded-lg transition-all active:scale-95 shrink-0' style={{ backgroundColor: 'var(--primary)' }}
                 >
                   {subscribed ? 'Subscribed!' : <><Send className='w-3.5 h-3.5' /><span>Subscribe</span></>}
                 </button>
@@ -245,16 +274,16 @@ export default function Footer() {
           </motion.div>
         </div>
 
-        <div className='border-t border-white/5 py-6'>
+        <div className='border-t border-white/[0.06] py-6'>
           <div className='flex flex-col md:flex-row items-center justify-between gap-4'>
-            <p className='text-xs text-slate-500 text-center md:text-left'>
+            <p className='text-xs text-white/30 text-center md:text-left'>
               &copy; {new Date().getFullYear()} {company.name}. All rights reserved.
             </p>
             <div className='flex items-center gap-6'>
-              <Link href='/privacy' className='text-xs text-slate-500 hover:text-primary transition-colors'>
+              <Link href='/privacy' className='text-xs text-white/30 hover:text-white/60 transition-colors'>
                 Privacy Policy
               </Link>
-              <Link href='/terms' className='text-xs text-slate-500 hover:text-primary transition-colors'>
+              <Link href='/terms' className='text-xs text-white/30 hover:text-white/60 transition-colors'>
                 Terms of Service
               </Link>
             </div>

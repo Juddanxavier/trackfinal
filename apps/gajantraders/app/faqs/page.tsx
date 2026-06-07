@@ -100,7 +100,7 @@ const faqData: Record<string, { q: string; a: string }[]> = {
     },
     {
       q: 'Do you provide packaging assistance?',
-      a: 'Yes — we offer professional packaging services to ensure your items are securely packed for international transit.',
+      a: 'Yes — we offer free professional packing with quality materials and expert service to ensure your items are securely packed for international transit.',
     },
   ],
   prohibited: [
@@ -229,7 +229,7 @@ export default function FaqsPage() {
             <h1 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading max-w-3xl'>
               Frequently Asked Questions
             </h1>
-            <p className='text-base sm:text-lg text-zinc-500 max-w-2xl mt-6 leading-relaxed'>
+            <p className='text-base sm:text-lg text-zinc-700 max-w-2xl mt-6 leading-relaxed'>
               Find answers to common questions about our international courier and cargo services.
               Can&apos;t find what you&apos;re looking for? Our support team is available 24/7.
             </p>
@@ -253,16 +253,16 @@ export default function FaqsPage() {
             <aside className='lg:w-72 shrink-0'>
               <div className='lg:sticky lg:top-32'>
                 <div className='relative mb-4'>
-                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400' />
+                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500' />
                   <input
                     type='text'
                     placeholder='Search FAQs...'
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className='w-full pl-9 pr-4 py-2.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all'
+                    className='w-full pl-9 pr-4 py-3 text-base border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all'
                   />
                 </div>
-                <p className='text-xs text-zinc-400 uppercase tracking-widest mb-3 font-medium'>Categories</p>
+                <p className='text-sm text-zinc-500 uppercase tracking-widest mb-3 font-medium'>Categories</p>
                 <div className='flex flex-wrap lg:flex-col gap-1.5'>
                   {categories.map((cat) => {
                     const isActive = activeCategory === cat.id;
@@ -271,13 +271,13 @@ export default function FaqsPage() {
                       <button
                         key={cat.id}
                         onClick={() => { setActiveCategory(cat.id); setOpenFaq(null); setSearchQuery(''); }}
-                        className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200 text-left rounded-lg ${
+                        className={`flex items-center gap-3 px-4 py-3 text-base font-medium transition-all duration-200 text-left rounded-lg ${
                           isActive
                             ? 'bg-primary text-white shadow-md'
-                            : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-transparent'
+                            : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 border border-transparent'
                         }`}
                       >
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-500'}`} />
                         {cat.label}
                       </button>
                     );
@@ -286,13 +286,13 @@ export default function FaqsPage() {
 
                 <div className='mt-8 bg-primary/5 border border-primary/10 p-6 rounded-lg'>
                   <HeadphonesIcon className='w-6 h-6 text-primary mb-3' />
-                  <h3 className='text-sm font-semibold text-zinc-900 mb-1'>Need direct help?</h3>
-                  <p className='text-xs text-zinc-500 mb-4 leading-relaxed'>
+                  <h3 className='text-base font-semibold text-zinc-900 mb-1'>Need direct help?</h3>
+                  <p className='text-sm text-zinc-700 mb-4 leading-relaxed'>
                     Our support team is available 24/7 to assist you.
                   </p>
                   <Link
                     href='/contact'
-                    className='inline-flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-[#172554] text-xs font-bold text-white uppercase tracking-wider transition-all duration-300 rounded-lg'
+                    className='inline-flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-[#172554] text-sm font-bold text-white uppercase tracking-wider transition-all duration-300 rounded-lg'
                   >
                     Raise a Query
                   </Link>
@@ -309,15 +309,15 @@ export default function FaqsPage() {
                   </div>
                   <div>
                     <h2 className='text-lg font-semibold text-zinc-900 font-heading'>{activeCat?.label || 'FAQs'}</h2>
-                    <p className='text-sm text-zinc-400'>{filteredFaqs.length} {filteredFaqs.length === 1 ? 'answer' : 'answers'}</p>
+                    <p className='text-base text-zinc-500'>{filteredFaqs.length} {filteredFaqs.length === 1 ? 'answer' : 'answers'}</p>
                   </div>
                 </div>
 
                 {filteredFaqs.length === 0 ? (
                   <div className='text-center py-16'>
                     <Search className='w-10 h-10 text-zinc-200 mx-auto mb-3' />
-                    <p className='text-base font-medium text-zinc-500'>No results found</p>
-                    <p className='text-sm text-zinc-400 mt-1'>Try a different search term or category.</p>
+                    <p className='text-base font-medium text-zinc-700'>No results found</p>
+                    <p className='text-sm text-zinc-500 mt-1'>Try a different search term or category.</p>
                   </div>
                 ) : (
                   <div className='space-y-3'>
@@ -337,10 +337,10 @@ export default function FaqsPage() {
                           onClick={() => setOpenFaq(openFaq === i ? null : i)}
                           className='w-full flex items-center justify-between gap-4 px-6 py-5 text-left bg-white'
                         >
-                          <span className='text-sm font-semibold text-zinc-900'>{faq.q}</span>
+                            <span className='text-base font-semibold text-zinc-900'>{faq.q}</span>
                           <ChevronDown
                             className={`w-4 h-4 shrink-0 transition-all duration-300 ${
-                              openFaq === i ? 'rotate-180 text-primary' : 'text-zinc-400'
+                              openFaq === i ? 'rotate-180 text-primary' : 'text-zinc-500'
                             }`}
                           />
                         </button>
@@ -354,7 +354,7 @@ export default function FaqsPage() {
                               className='overflow-hidden'
                             >
                               <div className='px-6 pb-5 pt-0 border-t border-zinc-100 bg-white'>
-                                <p className='text-base text-zinc-500 leading-relaxed mt-4'>{faq.a}</p>
+                                <p className='text-lg text-zinc-700 leading-relaxed mt-4'>{faq.a}</p>
                               </div>
                             </motion.div>
                           )}
@@ -376,7 +376,7 @@ export default function FaqsPage() {
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-4'>
               Still Have Questions?
             </h2>
-            <p className='text-zinc-500 max-w-lg mx-auto mb-10 text-base'>
+            <p className='text-zinc-700 max-w-lg mx-auto mb-10 text-lg'>
               Get in touch with our team for personalized support. We&apos;re available 24/7 to help you.
             </p>
             <div className='flex flex-wrap justify-center gap-4'>

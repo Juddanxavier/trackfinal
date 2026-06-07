@@ -23,8 +23,6 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
-  ArrowRight,
-  Calendar,
   MapPin,
   Truck,
 } from 'lucide-react';
@@ -63,7 +61,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; b
   pending: { label: 'Pending', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
   in_transit: { label: 'In Transit', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
   delivered: { label: 'Delivered', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  cancelled: { label: 'Cancelled', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
+  cancelled: { label: 'Cancelled', color: 'text-zinc-700', bg: 'bg-zinc-100', border: 'border-zinc-200' },
   exception: { label: 'Exception', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
 };
 
@@ -83,125 +81,56 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
+      whileHover={{ y: -3 }}
       className="group"
     >
       <Link href={`/shipments/${shipment.id}`}>
-        <div className="relative bg-white rounded-2xl border border-slate-200/60 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
-          <div className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`${config.bg} rounded-xl p-2.5`}>
-                  {shipment.status === 'in_transit' && <Plane className={`w-5 h-5 ${config.color}`} />}
-                  {shipment.status === 'delivered' && <CheckCircle className={`w-5 h-5 ${config.color}`} />}
-                  {shipment.status === 'pending' && <Clock className={`w-5 h-5 ${config.color}`} />}
-                  {shipment.status === 'cancelled' && <XCircle className={`w-5 h-5 ${config.color}`} />}
-                  {shipment.status === 'exception' && <AlertTriangle className={`w-5 h-5 ${config.color}`} />}
+        <div className="bg-white rounded-xl border border-zinc-200/70 overflow-hidden hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`${config.bg} rounded-lg p-2`}>
+                  {shipment.status === 'in_transit' && <Plane className={`w-4 h-4 ${config.color}`} />}
+                  {shipment.status === 'delivered' && <CheckCircle className={`w-4 h-4 ${config.color}`} />}
+                  {shipment.status === 'pending' && <Clock className={`w-4 h-4 ${config.color}`} />}
+                  {shipment.status === 'cancelled' && <XCircle className={`w-4 h-4 ${config.color}`} />}
+                  {shipment.status === 'exception' && <AlertTriangle className={`w-4 h-4 ${config.color}`} />}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">{trackingId}</span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>{config.label}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-0.5">{shipment.recipientName}</p>
+                  <div className="text-sm font-semibold text-zinc-900">{trackingId}</div>
+                  <p className="text-xs text-zinc-500 mt-px">{shipment.recipientName}</p>
                 </div>
+              </div>
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color} border ${config.border}`}>{config.label}</span>
+            </div>
+
+            <div className="flex items-center gap-3 py-3 border-t border-zinc-100">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Image src={originFlag} alt={shipment.originCountry} width={28} height={20} className="rounded ring-1 ring-zinc-200 shrink-0" unoptimized />
+                <span className="text-xs text-zinc-700 truncate">{shipment.originCountry}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Plane className="w-3 h-3 text-zinc-300 rotate-45" />
+                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--primary)' }}>
+                  <Plane className="w-3 h-3 text-white rotate-45" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                <span className="text-xs text-zinc-700 truncate">{shipment.destinationCountry}</span>
+                <Image src={destFlag} alt={shipment.destinationCountry} width={28} height={20} className="rounded ring-1 ring-zinc-200 shrink-0" unoptimized />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 rounded-xl p-4 mb-4 border border-slate-100">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="relative">
-                    <Image src={originFlag} alt={shipment.originCountry} width={48} height={32} className="rounded-lg shadow-md ring-2 ring-white" unoptimized />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Origin</p>
-                    <p className="text-sm font-semibold text-slate-700">{shipment.originCountry}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 px-4">
-                  <div className="h-px w-12 bg-gradient-to-r from-transparent via-primary to-transparent" />
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-slate-600 rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
-                    <Plane className="w-5 h-5 text-white rotate-45" />
-                  </div>
-                  <div className="h-px w-12 bg-gradient-to-r from-transparent via-primary to-transparent" />
-                </div>
-
-                <div className="flex items-center gap-3 flex-1 justify-end">
-                  <div className="text-right">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Destination</p>
-                    <p className="text-sm font-semibold text-slate-700">{shipment.destinationCountry}</p>
-                  </div>
-                  <div className="relative">
-                    <Image src={destFlag} alt={shipment.destinationCountry} width={48} height={32} className="rounded-lg shadow-md ring-2 ring-white" unoptimized />
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 text-xs text-zinc-500 pt-2 border-t border-zinc-50">
+              <span>{formattedDate}</span>
+              <span className="text-zinc-200">|</span>
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {shipment.currentLocation || '—'}
+              </span>
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 text-center border border-slate-100">
-                <Calendar className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                <p className="text-[10px] text-slate-400 mb-1">Created</p>
-                <p className="text-sm font-semibold text-slate-700">{formattedDate}</p>
-              </div>
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 text-center border border-slate-100">
-                <MapPin className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                <p className="text-[10px] text-slate-400 mb-1">Current Location</p>
-                <p className="text-sm font-semibold text-slate-700 truncate">{shipment.currentLocation || '--'}</p>
-              </div>
-            </div>
-
-            {shipment.status === 'delivered' && (
-              <div className="mt-4 pt-4 border-t border-emerald-100">
-                <div className="bg-gradient-to-r from-emerald-50 to-slate-50 rounded-xl p-4 border border-emerald-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-emerald-700">Package Delivered!</p>
-                      <p className="text-xs text-emerald-600/80">Successfully delivered to recipient</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {shipment.status === 'in_transit' && (
-              <div className="mt-4 pt-4 border-t border-blue-100">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                      <Truck className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-blue-700">In Transit</p>
-                      <p className="text-xs text-blue-600/80">Package is on its way</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {shipment.status === 'exception' && (
-              <div className="mt-4 pt-4 border-t border-red-100">
-                <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-4 border border-red-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                      <AlertTriangle className="w-6 h-6 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-red-700">Exception Occurred</p>
-                      <p className="text-xs text-red-600/80">Please contact support</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </Link>
@@ -222,36 +151,36 @@ function ShipmentRow({ shipment }: { shipment: Shipment }) {
   return (
     <Link href={`/shipments/${shipment.id}`}>
       <motion.div
-        initial={{ opacity: 0, x: -10 }}
+        initial={{ opacity: 0, x: -6 }}
         animate={{ opacity: 1, x: 0 }}
         whileHover={{ x: 2 }}
         className="group"
       >
-        <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
-          <div className={`w-12 h-12 rounded-xl ${config.bg} flex items-center justify-center shrink-0`}>
-            {shipment.status === 'in_transit' && <Plane className={`w-5 h-5 ${config.color}`} />}
-            {shipment.status === 'delivered' && <CheckCircle className={`w-5 h-5 ${config.color}`} />}
-            {shipment.status === 'pending' && <Clock className={`w-5 h-5 ${config.color}`} />}
-            {shipment.status === 'cancelled' && <XCircle className={`w-5 h-5 ${config.color}`} />}
-            {shipment.status === 'exception' && <AlertTriangle className={`w-5 h-5 ${config.color}`} />}
+        <div className="flex items-center gap-4 p-3.5 bg-white rounded-lg border border-zinc-200/70 hover:border-primary/30 hover:shadow-sm transition-all">
+          <div className={`w-10 h-10 rounded-lg ${config.bg} flex items-center justify-center shrink-0`}>
+            {shipment.status === 'in_transit' && <Plane className={`w-4 h-4 ${config.color}`} />}
+            {shipment.status === 'delivered' && <CheckCircle className={`w-4 h-4 ${config.color}`} />}
+            {shipment.status === 'pending' && <Clock className={`w-4 h-4 ${config.color}`} />}
+            {shipment.status === 'cancelled' && <XCircle className={`w-4 h-4 ${config.color}`} />}
+            {shipment.status === 'exception' && <AlertTriangle className={`w-4 h-4 ${config.color}`} />}
           </div>
 
-          <div className="shrink-0 min-w-[120px]">
-            <span className="font-semibold text-slate-900 text-sm">{trackingId}</span>
-            <p className="text-xs text-slate-400 truncate mt-0.5">{shipment.recipientName}</p>
+          <div className="shrink-0 min-w-[110px]">
+            <span className="text-sm font-semibold text-zinc-900">{trackingId}</span>
+            <p className="text-xs text-zinc-500 truncate mt-px">{shipment.recipientName}</p>
           </div>
 
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <Image src={originFlag} alt={shipment.originCountry} width={24} height={16} className="rounded shrink-0" unoptimized />
-            <span className="text-sm text-slate-600 truncate">{shipment.originCountry}</span>
-            <Plane className="w-4 h-4 text-primary shrink-0 rotate-45" />
-            <Image src={destFlag} alt={shipment.destinationCountry} width={24} height={16} className="rounded shrink-0" unoptimized />
-            <span className="text-sm text-slate-600 truncate">{shipment.destinationCountry}</span>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Image src={originFlag} alt={shipment.originCountry} width={20} height={14} className="rounded shrink-0" unoptimized />
+            <span className="text-xs text-zinc-700 truncate">{shipment.originCountry}</span>
+            <Plane className="w-3 h-3 text-zinc-300 shrink-0 rotate-45" />
+            <span className="text-xs text-zinc-700 truncate">{shipment.destinationCountry}</span>
+            <Image src={destFlag} alt={shipment.destinationCountry} width={20} height={14} className="rounded shrink-0" unoptimized />
           </div>
 
-          <div className="text-sm text-slate-400 shrink-0 min-w-[70px]">{formattedDate}</div>
+          <div className="text-xs text-zinc-500 shrink-0 min-w-[60px]">{formattedDate}</div>
 
-          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${config.bg} ${config.color} shrink-0`}>{config.label}</span>
+          <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${config.bg} ${config.color} shrink-0`}>{config.label}</span>
         </div>
       </motion.div>
     </Link>
@@ -263,21 +192,19 @@ function StatsCard({ stats }: { stats: { total: number; transit: number; deliver
   const deliveredRate = total > 0 ? Math.round((stats.delivered / total) * 100) : 0;
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-primary via-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16" />
-      <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10" />
+    <div className="relative overflow-hidden rounded-xl p-5 text-white" style={{ backgroundColor: 'var(--primary)' }}>
       <div className="relative">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-blue-100 text-sm font-medium">Total Shipments</p>
-            <p className="text-4xl font-bold mt-1">{stats.total}</p>
+            <p className="text-white/70 text-xs font-medium">Total Shipments</p>
+            <p className="text-3xl font-bold mt-1 font-heading">{stats.total}</p>
           </div>
-          <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <Package className="w-7 h-7" />
+          <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+            <Package className="w-5 h-5" />
           </div>
         </div>
-        <div className="flex items-center gap-2 text-blue-100 text-sm">
-          <TrendingUp className="w-4 h-4" />
+        <div className="flex items-center gap-1.5 text-white/70 text-xs">
+          <TrendingUp className="w-3.5 h-3.5" />
           <span>{deliveredRate}% delivery rate</span>
         </div>
       </div>
@@ -285,100 +212,47 @@ function StatsCard({ stats }: { stats: { total: number; transit: number; deliver
   );
 }
 
-function StatusOverview({ stats }: { stats: { transit: number; delivered: number; pending: number } }) {
-  const items = [
-    { key: 'in_transit', label: 'In Transit', icon: Truck, color: 'blue' },
-    { key: 'delivered', label: 'Delivered', icon: CheckCircle, color: 'emerald' },
-    { key: 'pending', label: 'Pending', icon: Clock, color: 'amber' },
-  ];
-
+function StatusItem({ label, count, icon: Icon, iconBg, color }: { label: string; count: number; icon: any; iconBg: string; color: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5">
-      <h3 className="text-sm font-semibold text-slate-800 mb-4">Status Overview</h3>
-      <div className="space-y-3">
-        {items.map(item => (
-          <div key={item.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg bg-${item.color}-100 flex items-center justify-center`}>
-                <item.icon className={`w-5 h-5 text-${item.color}-600`} />
-              </div>
-              <span className="text-sm font-medium text-slate-700">{item.label}</span>
-            </div>
-            <span className={`text-xl font-bold text-${item.color}-700`}>{stats[item.key as keyof typeof stats]}</span>
-          </div>
-        ))}
+    <div className="flex items-center justify-between py-2 px-3 bg-zinc-50 rounded-lg border border-zinc-100">
+      <div className="flex items-center gap-2.5">
+        <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+        </div>
+        <span className="text-xs font-medium text-zinc-700">{label}</span>
       </div>
+      <span className={`text-base font-bold ${color}`}>{count}</span>
     </div>
   );
 }
 
 function Sidebar({ stats }: { stats: { total: number; transit: number; delivered: number; pending: number } }) {
-  const deliveredRate = stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0;
-
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white shadow-lg">
-        <div className="mb-4">
-          <h3 className="font-semibold text-lg">Track Package</h3>
-          <p className="text-slate-400 text-sm mt-1">Get real-time updates on your shipments</p>
+      <StatsCard stats={stats} />
+
+      <div className="bg-white rounded-xl border border-zinc-200/70 p-4">
+        <h3 className="text-sm font-semibold text-zinc-800 uppercase tracking-wider mb-3">Status Overview</h3>
+        <div className="space-y-2">
+          <StatusItem label="In Transit" count={stats.transit} icon={Truck} iconBg="bg-blue-100" color="text-blue-700" />
+          <StatusItem label="Delivered" count={stats.delivered} icon={CheckCircle} iconBg="bg-emerald-100" color="text-emerald-700" />
+          <StatusItem label="Pending" count={stats.pending} icon={Clock} iconBg="bg-amber-100" color="text-amber-700" />
+        </div>
+      </div>
+
+      <div className="rounded-xl p-4 text-white shadow-sm" style={{ backgroundColor: 'var(--foreground)' }}>
+        <div className="mb-3">
+          <h3 className="font-heading font-semibold" style={{ fontSize: 'var(--text-heading-sm)', lineHeight: 'var(--leading-heading-sm)' }}>Track Package</h3>
+          <p className="text-zinc-500 text-xs mt-0.5">Get real-time updates on your shipments</p>
         </div>
         <Link
           href="/track"
-          className="w-full py-3 bg-white text-slate-900 rounded-xl font-medium hover:bg-slate-100 transition-all flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-white text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-100 transition-all flex items-center justify-center gap-2"
         >
-          <Search className="w-5 h-5" />
+          <Search className="w-4 h-4" />
           Track Now
         </Link>
       </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wider">Total Shipments</p>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{stats.total}</p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Package className="w-6 h-6 text-primary" />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h3 className="text-sm font-semibold text-slate-800 mb-4">Status Overview</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Truck className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">In Transit</span>
-            </div>
-            <span className="text-xl font-bold text-blue-700">{stats.transit}</span>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">Delivered</span>
-            </div>
-            <span className="text-xl font-bold text-emerald-700">{stats.delivered}</span>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">Pending</span>
-            </div>
-            <span className="text-xl font-bold text-amber-700">{stats.pending}</span>
-          </div>
-        </div>
-      </div>
-
-      
     </div>
   );
 }
@@ -386,20 +260,20 @@ function Sidebar({ stats }: { stats: { total: number; transit: number; delivered
 function EmptyState() {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center py-20 px-4"
+      className="flex flex-col items-center justify-center py-16 px-4"
     >
-      <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mb-6 shadow-xl">
-        <Package className="w-12 h-12 text-primary" />
+      <div className="w-20 h-20 rounded-2xl bg-zinc-100 flex items-center justify-center mb-5">
+        <Package className="w-10 h-10 text-zinc-300" />
       </div>
-      <h2 className="text-xl font-semibold text-slate-900 mb-2">No shipments yet</h2>
-      <p className="text-slate-500 text-center mb-6 max-w-md">Create your first shipment to start tracking your packages</p>
+      <h2 className="text-lg font-semibold text-zinc-900 mb-1">No shipments yet</h2>
+      <p className="text-sm text-zinc-500 text-center mb-5 max-w-sm">Create your first shipment to start tracking your packages</p>
       <Link
         href="/quote"
-        className="px-6 py-3 bg-gradient-to-r from-primary to-indigo-600 text-white font-medium rounded-xl hover:from-slate-600 hover:to-indigo-700 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+        className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white shadow-lg shadow-primary/20" style={{ backgroundColor: 'var(--primary)' }}
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-4 h-4" />
         Create Shipment
       </Link>
     </motion.div>
@@ -470,21 +344,21 @@ function ShipmentsPageContent() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-zinc-50">
           <Navbar />
           <div className="max-w-6xl mx-auto px-4 pt-24 pb-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3">
-                <div className="h-8 w-40 bg-slate-200 rounded animate-pulse mb-6" />
+                <div className="h-7 w-36 bg-zinc-200 rounded animate-pulse mb-5" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
+                    <div key={i} className="h-40 bg-zinc-100 rounded-xl animate-pulse" />
                   ))}
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="h-48 bg-slate-200 rounded-2xl animate-pulse" />
-                <div className="h-56 bg-slate-200 rounded-2xl animate-pulse" />
+                <div className="h-36 bg-zinc-100 rounded-xl animate-pulse" />
+                <div className="h-44 bg-zinc-100 rounded-xl animate-pulse" />
               </div>
             </div>
           </div>
@@ -495,62 +369,62 @@ function ShipmentsPageContent() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+      <div className="min-h-screen bg-zinc-50">
         <Navbar />
 
         <main className="max-w-6xl mx-auto px-4 pt-24 pb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-semibold text-slate-900">My Shipments</h1>
-                  <p className="text-slate-500 mt-1">Track and manage all your shipments</p>
-                </div>
-                <Link
-                  href="/quote"
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-slate-700 transition-all shadow-lg shadow-primary/20"
-                >
-                  <Plus className="w-5 h-5" />
-                  New Shipment
-                </Link>
-              </div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-xl font-semibold text-zinc-900 font-heading">My Shipments</h1>
+              <p className="text-sm text-zinc-500 mt-0.5">Track and manage all your shipments</p>
+            </div>
+            <Link
+              href="/quote"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-lg shadow-primary/20" style={{ backgroundColor: 'var(--primary)' }}
+            >
+              <Plus className="w-4 h-4" />
+              New Shipment
+            </Link>
+          </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3 space-y-4">
               {shipments.length > 0 ? (
                 <>
-                  <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-sm">
-                    <div className="flex items-center gap-3">
+                  <div className="bg-white rounded-lg border border-zinc-200/70 p-2.5">
+                    <div className="flex items-center gap-2.5">
                       <div className="relative flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                         <input
                           type="text"
                           placeholder="Search by tracking number or recipient..."
                           value={searchQuery}
                           onChange={e => setSearchQuery(e.target.value)}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 rounded-lg text-sm text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
                       <select
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
-                        className="px-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="px-3 py-2.5 bg-zinc-50 rounded-lg text-sm text-zinc-700 focus:outline-none"
                       >
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
                         <option value="in_transit">In Transit</option>
                         <option value="delivered">Delivered</option>
                       </select>
-                      <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                      <div className="flex items-center bg-zinc-100 rounded-lg p-0.5">
                         <button
                           onClick={() => setViewMode('grid')}
-                          className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}
+                          className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
-                          <Grid3X3 className="w-5 h-5" />
+                          <Grid3X3 className="w-4 h-4" style={viewMode === 'grid' ? { color: 'var(--primary)' } : undefined} />
                         </button>
                         <button
                           onClick={() => setViewMode('list')}
-                          className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}
+                          className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
-                          <List className="w-5 h-5" />
+                          <List className="w-4 h-4" style={viewMode === 'list' ? { color: 'var(--primary)' } : undefined} />
                         </button>
                       </div>
                     </div>
@@ -584,12 +458,12 @@ function ShipmentsPageContent() {
                         </motion.div>
                       )
                     ) : (
-                      <div className="text-center py-12 text-slate-500">No results found</div>
+                      <div className="text-center py-12 text-sm text-zinc-500">No results found</div>
                     )}
                   </AnimatePresence>
 
-                  <div className="flex items-center justify-between pt-4 bg-white rounded-xl p-4 border border-slate-200/80">
-                    <div className="text-sm text-slate-500">
+                  <div className="flex items-center justify-between bg-white rounded-lg border border-zinc-200/70 px-4 py-3">
+                    <div className="text-xs text-zinc-500">
                       {filteredShipments.length > 0 ? (
                         <>
                           Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredShipments.length)} of {filteredShipments.length}
@@ -602,16 +476,17 @@ function ShipmentsPageContent() {
                       <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1 || totalPages === 0}
-                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded border border-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
                       {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map(page => (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
                           disabled={totalPages === 0}
-                          className={`w-8 h-8 rounded-lg text-sm ${currentPage === page && totalPages > 0 ? 'bg-primary text-white' : 'border border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}
+                          className={`w-7 h-7 rounded text-xs ${currentPage === page && totalPages > 0 ? 'text-white' : 'border border-zinc-200 hover:bg-zinc-50 text-zinc-700'}`}
+                          style={currentPage === page && totalPages > 0 ? { backgroundColor: 'var(--primary)' } : undefined}
                         >
                           {page}
                         </button>
@@ -619,9 +494,9 @@ function ShipmentsPageContent() {
                       <button
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages || totalPages === 0}
-                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded border border-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

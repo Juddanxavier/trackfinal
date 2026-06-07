@@ -1,18 +1,31 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import createGlobe from 'cobe';
 
-interface Marker {
+export interface Marker {
   id: string;
   location: [number, number];
-  label: string;
+  label?: string;
+}
+
+export interface Arc {
+  id: string;
+  from: [number, number];
+  to: [number, number];
 }
 
 interface GlobeProps {
   className?: string;
   size?: number;
   showLabels?: boolean;
+  dark?: number;
+  markers?: Marker[];
+  arcs?: Arc[];
+  markerColor?: [number, number, number];
+  arcColor?: [number, number, number];
+  phi?: number;
+  theta?: number;
 }
 
 const defaultMarkers: Marker[] = [
@@ -31,12 +44,6 @@ const defaultMarkers: Marker[] = [
   { id: 'johannesburg', location: [-26.2, 28.04], label: 'Johannesburg' },
 ];
 
-interface Arc {
-  id: string;
-  from: [number, number];
-  to: [number, number];
-}
-
 const defaultArcs: Arc[] = [
   { id: 'arc1', from: [40.71, -74.01], to: [51.5, -0.12] },
   { id: 'arc2', from: [34.05, -118.24], to: [35.68, 139.65] },
@@ -52,12 +59,22 @@ export function Globe({
   className = '',
   size = 500,
   showLabels = true,
+  dark = 0,
+  markers,
+  arcs,
+  markerColor = [0.2, 0.4, 1],
+  arcColor = [0.3, 0.5, 1],
+  phi: initialPhi = 0,
+  theta = 0.2,
 }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const phiRef = useRef(0);
+  const phiRef = useRef(initialPhi);
   const isDraggingRef = useRef(false);
   const lastMouseXRef = useRef(0);
   const velocityRef = useRef(0);
+
+  const activeMarkers = markers ?? defaultMarkers;
+  const activeArcs = arcs ?? defaultArcs;
 
   useEffect(() => {
     let globe: ReturnType<typeof createGlobe> | null = null;
@@ -65,31 +82,32 @@ export function Globe({
     const canvas = canvasRef.current;
 
     if (canvas) {
+      const isDark = dark === 1;
       globe = createGlobe(canvas, {
         devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
         width: size * 2,
         height: size * 2,
-        phi: 0,
-        theta: 0.2,
-        dark: 0,
+        phi: initialPhi,
+        theta,
+        dark,
         diffuse: 1.2,
         mapSamples: 16000,
-        mapBrightness: 6,
-        baseColor: [1, 1, 1],
-        markerColor: [0.2, 0.4, 1],
-        glowColor: [1, 1, 1],
+        mapBrightness: isDark ? 2 : 6,
+        baseColor: isDark ? ([0.15, 0.15, 0.2] as [number, number, number]) : ([1, 1, 1] as [number, number, number]),
+        markerColor: markerColor,
+        glowColor: isDark ? ([0.15, 0.15, 0.2] as [number, number, number]) : ([1, 1, 1] as [number, number, number]),
         scale: 1,
-        markers: defaultMarkers.map((m) => ({
+        markers: activeMarkers.map((m) => ({
           location: m.location,
           size: 0.04,
           id: m.id,
         })),
-        arcs: defaultArcs.map((a) => ({
+        arcs: activeArcs.map((a) => ({
           from: a.from,
           to: a.to,
           id: a.id,
         })),
-        arcColor: [0.3, 0.5, 1],
+        arcColor: arcColor,
         arcWidth: 0.4,
         arcHeight: 0.25,
       });
@@ -115,25 +133,20 @@ export function Globe({
         isDraggingRef.current = false;
       };
 
-      // Mouse events
       canvas.addEventListener('mousedown', handleMouseDown);
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
 
-      // Touch events
       canvas.addEventListener('touchstart', handleMouseDown, { passive: true });
       window.addEventListener('touchmove', handleMouseMove, { passive: true });
       window.addEventListener('touchend', handleMouseUp);
 
-      // Auto-rotate when not dragging
       const animate = () => {
         if (!isDraggingRef.current) {
-          // Apply inertia
           if (Math.abs(velocityRef.current) > 0.001) {
-            velocityRef.current *= 0.95; // Friction
+            velocityRef.current *= 0.95;
             phiRef.current += velocityRef.current;
           } else {
-            // Slow auto-rotation
             phiRef.current += 0.002;
           }
           globe?.update({ phi: phiRef.current });
@@ -152,7 +165,7 @@ export function Globe({
         window.removeEventListener('touchend', handleMouseUp);
       };
     }
-  }, [size]);
+  }, [size, dark, initialPhi, theta, markerColor, arcColor, activeMarkers, activeArcs]);
 
   return (
     <div
@@ -169,7 +182,7 @@ export function Globe({
 
       {showLabels && (
         <>
-          {defaultMarkers.map((marker) => (
+          {activeMarkers.filter(m => m.label).map((marker) => (
             <div
               key={marker.id}
               className='absolute pointer-events-none'

@@ -1,34 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, DM_Sans, Anek_Devanagari } from "next/font/google";
+import { Inter, Outfit } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import FooterWrapper from "@/components/FooterWrapper";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const anek = Anek_Devanagari({
-  variable: "--font-anek",
-  subsets: ["devanagari", "latin"],
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Gajan Traders - International Courier Services",
-  description: "Delivering excellence globally. Track your shipments, get quotes, and experience seamless international logistics.",
+  title: "Gajan Traders — International Courier from India",
+  description: "Ship parcels from India to 200+ countries. Door-to-door pickup, real-time tracking, delivery you can count on.",
 };
 
 export default function RootLayout({
@@ -39,9 +29,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${anek.variable} h-full antialiased`}
+      className={`${inter.variable} ${outfit.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <div className="noise-overlay" />
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             {children}

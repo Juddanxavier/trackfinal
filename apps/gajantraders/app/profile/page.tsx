@@ -97,7 +97,7 @@ export default function ProfilePage() {
                       className={`flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-all duration-200 border-l-2 ${
                         isActive
                           ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                          : 'border-transparent text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50'
                       }`}
                     >
                       <link.icon className='w-4 h-4' />
@@ -116,7 +116,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <h1 className='text-xl font-semibold text-zinc-900'>{display.name}</h1>
-                    <p className='text-sm text-zinc-500'>{display.email}</p>
+                    <p className='text-sm text-zinc-700'>{display.email}</p>
                   </div>
                 </div>
 
@@ -124,14 +124,14 @@ export default function ProfilePage() {
                   <div className='flex items-center gap-3 p-4 bg-white border border-zinc-100'>
                     <Mail className='w-5 h-5 text-primary' />
                     <div>
-                      <p className='text-xs text-zinc-400 uppercase tracking-wider'>Email</p>
+                      <p className='text-sm text-zinc-500 uppercase tracking-wider'>Email</p>
                       <p className='text-sm font-medium text-zinc-900'>{display.email}</p>
                     </div>
                   </div>
                   <div className='flex items-center gap-3 p-4 bg-white border border-zinc-100'>
                     <Phone className='w-5 h-5 text-primary' />
                     <div>
-                      <p className='text-xs text-zinc-400 uppercase tracking-wider'>Phone</p>
+                      <p className='text-sm text-zinc-500 uppercase tracking-wider'>Phone</p>
                       <p className='text-sm font-medium text-zinc-900'>{display.phoneNumber || 'Not set'}</p>
                     </div>
                   </div>
@@ -142,14 +142,14 @@ export default function ProfilePage() {
                       <ShieldX className='w-5 h-5 text-amber-600' />
                     )}
                     <div>
-                      <p className='text-xs text-zinc-400 uppercase tracking-wider'>Email Verified</p>
+                      <p className='text-sm text-zinc-500 uppercase tracking-wider'>Email Verified</p>
                       <p className='text-sm font-medium text-zinc-900'>{display.emailVerified ? 'Verified' : 'Pending'}</p>
                     </div>
                   </div>
                   <div className='flex items-center gap-3 p-4 bg-white border border-zinc-100'>
                     <Calendar className='w-5 h-5 text-primary' />
                     <div>
-                      <p className='text-xs text-zinc-400 uppercase tracking-wider'>Member Since</p>
+                      <p className='text-sm text-zinc-500 uppercase tracking-wider'>Member Since</p>
                       <p className='text-sm font-medium text-zinc-900'>{memberSince || 'N/A'}</p>
                     </div>
                   </div>

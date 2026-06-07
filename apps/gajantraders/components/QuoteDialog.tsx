@@ -180,7 +180,7 @@ export default function QuoteDialog({ isOpen, onClose, onSuccess }: { isOpen: bo
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-5 rounded-t-2xl flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Request a Quote</h2>
-            <p className="text-slate-400 text-sm mt-1">Get competitive rates for your shipment</p>
+            <p className="text-slate-400 text-sm mt-1">Free packing on all shipments ✦ Get competitive rates</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl">
             <X className="w-5 h-5 text-white" />

@@ -25,27 +25,39 @@ const stagger = {
 const offices = [
   {
     icon: Building2,
-    city: 'Mumbai (HQ)',
-    address: '7, Gajan Traders House, P D Mello Road, Near Masjid Bunder, Mumbai 400009, Maharashtra, India',
-    phone: '+91 22 2344 5678',
-    email: 'mumbai@gajantraders.com',
+    city: 'Trichy (Head Office)',
+    address: 'No 18, 3rd Main Road, Srinivasa Nagar, Vayalur Road, Trichy 620017',
+    phone: '+91 90033 72780',
+    phone2: '+91 95661 56719',
+    email: 'trichy@gajantraders.com',
     hours: 'Mon-Sat: 9:30 AM - 6:30 PM',
   },
   {
     icon: Building2,
-    city: 'Delhi NCR',
-    address: '42, Logistics Hub, Sector 12, Dwarka, New Delhi 110078, India',
-    phone: '+91 11 4567 8901',
-    email: 'delhi@gajantraders.com',
+    city: 'Salem',
+    address: '286-A Gandhi Nagar, Edanganasalai, Elampillai 637502, Salem',
+    phone: '+91 90033 62630',
+    phone2: '+91 95661 56719',
+    email: 'salem@gajantraders.com',
     hours: 'Mon-Sat: 9:30 AM - 6:30 PM',
   },
   {
     icon: Globe,
-    city: 'Dubai (Intl.)',
-    address: 'Office 1204, Business Bay Tower, Sheikh Zayed Road, Dubai, UAE',
-    phone: '+971 4 567 8901',
-    email: 'dubai@gajantraders.com',
-    hours: 'Sun-Thu: 9:00 AM - 6:00 PM',
+    city: 'Chennai (Royapuram)',
+    address: '104/246, Adam Sahib Street, Royapuram, Chennai 600013',
+    phone: '+91 77081 52719',
+    phone2: '+91 95008 11847',
+    email: 'chennai@gajantraders.com',
+    hours: 'Mon-Sat: 9:30 AM - 6:30 PM',
+  },
+  {
+    icon: Globe,
+    city: 'Chennai (Saidapet)',
+    address: '137/70 (First Floor), L.D.G Road, Little Mount, Saidapet, Chennai 600015',
+    phone: '+91 72001 58309',
+    phone2: '+91 90033 67790',
+    email: 'chennai2@gajantraders.com',
+    hours: 'Mon-Sat: 9:30 AM - 6:30 PM',
   },
 ];
 
@@ -88,12 +100,12 @@ export default function ContactPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
             <div className='flex items-center gap-3 mb-5'>
               <HeadphonesIcon className='w-6 h-6 text-primary' />
-              <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Get in Touch</span>
+              <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Get in Touch</span>
             </div>
             <h1 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading max-w-3xl'>
               We&apos;d love to hear from you
             </h1>
-            <p className='text-lg sm:text-xl text-zinc-500 max-w-2xl mt-6 leading-relaxed'>
+            <p className='text-lg sm:text-xl text-zinc-700 max-w-2xl mt-6 leading-relaxed'>
               Have a question about shipping, need a quote, or just want to say hello? Our team is ready to help.
             </p>
             <div className='flex flex-wrap gap-4 mt-8'>
@@ -105,7 +117,7 @@ export default function ContactPage() {
               </Link>
               <a
                 href='#form'
-                className='inline-flex items-center gap-2 px-6 py-3 border border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
+                className='inline-flex items-center gap-2 px-6 py-3 border border-zinc-300 text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
               >
                 Send Message
               </a>
@@ -143,7 +155,7 @@ export default function ContactPage() {
             >
               <div className='flex items-center gap-3 mb-5'>
                 <MessageSquare className='w-6 h-6 text-primary' />
-                <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Send a Message</span>
+                <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Send a Message</span>
               </div>
               <h2 className='text-xl sm:text-2xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-8'>
                 Drop us a line
@@ -159,7 +171,7 @@ export default function ContactPage() {
                     <CheckCircle className='w-8 h-8 text-primary' />
                   </div>
                   <h3 className='text-lg font-semibold text-zinc-900 mb-2'>Message Sent!</h3>
-                  <p className='text-zinc-500 text-sm max-w-sm mx-auto'>
+                  <p className='text-zinc-700 text-sm max-w-sm mx-auto'>
                     Thank you for reaching out. Our team will get back to you within 24 hours.
                   </p>
                   <button
@@ -180,7 +192,7 @@ export default function ContactPage() {
                         value={form.name}
                         onChange={e => setForm({ ...form, name: e.target.value })}
                         placeholder='John Doe'
-                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
                       />
                     </div>
                     <div>
@@ -191,7 +203,7 @@ export default function ContactPage() {
                         value={form.email}
                         onChange={e => setForm({ ...form, email: e.target.value })}
                         placeholder='john@gajantraders.com'
-                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
                       />
                     </div>
                   </div>
@@ -203,7 +215,7 @@ export default function ContactPage() {
                         value={form.phone}
                         onChange={e => setForm({ ...form, phone: e.target.value })}
                         placeholder='+91 98765 43210'
-                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
                       />
                     </div>
                     <div>
@@ -214,7 +226,7 @@ export default function ContactPage() {
                         value={form.subject}
                         onChange={e => setForm({ ...form, subject: e.target.value })}
                         placeholder='Shipping Inquiry'
-                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm'
                       />
                     </div>
                   </div>
@@ -226,7 +238,7 @@ export default function ContactPage() {
                       value={form.message}
                       onChange={e => setForm({ ...form, message: e.target.value })}
                       placeholder='Tell us about your shipping needs...'
-                      className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm resize-none'
+                      className='w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all text-sm resize-none'
                     />
                   </div>
                   <button
@@ -256,11 +268,11 @@ export default function ContactPage() {
                 <div>
                   <div className='flex items-center gap-3 mb-5'>
                     <Phone className='w-5 h-5 text-primary' />
-                    <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Call Us</span>
+                    <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Call Us</span>
                   </div>
-                  <a href='tel:+912223445678' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors'>+91 22 2344 5678</a>
-                  <a href='tel:+97145678901' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors mt-1'>+971 4 567 8901</a>
-                  <p className='text-xs text-zinc-400 mt-2'>Mon-Sat: 9:30 AM - 6:30 PM (IST)</p>
+                  <a href='tel:+919003372780' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors'>+91 90033 72780</a>
+                  <a href='tel:+919566156719' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors mt-1'>+91 95661 56719</a>
+                  <p className='text-sm text-zinc-700 mt-2'>Mon-Sat: 9:30 AM - 6:30 PM (IST)</p>
                 </div>
 
                 <div className='w-full h-px bg-zinc-200' />
@@ -268,11 +280,11 @@ export default function ContactPage() {
                 <div>
                   <div className='flex items-center gap-3 mb-5'>
                     <Mail className='w-5 h-5 text-primary' />
-                    <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Email Us</span>
+                    <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Email Us</span>
                   </div>
                   <a href='mailto:info@gajantraders.com' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors'>info@gajantraders.com</a>
-                  <a href='mailto:support@gajantraders.com' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors mt-1'>support@gajantraders.com</a>
-                  <p className='text-xs text-zinc-400 mt-2'>We respond within 24 hours</p>
+                  <a href='mailto:trichy@gajantraders.com' className='block text-base font-semibold text-zinc-900 hover:text-primary transition-colors mt-1'>trichy@gajantraders.com</a>
+                  <p className='text-sm text-zinc-700 mt-2'>We respond within 24 hours</p>
                 </div>
 
                 <div className='w-full h-px bg-zinc-200' />
@@ -280,15 +292,15 @@ export default function ContactPage() {
                 <div>
                   <div className='flex items-center gap-3 mb-5'>
                     <Clock className='w-5 h-5 text-primary' />
-                    <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Business Hours</span>
+                    <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Business Hours</span>
                   </div>
                   <div className='space-y-2 text-sm'>
                     <div className='flex justify-between'>
-                      <span className='text-zinc-500'>Mon - Sat</span>
+                      <span className='text-zinc-700'>Mon - Sat</span>
                       <span className='text-zinc-900 font-medium'>9:30 AM - 6:30 PM</span>
                     </div>
                     <div className='flex justify-between'>
-                      <span className='text-zinc-500'>Sunday</span>
+                      <span className='text-zinc-700'>Sunday</span>
                       <span className='text-zinc-900 font-medium'>Closed</span>
                     </div>
                   </div>
@@ -299,18 +311,18 @@ export default function ContactPage() {
                 <div>
                   <div className='flex items-center gap-3 mb-5'>
                     <MapPin className='w-5 h-5 text-primary' />
-                    <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase'>Head Office</span>
+                    <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase'>Head Office</span>
                   </div>
-                  <p className='text-sm text-zinc-500 leading-relaxed'>
-                    7, Gajan Traders House, P D Mello Road,<br />
-                    Near Masjid Bunder, Mumbai 400009,<br />
-                    Maharashtra, India
+                  <p className='text-sm text-zinc-700 leading-relaxed'>
+                    No 18, 3rd Main Road, Srinivasa Nagar,<br />
+                    Vayalur Road, Trichy 620017,<br />
+                    Tamil Nadu, India
                   </p>
                   <a
-                    href='https://maps.google.com'
+                    href='https://maps.google.com/?q=10.79,78.70'
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-[#1E293B] uppercase tracking-wider mt-3 transition-colors'
+                    className='inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[#1E293B] uppercase tracking-wider mt-3 transition-colors'
                   >
                     View on Map <ArrowUpRight className='w-3 h-3' />
                   </a>
@@ -325,36 +337,42 @@ export default function ContactPage() {
       <section className='py-14 lg:py-20 bg-zinc-50'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn} className='text-center max-w-xl mx-auto mb-16'>
-            <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase block mb-4'>Our Offices</span>
+            <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase block mb-4'>Our Offices</span>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
               Visit us at any of our locations
             </h2>
           </motion.div>
 
-          <motion.div variants={stagger} initial='initial' whileInView='animate' viewport={{ once: true }} className='grid md:grid-cols-3 gap-8'>
+          <div className='grid md:grid-cols-2 lg:grid-cols-4 gap-8'>
             {offices.map((office, i) => (
               <motion.div
                 key={i}
-                variants={fadeIn}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
                 className='bg-white border border-zinc-100 p-8 hover:border-zinc-200 hover:shadow-sm transition-all duration-300'
               >
                 <office.icon className='w-8 h-8 text-primary mb-5' />
-                <h3 className='text-base font-semibold text-zinc-900 mb-3'>{office.city}</h3>
-                <p className='text-sm text-zinc-500 leading-relaxed mb-4'>{office.address}</p>
-                <div className='space-y-2 text-sm'>
-                  <a href={`tel:${office.phone.replace(/\s/g, '')}`} className='flex items-center gap-2 text-zinc-600 hover:text-primary transition-colors'>
+                  <h3 className='text-lg font-semibold text-zinc-900 mb-3'>{office.city}</h3>
+                  <p className='text-base text-zinc-700 leading-relaxed mb-4'>{office.address}</p>
+                  <div className='space-y-2 text-base'>
+                  <a href={`tel:${office.phone.replace(/\s/g, '')}`} className='flex items-center gap-2 text-zinc-700 hover:text-primary transition-colors'>
                     <Phone className='w-3.5 h-3.5' /> {office.phone}
                   </a>
-                  <a href={`mailto:${office.email}`} className='flex items-center gap-2 text-zinc-600 hover:text-primary transition-colors'>
+                  <a href={`tel:${office.phone2.replace(/\s/g, '')}`} className='flex items-center gap-2 text-zinc-700 hover:text-primary transition-colors'>
+                    <Phone className='w-3.5 h-3.5' /> {office.phone2}
+                  </a>
+                  <a href={`mailto:${office.email}`} className='flex items-center gap-2 text-zinc-700 hover:text-primary transition-colors'>
                     <Mail className='w-3.5 h-3.5' /> {office.email}
                   </a>
-                  <div className='flex items-center gap-2 text-zinc-400'>
+                  <div className='flex items-center gap-2 text-zinc-700'>
                     <Clock className='w-3.5 h-3.5' /> {office.hours}
                   </div>
                 </div>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -362,7 +380,7 @@ export default function ContactPage() {
       <section className='py-14 lg:py-20'>
         <div className='max-w-7xl mx-auto px-6 lg:px-8'>
           <motion.div {...fadeIn} className='text-center max-w-xl mx-auto mb-16'>
-            <span className='text-primary text-xs font-semibold tracking-[0.2em] uppercase block mb-4'>Quick Answers</span>
+            <span className='text-primary text-sm font-semibold tracking-[0.2em] uppercase block mb-4'>Quick Answers</span>
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading'>
               Frequently asked questions
             </h2>
@@ -378,8 +396,8 @@ export default function ContactPage() {
                 transition={{ duration: 0.4, delay: i * 0.06 }}
                 className='bg-zinc-50 border border-zinc-100 p-6'
               >
-                <h3 className='text-sm font-semibold text-zinc-900 mb-2'>{faq.q}</h3>
-                <p className='text-sm text-zinc-500 leading-relaxed'>{faq.a}</p>
+                <h3 className='text-base font-semibold text-zinc-900 mb-2'>{faq.q}</h3>
+                <p className='text-base text-zinc-700 leading-relaxed'>{faq.a}</p>
               </motion.div>
             ))}
           </div>
@@ -393,7 +411,7 @@ export default function ContactPage() {
             <h2 className='text-xl sm:text-2xl lg:text-3xl font-semibold text-zinc-900 leading-[0.95] tracking-tight font-heading mb-4'>
               Ready to ship with us?
             </h2>
-            <p className='text-zinc-500 max-w-lg mx-auto mb-10 text-base'>
+            <p className='text-zinc-700 max-w-lg mx-auto mb-10 text-lg'>
               Join thousands of businesses that trust Gajan Traders for their international shipping needs.
             </p>
             <div className='flex flex-wrap justify-center gap-4'>
@@ -405,15 +423,15 @@ export default function ContactPage() {
               </Link>
               <Link
                 href='/about'
-                className='inline-flex items-center gap-2 px-8 py-4 border border-zinc-300 text-zinc-600 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
+                className='inline-flex items-center gap-2 px-8 py-4 border border-zinc-300 text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-lg'
               >
                 Learn More
               </Link>
             </div>
-            <div className='flex flex-wrap justify-center gap-8 mt-10 text-sm text-zinc-400'>
+            <div className='flex flex-wrap justify-center gap-8 mt-10 text-sm text-zinc-700'>
               <span>No Hidden Charges</span>
               <span className='w-px h-4 bg-zinc-200' />
-              <span>Doorstep Pickup</span>
+              <span>Free Packing</span>
               <span className='w-px h-4 bg-zinc-200' />
               <span>50+ Countries Served</span>
             </div>

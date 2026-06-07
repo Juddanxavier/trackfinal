@@ -140,7 +140,7 @@ export default function ForgotPasswordPage() {
             ].map((stat, i) => (
               <div key={i} className='text-center'>
                 <div className='text-2xl font-bold text-white'>{stat.value}</div>
-                <div className='text-xs text-white/40 mt-1'>{stat.label}</div>
+                <div className='text-sm text-white/40 mt-1'>{stat.label}</div>
               </div>
             ))}
           </motion.div>

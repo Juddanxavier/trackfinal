@@ -118,7 +118,7 @@ export default function RegisterPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className='text-lg text-zinc-500 mb-10 max-w-md'
+            className='text-lg text-zinc-700 mb-10 max-w-md'
           >
             Join thousands of businesses who trust Gajan Traders for their international logistics needs.
           </motion.p>
@@ -156,7 +156,7 @@ export default function RegisterPage() {
             ].map((stat, i) => (
               <div key={i} className='text-center'>
                 <div className='text-xl font-semibold text-zinc-900'>{stat.value}</div>
-                <div className='text-xs text-zinc-400 mt-1'>{stat.label}</div>
+                <div className='text-sm text-zinc-400 mt-1'>{stat.label}</div>
               </div>
             ))}
           </motion.div>
@@ -200,7 +200,7 @@ export default function RegisterPage() {
           <div className='bg-white border border-zinc-200 rounded-3xl p-8 shadow-sm'>
             <div className='text-center mb-8'>
               <h1 className='text-xl font-semibold text-zinc-900 font-heading mb-2'>Create Account</h1>
-              <p className='text-zinc-500 text-sm'>Start shipping globally with Gajan Traders</p>
+              <p className='text-zinc-700 text-sm'>Start shipping globally with Gajan Traders</p>
             </div>
 
             {successMessage && (
@@ -228,7 +228,7 @@ export default function RegisterPage() {
             {!successMessage && (
             <form onSubmit={handleSubmit} className='space-y-4'>
               <div>
-                <label className='block text-xs font-medium text-zinc-500 mb-1'>Email Address</label>
+                <label className='block text-sm font-medium text-zinc-700 mb-1'>Email Address</label>
                 <div className='relative'>
                   <Mail className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400' />
                   <input
@@ -243,7 +243,7 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className='block text-xs font-medium text-zinc-500 mb-1'>Password</label>
+                <label className='block text-sm font-medium text-zinc-700 mb-1'>Password</label>
                 <div className='relative'>
                   <Lock className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400' />
                   <input
@@ -308,7 +308,7 @@ export default function RegisterPage() {
             </button>
 
             <div className='mt-6 text-center'>
-              <p className='text-sm text-zinc-500'>
+              <p className='text-sm text-zinc-700'>
                 Already have an account?{' '}
                 <Link href='/login' className='text-primary hover:text-primary/80 font-medium transition-colors'>
                   Sign in
@@ -321,11 +321,11 @@ export default function RegisterPage() {
 
           <p className='text-center text-xs text-zinc-400 mt-4'>
             By signing up, you agree to our{' '}
-            <Link href='/terms' className='text-zinc-500 hover:text-zinc-700 transition-colors'>
+            <Link href='/terms' className='text-zinc-700 hover:text-zinc-700 transition-colors'>
               Terms
             </Link>{' '}
             and{' '}
-            <Link href='/privacy' className='text-zinc-500 hover:text-zinc-700 transition-colors'>
+            <Link href='/privacy' className='text-zinc-700 hover:text-zinc-700 transition-colors'>
               Privacy Policy
             </Link>
           </p>

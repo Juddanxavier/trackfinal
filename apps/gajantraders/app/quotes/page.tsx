@@ -25,11 +25,11 @@ import {
   Loader2,
   Calendar,
   Plane,
-  Phone,
   MessageSquare,
   Tag,
   Sparkles,
   Award,
+  Package,
 } from 'lucide-react';
 import QuoteDialog from '@/components/QuoteDialog';
 
@@ -85,25 +85,29 @@ function mapApiQuoteToQuote(apiQuote: ApiQuote): Quote {
   };
 }
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; border: string; badge: string }> = {
-  pending: { label: 'Pending Review', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-500' },
-  quoted: { label: 'Price Ready', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-500' },
-  accepted: { label: 'Confirmed', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', badge: 'bg-emerald-500' },
-  rejected: { label: 'Declined', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-500' },
-  expired: { label: 'Expired', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200', badge: 'bg-slate-400' },
+const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  pending: { label: 'Pending Review', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  quoted: { label: 'Price Ready', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
+  accepted: { label: 'Confirmed', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  rejected: { label: 'Declined', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
+  expired: { label: 'Expired', color: 'text-zinc-700', bg: 'bg-zinc-100', border: 'border-zinc-200' },
 };
 
-const goodsTypeIcons: Record<string, string> = {
-  general: '📦',
-  fragile: '⚠️',
-  electronics: '💻',
-  perishable: '🥤',
-  hazardous: '☢️',
-  machinery: '⚙️',
-  chemicals: '🧪',
-  other: '📦',
+const statusPriority: Record<string, number> = {
+  pending: 0,
+  quoted: 1,
+  accepted: 2,
+  rejected: 3,
+  expired: 4,
 };
 
+function sortQuotes(list: Quote[]) {
+  return [...list].sort((a, b) => {
+    const pri = (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
+    if (pri !== 0) return pri;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+}
 const countryCodeMap: Record<string, string> = {
   'India': 'IN',
   'Australia': 'AU', 'Bangladesh': 'BD', 'Bhutan': 'BT', 'Canada': 'CA', 'China': 'CN',
@@ -128,88 +132,69 @@ function QuoteCard({ quote, onAcceptQuote, onDeclineQuote, isAccepting, isDeclin
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
+      whileHover={{ y: -3 }}
       className="group"
     >
-      <div className="relative bg-white rounded-2xl border border-slate-200/60 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
-        <div className="p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className={`relative ${config.bg} rounded-xl p-2.5`}>
-                {quote.status === 'pending' && <Clock className={`w-5 h-5 ${config.color}`} />}
-                {quote.status === 'quoted' && <Sparkles className={`w-5 h-5 ${config.color}`} />}
-                {quote.status === 'accepted' && <CheckCircle className={`w-5 h-5 ${config.color}`} />}
-                {quote.status === 'rejected' && <XCircle className={`w-5 h-5 ${config.color}`} />}
-                {quote.status === 'expired' && <AlertCircle className={`w-5 h-5 ${config.color}`} />}
+      <div className="bg-white rounded-xl border border-zinc-200/70 overflow-hidden hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200">
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className={`${config.bg} rounded-lg p-2`}>
+                {quote.status === 'pending' && <Clock className={`w-4 h-4 ${config.color}`} />}
+                {quote.status === 'quoted' && <Sparkles className={`w-4 h-4 ${config.color}`} />}
+                {quote.status === 'accepted' && <CheckCircle className={`w-4 h-4 ${config.color}`} />}
+                {quote.status === 'rejected' && <XCircle className={`w-4 h-4 ${config.color}`} />}
+                {quote.status === 'expired' && <AlertCircle className={`w-4 h-4 ${config.color}`} />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-900">{quote.quoteNumber}</span>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>{config.label}</span>
+                  <span className="text-sm font-semibold text-zinc-900">{quote.quoteNumber}</span>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color} border ${config.border}`}>{config.label}</span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-slate-400 flex items-center gap-1">
-                    <Tag className="w-3 h-3" />
-                    {quote.serviceType}
-                  </span>
-                </div>
+                <p className="text-xs text-zinc-500 mt-px flex items-center gap-1">
+                  <Tag className="w-3 h-3" />
+                  {quote.serviceType}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 rounded-xl p-4 mb-4 border border-slate-100">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="relative">
-                  <Image src={originFlag} alt={quote.origin} width={48} height={32} className="rounded-lg shadow-md ring-2 ring-white" unoptimized />
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Origin</p>
-                  <p className="text-sm font-semibold text-slate-700">{quote.origin}</p>
-                </div>
+          <div className="flex items-center gap-3 py-3 border-t border-zinc-100">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Image src={originFlag} alt={quote.origin} width={28} height={20} className="rounded ring-1 ring-zinc-200 shrink-0" unoptimized />
+              <span className="text-xs text-zinc-700 truncate">{quote.origin}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Plane className="w-3 h-3 text-zinc-300 rotate-45" />
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--primary)' }}>
+                <Plane className="w-3 h-3 text-white rotate-45" />
               </div>
-
-              <div className="flex items-center gap-2 px-4">
-                <div className="h-px w-12 bg-gradient-to-r from-transparent via-primary to-transparent" />
-                <div className="w-12 h-12 bg-gradient-to-br from-primary to-slate-600 rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
-                  <Plane className="w-5 h-5 text-white rotate-45" />
-                </div>
-                <div className="h-px w-12 bg-gradient-to-r from-transparent via-primary to-transparent" />
-              </div>
-
-              <div className="flex items-center gap-3 flex-1 justify-end">
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Destination</p>
-                  <p className="text-sm font-semibold text-slate-700">{quote.destination}</p>
-                </div>
-                <div className="relative">
-                  <Image src={destFlag} alt={quote.destination} width={48} height={32} className="rounded-lg shadow-md ring-2 ring-white" unoptimized />
-                </div>
-              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+              <span className="text-xs text-zinc-700 truncate">{quote.destination}</span>
+              <Image src={destFlag} alt={quote.destination} width={28} height={20} className="rounded ring-1 ring-zinc-200 shrink-0" unoptimized />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 text-center border border-slate-100">
-              <Weight className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-              <p className="text-[10px] text-slate-400 mb-1">Weight</p>
-              <p className="text-lg font-bold text-slate-700">{quote.weight} <span className="text-xs font-medium">KG</span></p>
+          <div className="flex items-center gap-3 pt-3 border-t border-zinc-100">
+            <div className="flex items-center gap-2 flex-1">
+              <Weight className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-xs text-zinc-700">{quote.weight} KG</span>
             </div>
-            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 text-center border border-slate-100">
-              <Calendar className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-              <p className="text-[10px] text-slate-400 mb-1">Created</p>
-              <p className="text-sm font-semibold text-slate-700">{formattedDate}</p>
+            <div className="flex items-center gap-2 flex-1 justify-end">
+              <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-xs text-zinc-700">{formattedDate}</span>
             </div>
           </div>
 
           {quote.remarks && (
-            <div className="flex items-start gap-2 mb-4 p-3 bg-amber-50/50 rounded-lg border border-amber-100/50">
-              <MessageSquare className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 mt-3 pt-3 border-t border-zinc-100">
+              <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-[10px] text-amber-600 font-medium mb-0.5">Note</p>
-                <p className="text-xs text-slate-600">{quote.remarks}</p>
+                <p className="text-xs text-zinc-700">{quote.remarks}</p>
               </div>
             </div>
           )}
@@ -218,50 +203,46 @@ function QuoteCard({ quote, onAcceptQuote, onDeclineQuote, isAccepting, isDeclin
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-5 mb-4 text-white relative overflow-hidden"
+              className="mt-3 p-4 text-white rounded-lg overflow-hidden relative" style={{ backgroundColor: 'var(--primary)' }}
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16" />
-              <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10" />
               <div className="absolute top-2 right-2">
-                <Award className="w-6 h-6 text-white/40" />
+                <Award className="w-5 h-5 text-white/30" />
               </div>
               <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <span className="text-blue-100 text-xs font-medium">Admin Quoted Price</span>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5" />
                   </div>
+                  <span className="text-[10px] text-white/70 font-medium">Admin Quoted Price</span>
                 </div>
-                <span className="text-3xl font-bold">{quote.price}</span>
+                <span className="text-2xl font-bold font-heading">{quote.price}</span>
               </div>
             </motion.div>
           )}
 
           {quote.price && quote.status !== 'quoted' && (
-            <div className="mb-4 p-4 bg-gradient-to-r from-slate-100 to-slate-50 rounded-xl border border-slate-200">
+            <div className="mt-3 p-3 bg-zinc-50 rounded-lg border border-zinc-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Final Price</p>
-                  <span className="text-2xl font-bold text-slate-900">{quote.price}</span>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Final Price</p>
+                  <span className="text-lg font-bold text-zinc-900">{quote.price}</span>
                 </div>
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${quote.status === 'accepted' ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                  {quote.status === 'accepted' && <CheckCircle className="w-6 h-6 text-emerald-600" />}
-                  {quote.status === 'rejected' && <XCircle className="w-6 h-6 text-red-500" />}
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${quote.status === 'accepted' ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                  {quote.status === 'accepted' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+                  {quote.status === 'rejected' && <XCircle className="w-5 h-5 text-red-500" />}
                 </div>
               </div>
             </div>
           )}
 
           {quote.status === 'quoted' && (
-            <div className="border-t border-slate-100 pt-4">
-              <p className="text-xs text-slate-500 mb-3 text-center">Ready to confirm? Accept or decline this quote.</p>
-              <div className="flex gap-3">
+            <div className="border-t border-zinc-100 pt-3 mt-3">
+              <p className="text-xs text-zinc-500 mb-3 text-center">Ready to confirm? Accept or decline this quote.</p>
+              <div className="flex gap-2">
                 <button
                   onClick={() => onAcceptQuote?.(quote.id)}
                   disabled={isAccepting === quote.id}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-primary to-slate-600 hover:from-slate-600 hover:to-slate-700 disabled:from-slate-300 disabled:to-slate-400 text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                  className="flex-1 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20" style={{ backgroundColor: 'var(--primary)' }}
                 >
                   {isAccepting === quote.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -273,7 +254,7 @@ function QuoteCard({ quote, onAcceptQuote, onDeclineQuote, isAccepting, isDeclin
                 <button
                   onClick={() => onDeclineQuote?.(quote.id)}
                   disabled={isDeclining === quote.id}
-                  className="flex-1 px-4 py-3 bg-slate-100 hover:bg-red-50 disabled:bg-slate-50 text-slate-600 hover:text-red-600 disabled:text-slate-400 text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2.5 bg-zinc-100 hover:bg-red-50 disabled:bg-zinc-50 text-zinc-700 hover:text-red-600 disabled:text-zinc-500 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                 >
                   {isDeclining === quote.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -287,14 +268,14 @@ function QuoteCard({ quote, onAcceptQuote, onDeclineQuote, isAccepting, isDeclin
           )}
 
           {quote.status === 'accepted' && (
-            <div className="border-t border-emerald-200 pt-4">
-              <div className="bg-gradient-to-r from-emerald-50 to-slate-50 rounded-xl p-4 border border-emerald-100">
+            <div className="border-t border-emerald-200 pt-3 mt-3">
+              <div className="bg-emerald-50 rounded-lg p-3.5 border border-emerald-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-emerald-600" />
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-emerald-700">Quote Confirmed!</p>
+                    <p className="text-sm font-semibold text-emerald-700">Quote Confirmed!</p>
                     <p className="text-xs text-emerald-600/80">Your shipment is being processed</p>
                   </div>
                 </div>
@@ -303,14 +284,14 @@ function QuoteCard({ quote, onAcceptQuote, onDeclineQuote, isAccepting, isDeclin
           )}
 
           {quote.status === 'rejected' && (
-            <div className="border-t border-red-200 pt-4">
-              <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-4 border border-red-100">
+            <div className="border-t border-red-200 pt-3 mt-3">
+              <div className="bg-red-50 rounded-lg p-3.5 border border-red-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                    <XCircle className="w-6 h-6 text-red-500" />
+                  <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                    <XCircle className="w-5 h-5 text-red-500" />
                   </div>
                   <div>
-                    <p className="font-semibold text-red-700">Quote Declined</p>
+                    <p className="text-sm font-semibold text-red-700">Quote Declined</p>
                     <p className="text-xs text-red-600/80">You can request a new quote anytime</p>
                   </div>
                 </div>
@@ -333,47 +314,47 @@ function QuoteRow({ quote }: { quote: Quote }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -10 }}
+      initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       whileHover={{ x: 2 }}
       className="group"
     >
-      <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
-        <div className={`w-12 h-12 rounded-xl ${config.bg} flex items-center justify-center shrink-0`}>
-          {quote.status === 'pending' && <Clock className={`w-5 h-5 ${config.color}`} />}
-          {quote.status === 'quoted' && <Sparkles className={`w-5 h-5 ${config.color}`} />}
-          {quote.status === 'accepted' && <CheckCircle className={`w-5 h-5 ${config.color}`} />}
-          {quote.status === 'rejected' && <XCircle className={`w-5 h-5 ${config.color}`} />}
-          {quote.status === 'expired' && <AlertCircle className={`w-5 h-5 ${config.color}`} />}
+      <div className="flex items-center gap-4 p-3.5 bg-white rounded-lg border border-zinc-200/70 hover:border-primary/30 hover:shadow-sm transition-all">
+        <div className={`w-10 h-10 rounded-lg ${config.bg} flex items-center justify-center shrink-0`}>
+          {quote.status === 'pending' && <Clock className={`w-4 h-4 ${config.color}`} />}
+          {quote.status === 'quoted' && <Sparkles className={`w-4 h-4 ${config.color}`} />}
+          {quote.status === 'accepted' && <CheckCircle className={`w-4 h-4 ${config.color}`} />}
+          {quote.status === 'rejected' && <XCircle className={`w-4 h-4 ${config.color}`} />}
+          {quote.status === 'expired' && <AlertCircle className={`w-4 h-4 ${config.color}`} />}
         </div>
 
-        <div className="shrink-0 min-w-[120px]">
-          <span className="font-semibold text-slate-900 text-sm">{quote.quoteNumber}</span>
-          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+        <div className="shrink-0 min-w-[110px]">
+          <span className="text-sm font-semibold text-zinc-900">{quote.quoteNumber}</span>
+          <p className="text-xs text-zinc-500 flex items-center gap-1 mt-px">
             <Tag className="w-3 h-3" />
             {quote.serviceType}
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Image src={originFlag} alt={quote.origin} width={24} height={16} className="rounded shrink-0" unoptimized />
-          <span className="text-sm text-slate-600 truncate">{quote.origin}</span>
-          <Plane className="w-4 h-4 text-primary shrink-0 rotate-45" />
-          <Image src={destFlag} alt={quote.destination} width={24} height={16} className="rounded shrink-0" unoptimized />
-          <span className="text-sm text-slate-600 truncate">{quote.destination}</span>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Image src={originFlag} alt={quote.origin} width={20} height={14} className="rounded shrink-0" unoptimized />
+          <span className="text-xs text-zinc-700 truncate">{quote.origin}</span>
+          <Plane className="w-3 h-3 text-zinc-300 shrink-0 rotate-45" />
+          <span className="text-xs text-zinc-700 truncate">{quote.destination}</span>
+          <Image src={destFlag} alt={quote.destination} width={20} height={14} className="rounded shrink-0" unoptimized />
         </div>
 
-        <div className="flex items-center gap-1 text-sm text-slate-600 shrink-0">
-          <Weight className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center gap-1 text-xs text-zinc-700 shrink-0">
+          <Weight className="w-3.5 h-3.5 text-zinc-500" />
           <span className="font-medium">{quote.weight}</span>
-          <span className="text-slate-400">KG</span>
+          <span className="text-zinc-500">KG</span>
         </div>
 
-        <div className="text-sm text-slate-400 shrink-0 min-w-[70px]">{formattedDate}</div>
+        <div className="text-xs text-zinc-500 shrink-0 min-w-[60px]">{formattedDate}</div>
 
-        {quote.price && <span className="font-bold text-primary shrink-0 min-w-[80px] text-right">{quote.price}</span>}
+        {quote.price && <span className="font-bold text-sm shrink-0 min-w-[70px] text-right" style={{ color: 'var(--primary)' }}>{quote.price}</span>}
 
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${config.bg} ${config.color} shrink-0`}>{config.label}</span>
+        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${config.bg} ${config.color} shrink-0`}>{config.label}</span>
       </div>
     </motion.div>
   );
@@ -384,21 +365,19 @@ function StatsCard({ stats }: { stats: { total: number; pending: number; quoted:
   const acceptedRate = total > 0 ? Math.round((stats.accepted / total) * 100) : 0;
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-primary via-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16" />
-      <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10" />
+    <div className="relative overflow-hidden rounded-xl p-5 text-white" style={{ backgroundColor: 'var(--primary)' }}>
       <div className="relative">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-blue-100 text-sm font-medium">Total Quotes</p>
-            <p className="text-4xl font-bold mt-1">{stats.total}</p>
+            <p className="text-white/70 text-xs font-medium">Total Quotes</p>
+            <p className="text-3xl font-bold mt-1 font-heading">{stats.total}</p>
           </div>
-          <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <FileText className="w-7 h-7" />
+          <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+            <FileText className="w-5 h-5" />
           </div>
         </div>
-        <div className="flex items-center gap-2 text-blue-100 text-sm">
-          <TrendingUp className="w-4 h-4" />
+        <div className="flex items-center gap-1.5 text-white/70 text-xs">
+          <TrendingUp className="w-3.5 h-3.5" />
           <span>{acceptedRate}% acceptance rate</span>
         </div>
       </div>
@@ -406,29 +385,16 @@ function StatsCard({ stats }: { stats: { total: number; pending: number; quoted:
   );
 }
 
-function StatusOverview({ stats }: { stats: { pending: number; quoted: number; accepted: number } }) {
-  const items = [
-    { key: 'pending', label: 'Pending', icon: Clock, color: 'amber' },
-    { key: 'quoted', label: 'Price Ready', icon: Sparkles, color: 'blue' },
-    { key: 'accepted', label: 'Confirmed', icon: CheckCircle, color: 'emerald' },
-  ];
-
+function StatusItem({ label, count, icon: Icon, iconBg, color }: { label: string; count: number; icon: any; iconBg: string; color: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5">
-      <h3 className="text-sm font-semibold text-slate-800 mb-4">Status Overview</h3>
-      <div className="space-y-3">
-        {items.map(item => (
-          <div key={item.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg bg-${item.color}-100 flex items-center justify-center`}>
-                <item.icon className={`w-5 h-5 text-${item.color}-600`} />
-              </div>
-              <span className="text-sm font-medium text-slate-700">{item.label}</span>
-            </div>
-            <span className={`text-xl font-bold text-${item.color}-700`}>{stats[item.key as keyof typeof stats]}</span>
-          </div>
-        ))}
+    <div className="flex items-center justify-between py-2 px-3 bg-zinc-50 rounded-lg border border-zinc-100">
+      <div className="flex items-center gap-2.5">
+        <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+        </div>
+        <span className="text-xs font-medium text-zinc-700">{label}</span>
       </div>
+      <span className={`text-base font-bold ${color}`}>{count}</span>
     </div>
   );
 }
@@ -436,52 +402,56 @@ function StatusOverview({ stats }: { stats: { pending: number; quoted: number; a
 function Sidebar({ stats, onOpenDialog }: { stats: { total: number; pending: number; quoted: number; accepted: number }; onOpenDialog: () => void }) {
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white shadow-lg">
-        <div className="mb-4">
-          <h3 className="font-semibold text-lg">Need a Quote?</h3>
-          <p className="text-slate-400 text-sm mt-1">Get competitive rates for your shipments</p>
+      <div className="rounded-xl p-4 text-white shadow-sm" style={{ backgroundColor: 'var(--foreground)' }}>
+        <div className="mb-3">
+          <h3 className="font-heading font-semibold" style={{ fontSize: 'var(--text-heading-sm)', lineHeight: 'var(--leading-heading-sm)' }}>Need a Quote?</h3>
+          <p className="text-zinc-500 text-xs mt-0.5">Get competitive rates + free packing with every shipment</p>
         </div>
         <button
           onClick={onOpenDialog}
-          className="w-full py-3 bg-white text-slate-900 rounded-xl font-medium hover:bg-slate-100 transition-all flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-white text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           Request Quote
         </button>
       </div>
 
       <StatsCard stats={stats} />
-      <StatusOverview stats={stats} />
+
+      <div className="bg-white rounded-xl border border-zinc-200/70 p-4">
+        <h3 className="text-sm font-semibold text-zinc-800 uppercase tracking-wider mb-3">Status Overview</h3>
+        <div className="space-y-2">
+          <StatusItem label="Pending" count={stats.pending} icon={Clock} iconBg="bg-amber-100" color="text-amber-700" />
+          <StatusItem label="Price Ready" count={stats.quoted} icon={Sparkles} iconBg="bg-blue-100" color="text-blue-700" />
+          <StatusItem label="Confirmed" count={stats.accepted} icon={CheckCircle} iconBg="bg-emerald-100" color="text-emerald-700" />
+        </div>
+      </div>
     </div>
   );
 }
 
-
-
 function EmptyState({ onOpenDialog }: { onOpenDialog: () => void }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center py-20 px-4"
+      className="flex flex-col items-center justify-center py-16 px-4"
     >
-      <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mb-6 shadow-xl">
-        <FileText className="w-12 h-12 text-primary" />
+      <div className="w-20 h-20 rounded-2xl bg-zinc-100 flex items-center justify-center mb-5">
+        <FileText className="w-10 h-10 text-zinc-300" />
       </div>
-      <h2 className="text-xl font-semibold text-slate-900 mb-2">No quotes yet</h2>
-      <p className="text-slate-500 text-center mb-6 max-w-md">Request your first quote to get competitive rates for your international shipments</p>
+      <h2 className="text-lg font-semibold text-zinc-900 mb-1">No quotes yet</h2>
+      <p className="text-sm text-zinc-500 text-center mb-5 max-w-sm">Request your first quote to get competitive rates for your international shipments</p>
       <button
         onClick={onOpenDialog}
-        className="px-6 py-3 bg-gradient-to-r from-primary to-indigo-600 text-white font-medium rounded-xl hover:from-slate-600 hover:to-indigo-700 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+        className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white shadow-lg shadow-primary/20 cursor-pointer" style={{ backgroundColor: 'var(--primary)' }}
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-4 h-4" />
         Request Quote
       </button>
     </motion.div>
   );
 }
-
-
 
 function QuotesPageContent() {
   const searchParams = useSearchParams();
@@ -535,8 +505,9 @@ function QuotesPageContent() {
         setIsLoading(true);
         const res = await api.get<ApiQuote[]>('/quotes/me');
         const mappedQuotes = res.map(mapApiQuoteToQuote);
-        setQuotes(mappedQuotes);
-        setFilteredQuotes(mappedQuotes);
+        const sorted = sortQuotes(mappedQuotes);
+        setQuotes(sorted);
+        setFilteredQuotes(sorted);
       } catch (err) {
         console.error(err);
       } finally {
@@ -557,7 +528,7 @@ function QuotesPageContent() {
       );
     }
     if (statusFilter !== 'all') filtered = filtered.filter(qt => qt.status === statusFilter);
-    setFilteredQuotes(filtered);
+    setFilteredQuotes(sortQuotes(filtered));
     setCurrentPage(1);
   }, [searchQuery, statusFilter, quotes]);
 
@@ -577,21 +548,21 @@ function QuotesPageContent() {
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-zinc-50">
           <Navbar />
           <div className="max-w-6xl mx-auto px-4 pt-24 pb-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3">
-                <div className="h-8 w-40 bg-slate-200 rounded animate-pulse mb-6" />
+                <div className="h-7 w-36 bg-zinc-200 rounded animate-pulse mb-5" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
+                    <div key={i} className="h-44 bg-zinc-100 rounded-xl animate-pulse" />
                   ))}
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="h-48 bg-slate-200 rounded-2xl animate-pulse" />
-                <div className="h-56 bg-slate-200 rounded-2xl animate-pulse" />
+                <div className="h-36 bg-zinc-100 rounded-xl animate-pulse" />
+                <div className="h-44 bg-zinc-100 rounded-xl animate-pulse" />
               </div>
             </div>
           </div>
@@ -602,44 +573,44 @@ function QuotesPageContent() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+      <div className="min-h-screen bg-zinc-50">
         <Navbar />
 
         <main className="max-w-6xl mx-auto px-4 pt-24 pb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-semibold text-slate-900">My Quotes</h1>
-                  <p className="text-slate-500 mt-1">View and manage your shipping quotes</p>
-                </div>
-                <button
-                  onClick={() => setShowQuoteDialog(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-slate-700 transition-all shadow-lg shadow-primary/20 cursor-pointer"
-                >
-                  <Plus className="w-5 h-5" />
-                  New Quote
-                </button>
-              </div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-xl font-semibold text-zinc-900 font-heading">My Quotes</h1>
+              <p className="text-sm text-zinc-500 mt-0.5">View and manage your shipping quotes</p>
+            </div>
+            <button
+              onClick={() => setShowQuoteDialog(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-lg shadow-primary/20 cursor-pointer" style={{ backgroundColor: 'var(--primary)' }}
+            >
+              <Plus className="w-4 h-4" />
+              New Quote
+            </button>
+          </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3 space-y-4">
               {quotes.length > 0 ? (
                 <>
-                  <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-sm">
-                    <div className="flex items-center gap-3">
+                  <div className="bg-white rounded-lg border border-zinc-200/70 p-2.5">
+                    <div className="flex items-center gap-2.5">
                       <div className="relative flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                         <input
                           type="text"
                           placeholder="Search quotes by number or destination..."
                           value={searchQuery}
                           onChange={e => setSearchQuery(e.target.value)}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 rounded-lg text-sm text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
                       <select
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
-                        className="px-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="px-3 py-2.5 bg-zinc-50 rounded-lg text-sm text-zinc-700 focus:outline-none"
                       >
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
@@ -647,18 +618,18 @@ function QuotesPageContent() {
                         <option value="accepted">Confirmed</option>
                         <option value="rejected">Declined</option>
                       </select>
-                      <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                      <div className="flex items-center bg-zinc-100 rounded-lg p-0.5">
                         <button
                           onClick={() => setViewMode('grid')}
-                          className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}
+                          className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
-                          <Grid3X3 className="w-5 h-5" />
+                          <Grid3X3 className="w-4 h-4" style={viewMode === 'grid' ? { color: 'var(--primary)' } : undefined} />
                         </button>
                         <button
                           onClick={() => setViewMode('list')}
-                          className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}
+                          className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
                         >
-                          <List className="w-5 h-5" />
+                          <List className="w-4 h-4" style={viewMode === 'list' ? { color: 'var(--primary)' } : undefined} />
                         </button>
                       </div>
                     </div>
@@ -699,12 +670,12 @@ function QuotesPageContent() {
                         </motion.div>
                       )
                     ) : (
-                      <div className="text-center py-12 text-slate-500">No results found</div>
+                      <div className="text-center py-12 text-sm text-zinc-500">No results found</div>
                     )}
                   </AnimatePresence>
 
-                  <div className="flex items-center justify-between pt-4 bg-white rounded-xl p-4 border border-slate-200/80">
-                    <div className="text-sm text-slate-500">
+                  <div className="flex items-center justify-between bg-white rounded-lg border border-zinc-200/70 px-4 py-3">
+                    <div className="text-xs text-zinc-500">
                       {filteredQuotes.length > 0 ? (
                         <>
                           Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredQuotes.length)} of {filteredQuotes.length}
@@ -717,16 +688,17 @@ function QuotesPageContent() {
                       <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1 || totalPages === 0}
-                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded border border-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
                       {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map(page => (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
                           disabled={totalPages === 0}
-                          className={`w-8 h-8 rounded-lg text-sm ${currentPage === page && totalPages > 0 ? 'bg-primary text-white' : 'border border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}
+                          className={`w-7 h-7 rounded text-xs ${currentPage === page && totalPages > 0 ? 'text-white' : 'border border-zinc-200 hover:bg-zinc-50 text-zinc-700'}`}
+                          style={currentPage === page && totalPages > 0 ? { backgroundColor: 'var(--primary)' } : undefined}
                         >
                           {page}
                         </button>
@@ -734,9 +706,9 @@ function QuotesPageContent() {
                       <button
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages || totalPages === 0}
-                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded border border-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
