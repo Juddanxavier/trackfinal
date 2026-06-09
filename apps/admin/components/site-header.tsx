@@ -37,7 +37,14 @@ import {
   HelpCircleIcon,
 } from "lucide-react"
 import Link from "next/link"
-import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command"
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -65,7 +72,7 @@ export function SiteHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
 
   useEffect(() => {
@@ -79,10 +86,15 @@ export function SiteHeader() {
     return () => document.removeEventListener("keydown", down)
   }, [])
 
-  const pageTitle = PAGE_TITLES[pathname] || PAGE_TITLES[pathname.split("/")[1] || ""] || "Dashboard"
+  const pageTitle =
+    PAGE_TITLES[pathname] ||
+    PAGE_TITLES[pathname.split("/")[1] || ""] ||
+    "Dashboard"
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
+    if (theme === "dark") setTheme("light")
+    else if (theme === "light") setTheme("system")
+    else setTheme("dark")
   }
 
   return (
@@ -98,18 +110,23 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-48 hidden md:flex justify-start gap-2 text-muted-foreground"
+            className="hidden h-8 w-48 justify-start gap-2 text-muted-foreground md:flex"
             onClick={() => setSearchOpen(true)}
           >
             <SearchIcon className="h-4 w-4" />
             <span className="text-xs">Search...</span>
-            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
+            <kbd className="pointer-events-none ml-auto inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 select-none">
               <CommandIcon className="h-3 w-3" />
               <span className="text-xs">K</span>
             </kbd>
           </Button>
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
-            {theme === "dark" ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="h-8 w-8"
+          >
+            {resolvedTheme === "dark" ? (
               <SunIcon className="h-4 w-4" />
             ) : (
               <MoonIcon className="h-4 w-4" />
@@ -125,9 +142,15 @@ export function SiteHeader() {
                       size="lg"
                       className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                     >
-                      <UserAvatar name={user.name} email={user.email} className="h-8 w-8 rounded-full" />
+                      <UserAvatar
+                        name={user.name}
+                        email={user.email}
+                        className="h-8 w-8 rounded-full"
+                      />
                       <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-medium">{user.name}</span>
+                        <span className="truncate font-medium">
+                          {user.name}
+                        </span>
                         <span className="truncate text-xs">{user.email}</span>
                       </div>
                       <ChevronDownIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -140,9 +163,15 @@ export function SiteHeader() {
                   >
                     <DropdownMenuLabel className="p-0 font-normal">
                       <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                        <UserAvatar name={user.name} email={user.email} className="h-8 w-8 rounded-full" />
+                        <UserAvatar
+                          name={user.name}
+                          email={user.email}
+                          className="h-8 w-8 rounded-full"
+                        />
                         <div className="grid flex-1 gap-1">
-                          <p className="text-sm font-medium leading-none">{user.name}</p>
+                          <p className="text-sm leading-none font-medium">
+                            {user.name}
+                          </p>
                           <p className="text-xs leading-none text-muted-foreground">
                             {user.email}
                           </p>
@@ -201,7 +230,13 @@ export function SiteHeader() {
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Pages">
             {quickLinks.map((link) => (
-              <CommandItem key={link.href} onSelect={() => { router.push(link.href); setSearchOpen(false) }}>
+              <CommandItem
+                key={link.href}
+                onSelect={() => {
+                  router.push(link.href)
+                  setSearchOpen(false)
+                }}
+              >
                 {link.label}
               </CommandItem>
             ))}

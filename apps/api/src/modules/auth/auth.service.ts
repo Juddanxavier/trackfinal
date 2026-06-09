@@ -20,7 +20,11 @@ import { VerificationsService } from './verifications.service';
 import { InvitationsService } from './invitations.service';
 import { TwoFactorService } from './two-factor.service';
 import { db } from '../../database';
-import { invitationStatuses, organisations, branches } from '../../database/schema';
+import {
+  invitationStatuses,
+  organisations,
+  branches,
+} from '../../database/schema';
 import { eq, isNull } from 'drizzle-orm';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -117,9 +121,15 @@ export class AuthService {
 
     const twoFactorStatus = await this.twoFactorService.getStatus(user.id);
     if (twoFactorStatus.enabled) {
-      const sessionToken = await this.tokenService.generateTwoFactorToken(user.id);
+      const sessionToken = await this.tokenService.generateTwoFactorToken(
+        user.id,
+      );
       await this.twoFactorService.sendLoginCode(user.id, user.email);
-      return { requiresTwoFactor: true, sessionToken, message: '2FA code sent to your email' };
+      return {
+        requiresTwoFactor: true,
+        sessionToken,
+        message: '2FA code sent to your email',
+      };
     }
 
     const accessToken = await this.tokenService.generateAccessToken(user);
@@ -139,7 +149,8 @@ export class AuthService {
     code: string,
     context: RequestContext,
   ): Promise<AuthResponseDto> {
-    const { userId } = await this.tokenService.verifyTwoFactorToken(sessionToken);
+    const { userId } =
+      await this.tokenService.verifyTwoFactorToken(sessionToken);
 
     const isValid = await this.twoFactorService.validate(userId, code);
     if (!isValid) {
@@ -207,10 +218,11 @@ export class AuthService {
     }
 
     const accessToken = await this.tokenService.generateAccessToken(user);
-    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
-      user.id,
-      { ip: 'unknown', userAgent: 'google-oauth' },
-    );
+    const { token: refreshToken } =
+      await this.tokenService.generateRefreshToken(user.id, {
+        ip: 'unknown',
+        userAgent: 'google-oauth',
+      });
 
     return {
       accessToken,
@@ -268,10 +280,8 @@ export class AuthService {
     await this.emailService.sendVerificationEmail(user.email, token);
 
     const accessToken = await this.tokenService.generateAccessToken(user);
-    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
-      user.id,
-      context,
-    );
+    const { token: refreshToken } =
+      await this.tokenService.generateRefreshToken(user.id, context);
 
     return {
       accessToken,
@@ -403,10 +413,8 @@ export class AuthService {
     }
 
     const accessToken = await this.tokenService.generateAccessToken(user);
-    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
-      user.id,
-      context,
-    );
+    const { token: refreshToken } =
+      await this.tokenService.generateRefreshToken(user.id, context);
 
     return {
       accessToken,
@@ -487,10 +495,8 @@ export class AuthService {
     );
 
     const accessToken = await this.tokenService.generateAccessToken(user);
-    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
-      user.id,
-      context,
-    );
+    const { token: refreshToken } =
+      await this.tokenService.generateRefreshToken(user.id, context);
 
     await this.emailService.sendWelcomeEmail(
       user.email,
@@ -521,7 +527,9 @@ export class AuthService {
         organisationName,
       );
     } catch (error: any) {
-      throw new BadRequestException(error.message || 'Failed to create invitation');
+      throw new BadRequestException(
+        error.message || 'Failed to create invitation',
+      );
     }
   }
 
@@ -600,11 +608,13 @@ export class AuthService {
     // Auto-assign organisation by email domain first, then fall back to slug
     let organisation;
     if (organisationSlug) {
-      organisation = await this.organisationsService.findBySlug(organisationSlug);
+      organisation =
+        await this.organisationsService.findBySlug(organisationSlug);
     } else {
       const emailDomain = email.split('@')[1]?.toLowerCase();
       if (emailDomain) {
-        organisation = await this.organisationsService.findByTrackingDomain(emailDomain);
+        organisation =
+          await this.organisationsService.findByTrackingDomain(emailDomain);
       }
       if (!organisation) {
         organisation =
@@ -641,10 +651,8 @@ export class AuthService {
 
     // Auto-login after registration so user can access onboarding
     const accessToken = await this.tokenService.generateAccessToken(user);
-    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
-      user.id,
-      context,
-    );
+    const { token: refreshToken } =
+      await this.tokenService.generateRefreshToken(user.id, context);
 
     return {
       accessToken,

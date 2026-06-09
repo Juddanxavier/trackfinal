@@ -1,9 +1,16 @@
-'use client';
+"use client";
 
-import { usePathname } from 'next/navigation';
-import Footer from './Footer';
+import { usePathname } from "next/navigation";
+import Footer from "./Footer";
 
-const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
+const authPaths = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/onboarding",
+];
 
 export default function FooterWrapper() {
   const pathname = usePathname();

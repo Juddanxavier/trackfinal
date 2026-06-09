@@ -6,10 +6,20 @@ import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { getDialCode, prependCountryCode } from "@/lib/phone"
-import { userEditSchema, fieldErrors, type ProfileFormData } from "@/lib/validation"
+import {
+  userEditSchema,
+  fieldErrors,
+  type ProfileFormData,
+} from "@/lib/validation"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -17,7 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeftIcon, UserIcon, MailIcon, PhoneIcon, Loader2 } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  UserIcon,
+  MailIcon,
+  PhoneIcon,
+  Loader2,
+} from "lucide-react"
+import { toast } from "sonner"
 
 interface UserProfile {
   id: string
@@ -36,7 +53,9 @@ export default function EditUserPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [errors, setErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({})
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof ProfileFormData, string>>
+  >({})
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -58,11 +77,13 @@ export default function EditUserPage() {
         setPhoneNumber(data.phoneNumber || "")
         setRole(data.role)
         if (currentUser?.organisationId) {
-          const org: any = await api.get(`/organisations/${currentUser.organisationId}`)
+          const org: any = await api.get(
+            `/organisations/${currentUser.organisationId}`
+          )
           if (org?.countryCode) setOrgCountry(org.countryCode)
         }
       } catch (err) {
-        console.error("Failed to load user:", err)
+        toast.error("Failed to load user")
         setError("Failed to load user")
       } finally {
         setLoading(false)
@@ -91,7 +112,7 @@ export default function EditUserPage() {
       })
       router.push(`/users/${userId}`)
     } catch (err) {
-      console.error("Failed to update user:", err)
+      toast.error("Failed to update user")
       setError("Failed to update user")
     } finally {
       setSaving(false)
@@ -100,7 +121,7 @@ export default function EditUserPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
@@ -108,10 +129,14 @@ export default function EditUserPage() {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center">
         <div className="text-center">
           <p className="text-lg font-medium">{error || "User not found"}</p>
-          <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => router.back()}
+          >
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
             Go Back
           </Button>
@@ -121,8 +146,13 @@ export default function EditUserPage() {
   }
 
   return (
-    <div className="container max-w-2xl mx-auto py-8">
-      <Button variant="ghost" size="sm" onClick={() => router.back()} className="mb-6">
+    <div className="container mx-auto max-w-2xl py-8">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => router.back()}
+        className="mb-6"
+      >
         <ArrowLeftIcon className="mr-2 h-4 w-4" />
         Back
       </Button>
@@ -130,9 +160,7 @@ export default function EditUserPage() {
       <Card>
         <CardHeader>
           <CardTitle>Edit Profile</CardTitle>
-          <CardDescription>
-            Update your profile information
-          </CardDescription>
+          <CardDescription>Update your profile information</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -144,41 +172,56 @@ export default function EditUserPage() {
                 disabled
                 className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <div className="relative">
-                <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => { setErrors({ ...errors, name: undefined }); setName(e.target.value) }}
-                    placeholder="Your name"
-                    className="pl-10"
-                    required
-                  />
-                  {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-                </div>
+                <UserIcon className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => {
+                    setErrors({ ...errors, name: undefined })
+                    setName(e.target.value)
+                  }}
+                  placeholder="Your name"
+                  className="pl-10"
+                  required
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name}</p>
+                )}
               </div>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <div className="relative">
-                <PhoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => { setErrors({ ...errors, phoneNumber: undefined }); setPhoneNumber(e.target.value) }}
-                    onBlur={(e) => { const v = e.target.value; if (v) setPhoneNumber(prependCountryCode(v, orgCountry)) }}
-                    placeholder={getDialCode(orgCountry) + " 9000000000"}
-                    className="pl-10"
-                  />
-                  {errors.phoneNumber && <p className="text-sm text-red-500">{errors.phoneNumber}</p>}
-                </div>
+                <PhoneIcon className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => {
+                    setErrors({ ...errors, phoneNumber: undefined })
+                    setPhoneNumber(e.target.value)
+                  }}
+                  onBlur={(e) => {
+                    const v = e.target.value
+                    if (v) setPhoneNumber(prependCountryCode(v, orgCountry))
+                  }}
+                  placeholder={getDialCode(orgCountry) + " 9000000000"}
+                  className="pl-10"
+                />
+                {errors.phoneNumber && (
+                  <p className="text-sm text-red-500">{errors.phoneNumber}</p>
+                )}
               </div>
+            </div>
 
             {canChangeRole ? (
               <div className="space-y-2">
@@ -198,16 +241,20 @@ export default function EditUserPage() {
               <div className="space-y-2">
                 <Label>Role</Label>
                 <Input value={profile.role} disabled className="bg-muted" />
-                <p className="text-xs text-muted-foreground">Contact admin to change role</p>
+                <p className="text-xs text-muted-foreground">
+                  Contact admin to change role
+                </p>
               </div>
             )}
 
-            {error && (
-              <p className="text-sm text-red-500">{error}</p>
-            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>

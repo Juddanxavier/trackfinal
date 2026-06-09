@@ -5,6 +5,30 @@ import { notificationLogs } from '../../database/schema';
 
 @Injectable()
 export class NotificationLogsService {
+  private async log(
+    organisationId: string,
+    userId: string | null,
+    shipmentId: string | null,
+    channel: 'email' | 'whatsapp' | 'in_app',
+    titleKey: string,
+    data: Record<string, any>,
+    status: 'sent' | 'failed' | 'queued',
+    errorMessage?: string,
+  ) {
+    const insertData: any = {
+      organisationId,
+      channel,
+      titleKey,
+      data,
+      status,
+    };
+    if (userId) insertData.userId = userId;
+    if (shipmentId) insertData.shipmentId = shipmentId;
+    if (errorMessage) insertData.errorMessage = errorMessage;
+    if (status === 'sent') insertData.sentAt = new Date();
+    await db.insert(notificationLogs).values(insertData);
+  }
+
   async logSuccess(
     organisationId: string,
     userId: string | null,
@@ -13,17 +37,7 @@ export class NotificationLogsService {
     titleKey: string,
     data: Record<string, any>,
   ) {
-    const insertData: any = {
-      organisationId,
-      channel,
-      titleKey,
-      data,
-      status: 'sent',
-      sentAt: new Date(),
-    };
-    if (userId) insertData.userId = userId;
-    if (shipmentId) insertData.shipmentId = shipmentId;
-    await db.insert(notificationLogs).values(insertData);
+    await this.log(organisationId, userId, shipmentId, channel, titleKey, data, 'sent');
   }
 
   async logFailure(
@@ -35,17 +49,7 @@ export class NotificationLogsService {
     data: Record<string, any>,
     errorMessage: string,
   ) {
-    const insertData: any = {
-      organisationId,
-      channel,
-      titleKey,
-      data,
-      status: 'failed',
-      errorMessage,
-    };
-    if (userId) insertData.userId = userId;
-    if (shipmentId) insertData.shipmentId = shipmentId;
-    await db.insert(notificationLogs).values(insertData);
+    await this.log(organisationId, userId, shipmentId, channel, titleKey, data, 'failed', errorMessage);
   }
 
   async logQueued(
@@ -56,16 +60,7 @@ export class NotificationLogsService {
     titleKey: string,
     data: Record<string, any>,
   ) {
-    const insertData: any = {
-      organisationId,
-      channel,
-      titleKey,
-      data,
-      status: 'queued',
-    };
-    if (userId) insertData.userId = userId;
-    if (shipmentId) insertData.shipmentId = shipmentId;
-    await db.insert(notificationLogs).values(insertData);
+    await this.log(organisationId, userId, shipmentId, channel, titleKey, data, 'queued');
   }
 
   async hasSentNotification(
@@ -86,18 +81,24 @@ export class NotificationLogsService {
           eq(notificationLogs.status, 'sent'),
         ),
       );
-
     return existing.length > 0;
   }
 
-  async getLogsForShipment(shipmentId: string) {
+  async getLogsForShipment(
+    shipmentId: string,
+    limit: number = 50,
+    offset: number = 0,
+  ) {
     return db
       .select()
       .from(notificationLogs)
-      .where(eq(notificationLogs.shipmentId, shipmentId));
+      .where(eq(notificationLogs.shipmentId, shipmentId))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getRecentLogs(
+    organisationId: string,
     shipmentId: string,
     titleKey: string,
     channel: string,
@@ -108,6 +109,7 @@ export class NotificationLogsService {
       .from(notificationLogs)
       .where(
         and(
+          eq(notificationLogs.organisationId, organisationId),
           eq(notificationLogs.shipmentId, shipmentId),
           eq(notificationLogs.titleKey, titleKey),
           eq(notificationLogs.channel, channel),
@@ -117,12 +119,13 @@ export class NotificationLogsService {
       );
   }
 
-  async getFailedLogs(shipmentId: string) {
+  async getFailedLogs(organisationId: string, shipmentId: string) {
     return db
       .select()
       .from(notificationLogs)
       .where(
         and(
+          eq(notificationLogs.organisationId, organisationId),
           eq(notificationLogs.shipmentId, shipmentId),
           eq(notificationLogs.status, 'failed'),
         ),

@@ -22,9 +22,9 @@ export function SearchTabs<T extends string>({
   tabs,
 }: SearchTabsProps<T>) {
   return (
-    <div className="flex gap-4 items-center justify-between">
-      <div className="relative flex-1 max-w-sm">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+    <div className="flex items-center justify-between gap-4">
+      <div className="relative max-w-sm flex-1">
+        <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input
           placeholder={searchPlaceholder}
           value={searchValue}

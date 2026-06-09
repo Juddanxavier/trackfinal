@@ -6,14 +6,16 @@ import { api } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BulkActionFooter } from "@/components/bulk-action-footer"
-import { Empty, EmptyDescription } from "@/components/ui/empty"
-import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
+import { EmptyState } from "@/components/empty-state"
 import {
-  BellIcon,
-  BellOffIcon,
-  CheckIcon,
-  MailIcon,
-} from "lucide-react"
+  DataTable,
+  RowCheckbox,
+  SelectAllCheckbox,
+  type ColumnDef,
+  type SortingState,
+} from "@/components/data-table"
+import { BellIcon, BellOffIcon, CheckIcon, MailIcon } from "lucide-react"
+import { toast } from "sonner"
 
 interface Notification {
   id: string
@@ -79,7 +81,7 @@ export default function NotificationsPage() {
         setTotalPages(0)
       }
     } catch (err) {
-      console.error("Failed to fetch notifications:", err)
+      toast.error("Failed to load notifications")
     } finally {
       setLoading(false)
     }
@@ -87,7 +89,9 @@ export default function NotificationsPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await api.get<Stats>("/notifications/unread-count", { throwOnError: false })
+      const res = await api.get<Stats>("/notifications/unread-count", {
+        throwOnError: false,
+      })
       if (res) {
         const unread = res.unread || res.count || 0
         setStats({
@@ -122,7 +126,7 @@ export default function NotificationsPage() {
       )
       fetchStats()
     } catch (err) {
-      console.error("Failed to mark as read:", err)
+      toast.error("Failed to mark as read")
     }
   }
 
@@ -134,19 +138,17 @@ export default function NotificationsPage() {
       )
       fetchStats()
     } catch (err) {
-      console.error("Failed to mark as unread:", err)
+      toast.error("Failed to mark as unread")
     }
   }
 
   const markAllAsRead = async () => {
     try {
       await api.patch("/notifications/read-all")
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true }))
-      )
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
       fetchStats()
     } catch (err) {
-      console.error("Failed to mark all as read:", err)
+      toast.error("Failed to mark all as read")
     }
   }
 
@@ -194,7 +196,9 @@ export default function NotificationsPage() {
       accessorKey: "message",
       header: "Message",
       cell: ({ row }) => (
-        <span className={`max-w-xs truncate block ${row.original.isRead ? "opacity-60" : ""}`}>
+        <span
+          className={`block max-w-xs truncate ${row.original.isRead ? "opacity-60" : ""}`}
+        >
           {row.original.message}
         </span>
       ),
@@ -219,11 +223,19 @@ export default function NotificationsPage() {
       cell: ({ row }) => {
         const notification = row.original
         return notification.isRead ? (
-          <Button variant="ghost" size="sm" onClick={() => markAsUnread(notification.id)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => markAsUnread(notification.id)}
+          >
             Mark Unread
           </Button>
         ) : (
-          <Button variant="ghost" size="sm" onClick={() => markAsRead(notification.id)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => markAsRead(notification.id)}
+          >
             Mark Read
           </Button>
         )
@@ -232,11 +244,11 @@ export default function NotificationsPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             View and manage your notifications
           </p>
         </div>
@@ -248,10 +260,10 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="border rounded-lg bg-card p-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
+            <div className="rounded-lg bg-primary/10 p-2">
               <BellIcon className="h-5 w-5 text-primary" />
             </div>
             <div>
@@ -260,9 +272,9 @@ export default function NotificationsPage() {
             </div>
           </div>
         </div>
-        <div className="border rounded-lg bg-card p-4">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
+            <div className="rounded-lg bg-blue-500/10 p-2">
               <BellIcon className="h-5 w-5 text-blue-500" />
             </div>
             <div>
@@ -271,9 +283,9 @@ export default function NotificationsPage() {
             </div>
           </div>
         </div>
-        <div className="border rounded-lg bg-card p-4">
+        <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
+            <div className="rounded-lg bg-green-500/10 p-2">
               <BellOffIcon className="h-5 w-5 text-green-500" />
             </div>
             <div>
@@ -313,11 +325,7 @@ export default function NotificationsPage() {
         data={notifications}
         loading={loading}
         getRowId={(row) => row.id}
-        emptyState={
-          <Empty>
-            <EmptyDescription>No notifications found</EmptyDescription>
-          </Empty>
-        }
+        emptyState={<EmptyState entity="notifications" />}
         enableRowSelection
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
@@ -329,19 +337,29 @@ export default function NotificationsPage() {
         onPageChange={setPage}
         onPageSizeChange={setLimit}
         pageSizeOptions={[10, 20, 50, 100]}
-        customFooter={<BulkActionFooter
-          selectedCount={selectedIds.length}
-          actions={[
-            { label: "Mark Read", variant: "outline", onClick: () => {
-              selectedIds.forEach(id => markAsRead(id))
-              setSelectedIds([])
-            }},
-            { label: "Mark Unread", variant: "outline", onClick: () => {
-              selectedIds.forEach(id => markAsUnread(id))
-              setSelectedIds([])
-            }},
-          ]}
-        />}
+        customFooter={
+          <BulkActionFooter
+            selectedCount={selectedIds.length}
+            actions={[
+              {
+                label: "Mark Read",
+                variant: "outline",
+                onClick: () => {
+                  selectedIds.forEach((id) => markAsRead(id))
+                  setSelectedIds([])
+                },
+              },
+              {
+                label: "Mark Unread",
+                variant: "outline",
+                onClick: () => {
+                  selectedIds.forEach((id) => markAsUnread(id))
+                  setSelectedIds([])
+                },
+              },
+            ]}
+          />
+        }
       />
     </div>
   )

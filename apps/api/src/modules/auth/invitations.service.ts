@@ -41,7 +41,9 @@ export class InvitationsService {
         );
 
       if (existing.length > 0) {
-        throw new Error('Invitation already sent to this email for this organisation');
+        throw new Error(
+          'Invitation already sent to this email for this organisation',
+        );
       }
     } catch (error: any) {
       throw new Error(error?.message || 'Failed to create invitation');
@@ -144,7 +146,7 @@ export class InvitationsService {
       .select()
       .from(invitationStatuses)
       .where(eq(invitationStatuses.id, invitationId))
-      .then(r => r[0]);
+      .then((r) => r[0]);
 
     if (!invitation) {
       throw new Error('Invitation not found');

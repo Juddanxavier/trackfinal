@@ -24,20 +24,16 @@ interface StatsCardProps {
   color?: StatsCardColor
   trend?: number
   trendLabel?: string
-  variant?: "default" | "inline" | "minimal"
+  variant?: "default" | "inline" | "minimal" | "gradient"
   animated?: boolean
   delay?: number
   className?: string
 }
 
-const colorStyles: Record<
-  StatsCardColor,
-  { icon: string; badge: string }
-> = {
+const colorStyles: Record<StatsCardColor, { icon: string; badge: string }> = {
   blue: {
     icon: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    badge:
-      "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+    badge: "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
   },
   green: {
     icon: "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -56,8 +52,7 @@ const colorStyles: Record<
   },
   teal: {
     icon: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
-    badge:
-      "bg-teal-50 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300",
+    badge: "bg-teal-50 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300",
   },
   amber: {
     icon: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -80,6 +75,30 @@ const colorStyles: Record<
   },
 }
 
+const accentBar: Record<StatsCardColor, string> = {
+  blue: "bg-blue-500",
+  green: "bg-emerald-500",
+  purple: "bg-violet-500",
+  orange: "bg-orange-500",
+  teal: "bg-teal-500",
+  amber: "bg-amber-500",
+  red: "bg-rose-500",
+  emerald: "bg-emerald-500",
+  indigo: "bg-indigo-500",
+}
+
+const accentBg: Record<StatsCardColor, string> = {
+  blue: "bg-blue-500/[0.03] dark:bg-blue-400/[0.05]",
+  green: "bg-emerald-500/[0.03] dark:bg-emerald-400/[0.05]",
+  purple: "bg-violet-500/[0.03] dark:bg-violet-400/[0.05]",
+  orange: "bg-orange-500/[0.03] dark:bg-orange-400/[0.05]",
+  teal: "bg-teal-500/[0.03] dark:bg-teal-400/[0.05]",
+  amber: "bg-amber-500/[0.03] dark:bg-amber-400/[0.05]",
+  red: "bg-rose-500/[0.03] dark:bg-rose-400/[0.05]",
+  emerald: "bg-emerald-500/[0.03] dark:bg-emerald-400/[0.05]",
+  indigo: "bg-indigo-500/[0.03] dark:bg-indigo-400/[0.05]",
+}
+
 export function StatsCard({
   title,
   value,
@@ -98,16 +117,55 @@ export function StatsCard({
   const card = (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md",
+        "group relative overflow-hidden rounded-xl border bg-card p-4 transition-all duration-200",
+        "hover:shadow-md",
         variant === "inline" && "hover:border-gray-300",
         className
       )}
     >
-      {variant === "inline" ? (
+      {variant === "gradient" ? (
+        <>
+          <div className={cn("-mx-4 -mt-4 mb-0 rounded-t-xl border-b border-border/50 px-4 pt-4 pb-3", accentBg[color])}>
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {title}
+              </p>
+              {icon && (
+                <div className={cn("shrink-0 rounded-md p-1.5", styles.icon)}>
+                  {icon}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="pt-2">
+            <p className="text-2xl font-bold">{value}</p>
+            <div className="mt-1 flex items-center gap-2">
+              {subtitle && (
+                <p className="text-xs text-muted-foreground">{subtitle}</p>
+              )}
+              {trend !== undefined && (
+                <Badge
+                  className={cn(
+                    "flex items-center gap-1 border-0 px-2 py-0.5 text-xs font-medium",
+                    styles.badge
+                  )}
+                >
+                  {trend >= 0 ? (
+                    <TrendingUpIcon className="size-3" />
+                  ) : (
+                    <TrendingDownIcon className="size-3" />
+                  )}
+                  {Math.abs(trend)}%
+                </Badge>
+              )}
+            </div>
+          </div>
+        </>
+      ) : variant === "inline" ? (
         <>
           <div className="flex items-center gap-4">
             {icon && (
-              <div className={cn("rounded-lg p-2.5 shrink-0", styles.icon)}>
+              <div className={cn("shrink-0 rounded-lg p-2.5", styles.icon)}>
                 {icon}
               </div>
             )}
@@ -149,11 +207,11 @@ export function StatsCard({
       ) : (
         <>
           <div className="flex items-start justify-between">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {title}
             </p>
             {icon && (
-              <div className={cn("rounded-md p-1.5 shrink-0", styles.icon)}>
+              <div className={cn("shrink-0 rounded-md p-1.5", styles.icon)}>
                 {icon}
               </div>
             )}
@@ -220,13 +278,7 @@ export function StatsCardGrid({
   }
 
   return (
-    <div
-      className={cn(
-        "grid grid-cols-2 gap-4",
-        gridCols[columns],
-        className
-      )}
-    >
+    <div className={cn("grid grid-cols-2 gap-4", gridCols[columns], className)}>
       {children}
     </div>
   )

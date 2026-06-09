@@ -32,7 +32,8 @@ const CHROME_PATHS = [
 ];
 
 function findChrome(): string | undefined {
-  if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
+  if (process.env.CHROME_EXECUTABLE_PATH)
+    return process.env.CHROME_EXECUTABLE_PATH;
   for (const p of CHROME_PATHS) {
     if (existsSync(p)) return p;
   }

@@ -21,12 +21,21 @@ interface InvoiceData {
 export function buildInvoiceHtml(data: InvoiceData): string {
   const amount = data.billAmount ? parseFloat(data.billAmount) : 0;
   const gstRate = 0.18;
-  const base = amount > 0 ? Math.round((amount / (1 + gstRate)) * 100) / 100 : 0;
+  const base =
+    amount > 0 ? Math.round((amount / (1 + gstRate)) * 100) / 100 : 0;
   const gst = amount > 0 ? Math.round((amount - base) * 100) / 100 : 0;
 
-  const invNo = data.whiteLabelTrackingCode || `INV-${data.trackingNumber.slice(0, 8).toUpperCase()}`;
-  const statusStr = data.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const issued = new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const invNo =
+    data.whiteLabelTrackingCode ||
+    `INV-${data.trackingNumber.slice(0, 8).toUpperCase()}`;
+  const statusStr = data.status
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const issued = new Date(data.createdAt).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 
   const origin = data.originCountry || 'Origin';
   const dest = data.destinationCountry || 'Destination';

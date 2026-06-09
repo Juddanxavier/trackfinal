@@ -1,14 +1,16 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from "react"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useTheme } from "next-themes"
 import { useAuth } from "@/components/auth-context"
 import { TwoFactorSetup } from "@/components/two-factor-setup"
-import { api, ApiError } from "@/lib/api"
+import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { getDialCode, prependCountryCode, formatPhoneDisplay } from "@/lib/phone"
-import { settingsOrgSchema, fieldErrors, type SettingsOrgFormData } from "@/lib/validation"
+import { getDialCode, prependCountryCode } from "@/lib/phone"
+import { settingsOrgSchema, type SettingsOrgFormData } from "@/lib/validation"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -19,12 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import {
   Building2Icon,
@@ -70,13 +67,22 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [org, setOrg] = useState<OrganisationData | null>(null)
-  const [errors, setErrors] = useState<Partial<Record<keyof SettingsOrgFormData, string>>>({})
   const [prefs, setPrefs] = useState<NotificationPrefs>({
     emailEnabled: true,
     whatsappEnabled: true,
     inTransitNotifications: true,
     deliveredNotifications: true,
     exceptionsNotifications: true,
+  })
+
+  const {
+    register: orgRegister,
+    handleSubmit: orgHandleSubmit,
+    reset: orgReset,
+    control: orgControl,
+    formState: { errors: orgErrors, isSubmitting: orgIsSubmitting },
+  } = useForm<SettingsOrgFormData>({
+    resolver: zodResolver(settingsOrgSchema),
   })
 
   useEffect(() => {
@@ -92,15 +98,27 @@ export default function SettingsPage() {
             `/organisations/${selectedOrganisation}`,
             { throwOnError: false }
           ),
-          api.get<NotificationPrefs>(
-            `/notifications/preferences`,
-            { throwOnError: false }
-          ),
+          api.get<NotificationPrefs>(`/notifications/preferences`, {
+            throwOnError: false,
+          }),
         ])
-        if (orgData) setOrg(orgData)
+        if (orgData) {
+          setOrg(orgData)
+          orgReset({
+            name: orgData.name || "",
+            email: orgData.email || "",
+            phone: orgData.phone || "",
+            address: orgData.address || "",
+            city: orgData.city || "",
+            state: orgData.state || "",
+            postalCode: orgData.postalCode || "",
+            countryCode: orgData.countryCode || "IN",
+            currency: orgData.currency || "INR",
+          })
+        }
         if (prefsData) setPrefs(prefsData)
       } catch (err) {
-        console.error("Failed to fetch settings:", err)
+        toast.error("Failed to load settings")
       } finally {
         setFetching(false)
       }
@@ -109,24 +127,13 @@ export default function SettingsPage() {
     fetchData()
   }, [selectedOrganisation])
 
-  const handleSaveOrg = async () => {
-    if (!selectedOrganisation || !org) return
-
-    const result = settingsOrgSchema.safeParse(org)
-    if (!result.success) {
-      setErrors(fieldErrors<SettingsOrgFormData>(result))
-      return
-    }
-    setErrors({})
-    setLoading(true)
+  const onOrgSubmit = async (data: SettingsOrgFormData) => {
+    if (!selectedOrganisation) return
     try {
-      await api.patch(`/organisations/${selectedOrganisation}`, result.data)
+      await api.patch(`/organisations/${selectedOrganisation}`, data)
       toast.success("Organisation settings saved")
     } catch (err) {
-      console.error("Failed to save organisation:", err)
       toast.error("Failed to save organisation settings")
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -136,7 +143,6 @@ export default function SettingsPage() {
       await api.patch(`/notifications/preferences`, prefs)
       toast.success("Notification preferences saved")
     } catch (err) {
-      console.error("Failed to save notification prefs:", err)
       toast.error("Failed to save notification preferences")
     } finally {
       setLoading(false)
@@ -145,18 +151,18 @@ export default function SettingsPage() {
 
   if (fetching) {
     return (
-      <div className="p-6 space-y-4">
-        <div className="h-8 w-32 bg-muted rounded animate-pulse" />
-        <div className="h-96 bg-muted rounded-lg" />
+      <div className="space-y-4 p-6">
+        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
+        <div className="h-96 rounded-lg bg-muted" />
       </div>
     )
   }
 
   return (
-    <AnimatedPage className="p-6 max-w-6xl mx-auto space-y-6">
+    <AnimatedPage className="mx-auto max-w-6xl space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Manage your organisation settings and preferences
         </p>
       </div>
@@ -189,140 +195,167 @@ export default function SettingsPage() {
                 Basic information about your organisation
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Organisation Name</Label>
-                <Input
-                  id="name"
-                  value={org?.name || ""}
-                  onChange={(e) => { setErrors({ ...errors, name: undefined }); setOrg(org ? { ...org, name: e.target.value } : null) }}
-                  placeholder="Your organisation name"
-                />
-                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
-                <Input
-                  id="slug"
-                  value={org?.slug || ""}
-                  disabled
-                  placeholder="your-org"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={org?.email || ""}
-                  onChange={(e) => { setErrors({ ...errors, email: undefined }); setOrg(org ? { ...org, email: e.target.value } : null) }}
-                  placeholder="org@example.com"
-                />
-                {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={org?.phone || ""}
-                  onChange={(e) => { setErrors({ ...errors, phone: undefined }); setOrg(org ? { ...org, phone: e.target.value } : null) }}
-                  onBlur={(e) => {
-                    const val = e.target.value
-                    if (val && org) {
-                      setOrg({ ...org, phone: prependCountryCode(val, org.countryCode || "IN") })
+            <form onSubmit={orgHandleSubmit(onOrgSubmit)}>
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Organisation Name</Label>
+                  <Input
+                    id="name"
+                    {...orgRegister("name")}
+                    placeholder="Your organisation name"
+                  />
+                  {orgErrors.name && (
+                    <p className="text-sm text-red-500">
+                      {orgErrors.name.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Slug</Label>
+                  <Input
+                    id="slug"
+                    value={org?.slug || ""}
+                    disabled
+                    placeholder="your-org"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...orgRegister("email")}
+                    placeholder="org@example.com"
+                  />
+                  {orgErrors.email && (
+                    <p className="text-sm text-red-500">
+                      {orgErrors.email.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    {...orgRegister("phone")}
+                    placeholder={
+                      getDialCode(org?.countryCode || "IN") + " 9000000000"
                     }
-                  }}
-                  placeholder={getDialCode(org?.countryCode || "IN") + " 9000000000"}
-                />
-                {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
+                  />
+                  {orgErrors.phone && (
+                    <p className="text-sm text-red-500">
+                      {orgErrors.phone.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    {...orgRegister("address")}
+                    placeholder="123 Business St"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    {...orgRegister("city")}
+                    placeholder="City"
+                  />
+                  {orgErrors.city && (
+                    <p className="text-sm text-red-500">
+                      {orgErrors.city.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    {...orgRegister("state")}
+                    placeholder="State"
+                  />
+                  {orgErrors.state && (
+                    <p className="text-sm text-red-500">
+                      {orgErrors.state.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="postalCode">Postal Code</Label>
+                  <Input
+                    id="postalCode"
+                    {...orgRegister("postalCode")}
+                    placeholder="12345"
+                  />
+                  {orgErrors.postalCode && (
+                    <p className="text-sm text-red-500">
+                      {orgErrors.postalCode.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="countryCode">Country</Label>
+                  <Controller
+                    name="countryCode"
+                    control={orgControl}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || "IN"}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger id="countryCode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="IN">India</SelectItem>
+                          <SelectItem value="US">United States</SelectItem>
+                          <SelectItem value="CA">Canada</SelectItem>
+                          <SelectItem value="GB">United Kingdom</SelectItem>
+                          <SelectItem value="AU">Australia</SelectItem>
+                          <SelectItem value="DE">Germany</SelectItem>
+                          <SelectItem value="FR">France</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <Controller
+                    name="currency"
+                    control={orgControl}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || "INR"}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger id="currency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INR">INR (₹)</SelectItem>
+                          <SelectItem value="USD">USD ($)</SelectItem>
+                          <SelectItem value="EUR">EUR (€)</SelectItem>
+                          <SelectItem value="GBP">GBP (£)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={org?.address || ""}
-                  onChange={(e) => { setErrors({ ...errors, address: undefined }); setOrg(org ? { ...org, address: e.target.value } : null) }}
-                  placeholder="123 Business St"
-                />
+              <div className="mt-6 flex justify-end">
+                <Button type="submit" className="gap-2">
+                  {orgIsSubmitting ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <SaveIcon className="h-4 w-4" />
+                  )}
+                  {orgIsSubmitting ? "Saving..." : "Save Organisation"}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={org?.city || ""}
-                  onChange={(e) => { setErrors({ ...errors, city: undefined }); setOrg(org ? { ...org, city: e.target.value } : null) }}
-                  placeholder="City"
-                />
-                {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  value={org?.state || ""}
-                  onChange={(e) => { setErrors({ ...errors, state: undefined }); setOrg(org ? { ...org, state: e.target.value } : null) }}
-                  placeholder="State"
-                />
-                {errors.state && <p className="text-sm text-red-500">{errors.state}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="postalCode">Postal Code</Label>
-                <Input
-                  id="postalCode"
-                  value={org?.postalCode || ""}
-                  onChange={(e) => { setErrors({ ...errors, postalCode: undefined }); setOrg(org ? { ...org, postalCode: e.target.value } : null) }}
-                  placeholder="12345"
-                />
-                {errors.postalCode && <p className="text-sm text-red-500">{errors.postalCode}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="countryCode">Country</Label>
-                <Select
-                  value={org?.countryCode || "IN"}
-                  onValueChange={(value) => setOrg(org ? { ...org, countryCode: value } : null)}
-                >
-                  <SelectTrigger id="countryCode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IN">India</SelectItem>
-                    <SelectItem value="US">United States</SelectItem>
-                    <SelectItem value="CA">Canada</SelectItem>
-                    <SelectItem value="GB">United Kingdom</SelectItem>
-                    <SelectItem value="AU">Australia</SelectItem>
-                    <SelectItem value="DE">Germany</SelectItem>
-                    <SelectItem value="FR">France</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select
-                  value={org?.currency || "INR"}
-                  onValueChange={(value) => setOrg(org ? { ...org, currency: value } : null)}
-                >
-                  <SelectTrigger id="currency">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="INR">INR (₹)</SelectItem>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="GBP">GBP (£)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end mt-6">
-              <Button onClick={handleSaveOrg} disabled={loading || !org} className="gap-2">
-                {loading ? (
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                ) : (
-                  <SaveIcon className="h-4 w-4" />
-                )}
-                {loading ? "Saving..." : "Save Organisation"}
-              </Button>
-            </div>
+            </form>
           </div>
 
           <Link href="/sessions">
@@ -347,21 +380,21 @@ export default function SettingsPage() {
                 Customise the look and feel
               </p>
             </div>
-              <div className="flex items-center justify-between rounded-lg border p-4 mt-4">
-                <div className="flex flex-col space-y-1">
-                  <Label className="text-base">Dark Mode</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Switch between light and dark theme
-                  </p>
-                </div>
-                <Switch
-                  checked={theme === "dark"}
-                  onCheckedChange={(checked) => {
-                    const newTheme = checked ? "dark" : "light"
-                    setTheme(newTheme)
-                  }}
-                />
+            <div className="mt-4 flex items-center justify-between rounded-lg border p-4">
+              <div className="flex flex-col space-y-1">
+                <Label className="text-base">Dark Mode</Label>
+                <p className="text-sm text-muted-foreground">
+                  Switch between light and dark theme
+                </p>
               </div>
+              <Switch
+                checked={theme === "dark"}
+                onCheckedChange={(checked) => {
+                  const newTheme = checked ? "dark" : "light"
+                  setTheme(newTheme)
+                }}
+              />
+            </div>
           </div>
         </TabsContent>
 
@@ -377,7 +410,7 @@ export default function SettingsPage() {
                 Configure how you receive notifications
               </p>
             </div>
-            <div className="space-y-4 mt-4">
+            <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Email Notifications</Label>
@@ -416,7 +449,7 @@ export default function SettingsPage() {
                 Choose which shipment status changes to be notified about
               </p>
             </div>
-            <div className="space-y-4 mt-4">
+            <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>In Transit</Label>
@@ -460,8 +493,12 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
-            <div className="flex justify-end mt-6">
-              <Button onClick={handleSavePrefs} disabled={loading} className="gap-2">
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleSavePrefs}
+                disabled={loading}
+                className="gap-2"
+              >
                 {loading ? (
                   <Loader2Icon className="h-4 w-4 animate-spin" />
                 ) : (

@@ -11,3 +11,4 @@ export * from './carriers';
 export * from './tracking';
 export * from './invitations';
 export * from './webhooks';
+export * from './relations';

@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  ReactNode,
+} from "react";
+import { jwtDecode } from "jwt-decode";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export interface AuthUser {
   id: string;
@@ -54,17 +60,17 @@ class AuthClient {
   private currentSessionId: string | null = null;
 
   constructor() {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       this.loadFromStorage();
     }
   }
 
   private loadFromStorage() {
-    if (typeof window === 'undefined') return;
-    const accessToken = localStorage.getItem('accessToken');
-    const refreshToken = localStorage.getItem('refreshToken');
-    const userStr = localStorage.getItem('user');
-    const sessionId = localStorage.getItem('sessionId');
+    if (typeof window === "undefined") return;
+    const accessToken = localStorage.getItem("accessToken");
+    const refreshToken = localStorage.getItem("refreshToken");
+    const userStr = localStorage.getItem("user");
+    const sessionId = localStorage.getItem("sessionId");
 
     if (accessToken && userStr) {
       this.accessToken = accessToken;
@@ -79,19 +85,21 @@ class AuthClient {
   }
 
   private saveToStorage() {
-    if (typeof window === 'undefined') return;
-    if (this.accessToken) localStorage.setItem('accessToken', this.accessToken);
-    if (this.refreshToken) localStorage.setItem('refreshToken', this.refreshToken);
-    if (this.user) localStorage.setItem('user', JSON.stringify(this.user));
-    if (this.currentSessionId) localStorage.setItem('sessionId', this.currentSessionId);
+    if (typeof window === "undefined") return;
+    if (this.accessToken) localStorage.setItem("accessToken", this.accessToken);
+    if (this.refreshToken)
+      localStorage.setItem("refreshToken", this.refreshToken);
+    if (this.user) localStorage.setItem("user", JSON.stringify(this.user));
+    if (this.currentSessionId)
+      localStorage.setItem("sessionId", this.currentSessionId);
   }
 
   private clearStorage() {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('sessionId');
+    if (typeof window === "undefined") return;
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("sessionId");
   }
 
   private notifyListeners() {
@@ -138,14 +146,16 @@ class AuthClient {
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Login failed' }));
-      throw new Error(error.message || 'Login failed');
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Login failed" }));
+      throw new Error(error.message || "Login failed");
     }
 
     const data: AuthResponse = await response.json();
@@ -155,14 +165,16 @@ class AuthClient {
 
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Registration failed' }));
-      throw new Error(error.message || 'Registration failed');
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Registration failed" }));
+      throw new Error(error.message || "Registration failed");
     }
 
     const result: AuthResponse = await response.json();
@@ -174,7 +186,7 @@ class AuthClient {
     if (this.accessToken) {
       try {
         await fetch(`${API_URL}/auth/logout`, {
-          method: 'POST',
+          method: "POST",
           headers: { Authorization: `Bearer ${this.accessToken}` },
         });
       } catch {
@@ -188,7 +200,7 @@ class AuthClient {
     if (this.accessToken) {
       try {
         await fetch(`${API_URL}/auth/logout-all`, {
-          method: 'POST',
+          method: "POST",
           headers: { Authorization: `Bearer ${this.accessToken}` },
         });
       } catch {
@@ -215,7 +227,7 @@ class AuthClient {
     if (!this.accessToken) return false;
     try {
       const response = await fetch(`${API_URL}/auth/sessions/${sessionId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: { Authorization: `Bearer ${this.accessToken}` },
       });
       return response.ok;
@@ -238,8 +250,8 @@ class AuthClient {
   private async _doRefresh(): Promise<boolean> {
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken: this.refreshToken }),
       });
 
@@ -274,12 +286,15 @@ class AuthClient {
     this.notifyListeners();
   }
 
-  async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  async fetchWithAuth(
+    url: string,
+    options: RequestInit = {},
+  ): Promise<Response> {
     const headers = new Headers(options.headers);
-    headers.set('Content-Type', 'application/json');
+    headers.set("Content-Type", "application/json");
 
     if (this.accessToken) {
-      headers.set('Authorization', `Bearer ${this.accessToken}`);
+      headers.set("Authorization", `Bearer ${this.accessToken}`);
     }
 
     const response = await fetch(url, { ...options, headers });
@@ -287,7 +302,7 @@ class AuthClient {
     if (response.status === 401 && this.refreshToken) {
       const refreshed = await this.refreshAccessToken();
       if (refreshed && this.accessToken) {
-        headers.set('Authorization', `Bearer ${this.accessToken}`);
+        headers.set("Authorization", `Bearer ${this.accessToken}`);
         return fetch(url, { ...options, headers: Object.fromEntries(headers) });
       }
       this.clearSession();
@@ -336,7 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -350,10 +365,10 @@ export function useOptionalAuth() {
     return unsubscribe;
   }, []);
 
-  return { 
-    user, 
-    isAuthenticated: !!user, 
-    isLoading, 
-    accessToken: auth.getAccessToken() 
+  return {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    accessToken: auth.getAccessToken(),
   };
 }

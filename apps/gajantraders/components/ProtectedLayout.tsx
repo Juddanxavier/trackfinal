@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { ReactNode } from 'react';
-import { ProtectedRoute } from './protected-route';
-import Navbar from './Navbar';
+import { ReactNode } from "react";
+import { ProtectedRoute } from "./protected-route";
+import Navbar from "./Navbar";
 
 interface ProtectedLayoutProps {
   children: ReactNode;
@@ -15,11 +15,11 @@ interface ProtectedLayoutProps {
   };
 }
 
-export function ProtectedLayout({ 
-  children, 
+export function ProtectedLayout({
+  children,
   title,
   subtitle,
-  action 
+  action,
 }: ProtectedLayoutProps) {
   return (
     <ProtectedRoute>
@@ -33,9 +33,7 @@ export function ProtectedLayout({
                 <h1 className="text-3xl font-black text-slate-900 font-heading">
                   {title}
                 </h1>
-                {subtitle && (
-                  <p className="text-slate-500 mt-2">{subtitle}</p>
-                )}
+                {subtitle && <p className="text-slate-500 mt-2">{subtitle}</p>}
               </div>
               {action && (
                 <a

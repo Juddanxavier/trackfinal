@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import Image from "next/image"
 import {
   Eye,
   EyeOff,
@@ -14,12 +13,13 @@ import {
   CheckCircle,
   ArrowLeft,
   CommandIcon,
+  ShieldCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
-import bglogin from "@/public/bglogin.png"
+import { AuthSidebar } from "@/components/auth-sidebar"
 
 const resetPasswordSchema = z
   .object({
@@ -45,10 +45,13 @@ function ResetPasswordForm() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
   })
+
+  const passwordValue = watch("password") || ""
 
   const onSubmit = async (data: ResetPasswordFormData) => {
     if (!token) {
@@ -69,7 +72,8 @@ function ResetPasswordForm() {
         router.push("/login")
       }, 3000)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to reset password"
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to reset password"
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -79,19 +83,7 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="grid min-h-screen w-full lg:grid-cols-2">
-        <div className="relative hidden h-screen lg:flex">
-          <Image src={bglogin} alt="Background" fill className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-          <div className="absolute right-0 bottom-0 left-0 p-8">
-            <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-6 py-4 shadow-xl shadow-black/20 backdrop-blur-xl">
-              <CommandIcon className="h-6 w-6 text-white" />
-              <h1 className="text-xl font-bold text-white">GT Express</h1>
-            </div>
-            <p className="mt-3 text-base text-white/60">
-              Your complete shipment tracking solution
-            </p>
-          </div>
-        </div>
+        <AuthSidebar />
         <div className="flex flex-col items-center justify-center p-8">
           <div className="w-full max-w-sm space-y-6">
             <div className="text-center">
@@ -100,7 +92,8 @@ function ResetPasswordForm() {
               </div>
               <h2 className="text-xl font-bold">Invalid Link</h2>
               <p className="mt-2 text-muted-foreground">
-                This password reset link is invalid or has expired.
+                This password reset link is invalid or has expired. Reset links
+                are valid for 1 hour.
               </p>
             </div>
             <Button
@@ -127,19 +120,7 @@ function ResetPasswordForm() {
   if (success) {
     return (
       <div className="grid min-h-screen w-full lg:grid-cols-2">
-        <div className="relative hidden h-screen lg:flex">
-          <Image src={bglogin} alt="Background" fill className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-          <div className="absolute right-0 bottom-0 left-0 p-8">
-            <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-6 py-4 shadow-xl shadow-black/20 backdrop-blur-xl">
-              <CommandIcon className="h-6 w-6 text-white" />
-              <h1 className="text-xl font-bold text-white">GT Express</h1>
-            </div>
-            <p className="mt-3 text-base text-white/60">
-              Your complete shipment tracking solution
-            </p>
-          </div>
-        </div>
+        <AuthSidebar />
         <div className="flex flex-col items-center justify-center p-8">
           <div className="w-full max-w-sm space-y-6 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
@@ -164,37 +145,21 @@ function ResetPasswordForm() {
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-2">
-      <div className="relative hidden h-screen lg:flex">
-        <Image src={bglogin} alt="Background" fill className="object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-        <div className="absolute right-0 bottom-0 left-0 p-8">
-          <div className="inline-flex items-center gap-3 rounded-md border border-black/10 bg-black/50 px-6 py-4 shadow-xl shadow-black/20 backdrop-blur-xl">
-            <CommandIcon className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold text-white">GT Express</h1>
-          </div>
-          <p className="mt-3 text-base text-white/60">
-            Your complete shipment tracking solution
-          </p>
-        </div>
-      </div>
+      <AuthSidebar />
 
       <div className="flex flex-col items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center lg:hidden">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-primary">
-              <img
-                src="/logo.ico"
-                alt="GT Express"
-                className="h-8 w-8 rounded-lg object-contain"
-              />
+              <CommandIcon className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold">Track</h1>
+            <h1 className="text-2xl font-bold">GT Express</h1>
           </div>
 
           <div>
             <h2 className="text-2xl font-bold">Reset Password</h2>
             <p className="mt-1 text-muted-foreground">
-              Enter your new password below.
+              Choose a strong password that you haven&apos;t used before.
             </p>
           </div>
 
@@ -233,6 +198,28 @@ function ResetPasswordForm() {
                   {errors.password.message}
                 </p>
               )}
+              {passwordValue && (
+                <ul className="space-y-1 pt-1">
+                  {[
+                    { test: (p: string) => p.length >= 8, label: "At least 8 characters" },
+                    { test: (p: string) => /[A-Z]/.test(p), label: "One uppercase letter" },
+                    { test: (p: string) => /[a-z]/.test(p), label: "One lowercase letter" },
+                    { test: (p: string) => /[0-9]/.test(p), label: "One number" },
+                  ].map((rule) => {
+                    const passed = rule.test(passwordValue)
+                    return (
+                      <li key={rule.label} className="flex items-center gap-1.5 text-xs">
+                        <span className={passed ? "text-green-600" : "text-muted-foreground"}>
+                          {passed ? "✓" : "○"}
+                        </span>
+                        <span className={passed ? "text-green-600" : "text-muted-foreground"}>
+                          {rule.label}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -256,6 +243,17 @@ function ResetPasswordForm() {
             </Button>
           </form>
 
+          <div className="rounded-xl border border-border/50 bg-muted/30 p-4">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Use a unique password with at least 8 characters, including
+                uppercase, lowercase, and numbers. Never share your password
+                with anyone.
+              </p>
+            </div>
+          </div>
+
           <p className="text-center text-sm">
             <a
               href="/login"
@@ -276,24 +274,7 @@ export default function ResetPasswordPage() {
     <Suspense
       fallback={
         <div className="grid min-h-screen w-full lg:grid-cols-2">
-          <div className="relative hidden h-screen lg:flex">
-            <Image
-              src={bglogin}
-              alt="Background"
-              fill
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-            <div className="absolute right-0 bottom-0 left-0 p-8">
-              <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-6 py-4 shadow-xl shadow-black/20 backdrop-blur-xl">
-                <CommandIcon className="h-6 w-6 text-white" />
-                <h1 className="text-xl font-bold text-white">GT Express</h1>
-              </div>
-              <p className="mt-3 text-base text-white/60">
-                Your complete shipment tracking solution
-              </p>
-            </div>
-          </div>
+          <AuthSidebar />
           <div className="flex flex-col items-center justify-center p-8">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
           </div>

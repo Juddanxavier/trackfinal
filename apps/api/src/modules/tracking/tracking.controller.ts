@@ -6,6 +6,8 @@ import {
   Query,
   Body,
   UseGuards,
+  Request,
+  ForbiddenException,
   ParseUUIDPipe,
   ParseArrayPipe,
 } from '@nestjs/common';
@@ -39,7 +41,23 @@ export class TrackingController {
   @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync single shipment from 17TRACK' })
-  async syncShipment(@Param('shipmentId', ParseUUIDPipe) shipmentId: string) {
+  async syncShipment(
+    @Param('shipmentId', ParseUUIDPipe) shipmentId: string,
+    @Request() req: any,
+  ) {
+    const [shipment] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.id, shipmentId));
+    if (!shipment) {
+      return { success: false, message: 'Shipment not found' };
+    }
+    if (
+      req.user.organisationId &&
+      shipment.organisationId !== req.user.organisationId
+    ) {
+      return { success: false, message: 'Shipment not found' };
+    }
     return this.trackingSyncService.triggerManualSync(shipmentId);
   }
 
@@ -57,13 +75,23 @@ export class TrackingController {
   @Require({ resource: 'tracking', action: 'write' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register shipment with 17TRACK' })
-  async registerShipment(@Param('shipmentId', ParseUUIDPipe) shipmentId: string) {
+  async registerShipment(
+    @Param('shipmentId', ParseUUIDPipe) shipmentId: string,
+    @Request() req: any,
+  ) {
     const [shipment] = await db
       .select()
       .from(shipments)
       .where(eq(shipments.id, shipmentId));
 
     if (!shipment) {
+      return { success: false, message: 'Shipment not found' };
+    }
+
+    if (
+      req.user.organisationId &&
+      shipment.organisationId !== req.user.organisationId
+    ) {
       return { success: false, message: 'Shipment not found' };
     }
 
@@ -79,7 +107,17 @@ export class TrackingController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get tracking settings' })
-  async getSettings(@Query('organisationId') organisationId?: string) {
+  async getSettings(
+    @Query('organisationId') organisationId?: string,
+    @Request() req?: any,
+  ) {
+    if (
+      req?.user?.organisationId &&
+      organisationId &&
+      organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
     const settings =
       await this.seventeenTrackService.getSettings(organisationId);
     return (
@@ -132,7 +170,13 @@ export class TrackingController {
     summary: 'Update tracking info (tag, email, phone) on 17TRACK',
   })
   async changeInfo(
-    @Body(new ParseArrayPipe({ items: ChangeInfoItem, whitelist: true, forbidNonWhitelisted: true }))
+    @Body(
+      new ParseArrayPipe({
+        items: ChangeInfoItem,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
     body: ChangeInfoItem[],
   ) {
     if (!body || body.length === 0) {
@@ -147,7 +191,13 @@ export class TrackingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Stop tracking on 17TRACK' })
   async stopTrack(
-    @Body(new ParseArrayPipe({ items: TrackingNumberItem, whitelist: true, forbidNonWhitelisted: true }))
+    @Body(
+      new ParseArrayPipe({
+        items: TrackingNumberItem,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
     body: TrackingNumberItem[],
   ) {
     if (!body || body.length === 0) {
@@ -162,7 +212,13 @@ export class TrackingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Re-track on 17TRACK' })
   async retrans(
-    @Body(new ParseArrayPipe({ items: TrackingNumberItem, whitelist: true, forbidNonWhitelisted: true }))
+    @Body(
+      new ParseArrayPipe({
+        items: TrackingNumberItem,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
     body: TrackingNumberItem[],
   ) {
     if (!body || body.length === 0) {
@@ -177,7 +233,13 @@ export class TrackingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change carrier on 17TRACK (max 5 per tracking)' })
   async changeCarrier(
-    @Body(new ParseArrayPipe({ items: ChangeCarrierItem, whitelist: true, forbidNonWhitelisted: true }))
+    @Body(
+      new ParseArrayPipe({
+        items: ChangeCarrierItem,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
     body: ChangeCarrierItem[],
   ) {
     if (!body || body.length === 0) {

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Body,
+  Logger,
   UseGuards,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,10 +12,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require } from '../../common/casbin';
 import { TrackingSyncService } from './tracking-sync.service';
 import { SeventeenTrackService } from './seventeen-track.service';
+import type { SeventeenTrackWebhookItem } from './tracking-webhook.service';
 import { timingSafeEqual } from '../../common/utils/crypto.util';
 
 @Controller('webhook/17track')
 export class SeventeenTrackWebhookController {
+  private readonly logger = new Logger(SeventeenTrackWebhookController.name);
+
   constructor(
     private configService: ConfigService,
     private trackingSyncService: TrackingSyncService,
@@ -23,8 +27,8 @@ export class SeventeenTrackWebhookController {
 
   @Post()
   @Public()
-  async handleWebhook(@Body() payload: any[]) {
-    console.log(
+  async handleWebhook(@Body() payload: SeventeenTrackWebhookItem[]) {
+    this.logger.log(
       '[17Track Webhook] Received:',
       JSON.stringify(payload).slice(0, 200),
     );
@@ -32,13 +36,12 @@ export class SeventeenTrackWebhookController {
     const webhookToken = this.configService.get<string>(
       'SEVENTEEN_WEBHOOK_TOKEN',
     );
-    const providedToken = payload[0]?.token || payload[0]?.webhook_token;
 
     if (
       webhookToken &&
-      (!providedToken || !timingSafeEqual(providedToken, webhookToken))
+      (!payload[0]?.token || !timingSafeEqual(payload[0].token, webhookToken))
     ) {
-      console.log('[17Track Webhook] Invalid token');
+      this.logger.warn('[17Track Webhook] Invalid token');
       throw new UnauthorizedException('Invalid webhook token');
     }
 
@@ -46,13 +49,13 @@ export class SeventeenTrackWebhookController {
       const cleanPayload = payload.map((item) => ({
         number: item.number,
         carrier: item.carrier,
-        tag: item.tag,
+        tag: item.tag || '',
         track_info: item.track_info,
       }));
 
       return this.trackingSyncService.handleWebhook(cleanPayload);
     } catch (err) {
-      console.error('[17Track Webhook] ERROR:', err);
+      this.logger.error('[17Track Webhook] ERROR:', err);
       throw err;
     }
   }

@@ -1,8 +1,8 @@
 /** @format */
 
-import * as React from 'react';
-import { createMap } from 'svg-dotted-map';
-import { cn } from '@repo/utils/cn';
+import * as React from "react";
+import { createMap } from "svg-dotted-map";
+import { cn } from "@repo/utils/cn";
 
 export interface Marker {
   lat: number;
@@ -12,7 +12,7 @@ export interface Marker {
 }
 
 /** addMarkers returns markers with lat/lng removed; only x, y and other props (e.g. size) remain */
-type MapMarker<M extends Marker> = Omit<M, 'lat' | 'lng'> & {
+type MapMarker<M extends Marker> = Omit<M, "lat" | "lng"> & {
   x: number;
   y: number;
 };
@@ -44,8 +44,8 @@ export function DottedMap<M extends Marker = Marker>({
   height = 75,
   mapSamples = 5000,
   markers = [],
-  dotColor = 'currentColor',
-  markerColor = '#FF6900',
+  dotColor = "currentColor",
+  markerColor = "#FF6900",
   dotRadius = 3,
   stagger = true,
   pulse = true,
@@ -90,12 +90,13 @@ export function DottedMap<M extends Marker = Marker>({
     <svg
       viewBox={`0 0 ${width} ${height}`}
       className={cn(
-        'text-gray-500 dark:text-gray-500 w-full h-full',
+        "text-gray-500 dark:text-gray-500 w-full h-full",
         className,
       )}
       width={width}
       height={height}
-      {...svgProps}>
+      {...svgProps}
+    >
       {points.map((point, index) => {
         const rowIndex = yToRowIndex.get(point.y) ?? 0;
         const offsetX = stagger && rowIndex % 2 === 1 ? xStep / 2 : 0;
@@ -127,49 +128,51 @@ export function DottedMap<M extends Marker = Marker>({
             <circle cx={x} cy={y} r={r} fill={markerColor} />
 
             {shouldPulse ? (
-              <g pointerEvents='none'>
+              <g pointerEvents="none">
                 <circle
                   cx={x}
                   cy={y}
                   r={r}
-                  fill='none'
+                  fill="none"
                   stroke={markerColor}
                   strokeOpacity={1}
-                  strokeWidth={0.89}>
+                  strokeWidth={0.89}
+                >
                   <animate
-                    attributeName='r'
+                    attributeName="r"
                     values={`${r};${pulseTo}`}
-                    dur='1.4s'
-                    repeatCount='indefinite'
+                    dur="1.4s"
+                    repeatCount="indefinite"
                   />
                   <animate
-                    attributeName='opacity'
-                    values='1;0'
-                    dur='1.4s'
-                    repeatCount='indefinite'
+                    attributeName="opacity"
+                    values="1;0"
+                    dur="1.4s"
+                    repeatCount="indefinite"
                   />
                 </circle>
                 <circle
                   cx={x}
                   cy={y}
                   r={r}
-                  fill='none'
+                  fill="none"
                   stroke={markerColor}
                   strokeOpacity={0.9}
-                  strokeWidth={7}>
+                  strokeWidth={7}
+                >
                   <animate
-                    attributeName='r'
+                    attributeName="r"
                     values={`${r};${pulseTo}`}
-                    dur='1.4s'
-                    begin='0.7s'
-                    repeatCount='indefinite'
+                    dur="1.4s"
+                    begin="0.7s"
+                    repeatCount="indefinite"
                   />
                   <animate
-                    attributeName='opacity'
-                    values='0.9;0'
-                    dur='1.4s'
-                    begin='0.7s'
-                    repeatCount='indefinite'
+                    attributeName="opacity"
+                    values="0.9;0"
+                    dur="1.4s"
+                    begin="0.7s"
+                    repeatCount="indefinite"
                   />
                 </circle>
               </g>

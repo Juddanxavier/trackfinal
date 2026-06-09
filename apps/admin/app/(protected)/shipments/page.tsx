@@ -5,15 +5,33 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
-import { MoreHorizontalIcon, PlusIcon, RefreshCwIcon, BanIcon, EditIcon, Trash2Icon, MailIcon, FileTextIcon, PackageCheckIcon, SearchIcon, FilterIcon } from "lucide-react"
+import {
+  MoreHorizontalIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  BanIcon,
+  EditIcon,
+  EyeIcon,
+  Trash2Icon,
+  MailIcon,
+  FileTextIcon,
+  SearchIcon,
+  FilterIcon,
+  PackageCheckIcon,
+} from "lucide-react"
 import { ShipmentStatsCards } from "@/components/shipment-stats-cards"
-import { COUNTRY_CODES, getDialCode, prependCountryCode } from "@/lib/phone"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription } from "@/components/ui/empty"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { EmptyState } from "@/components/empty-state"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { BulkActionFooter } from "@/components/bulk-action-footer"
-import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
+import {
+  DataTable,
+  RowCheckbox,
+  SelectAllCheckbox,
+  type ColumnDef,
+  type SortingState,
+} from "@/components/data-table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,42 +40,20 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { ExportButton } from "@/components/export-button"
-import { AnimatedPage, AnimatedCard, AnimatedList, AnimatedListItem } from "@/components/animated-page"
-import { z } from "zod"
-
-// Input validation schemas
-const emailSchema = z.string().email().max(255).optional()
-const phoneSchema = z.string().regex(/^[\d\s\-+()]+$/).max(20).optional()
-const trackingNumberSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9\-]+$/)
-const nameSchema = z.string().min(1).max(200)
+import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
+import { useUndoAction } from "@/lib/hooks/use-undo-action"
+import { AnimatedPage } from "@/components/animated-page"
+import { CreateShipmentDialog } from "@/components/shipments/create-shipment-dialog"
+import { ShipmentActionDialog } from "@/components/shipments/shipment-action-dialog"
+import { EditShipmentSheet } from "@/components/shipments/edit-shipment-sheet"
 
 type ShipmentStatus = "pending" | "in_transit" | "delivered" | "exception"
 
@@ -97,8 +93,8 @@ const statusVariants: Record<ShipmentStatus, string> = {
 }
 
 export default function ShipmentsPage() {
-  const router = useRouter()
   const { selectedOrganisation, isLoading: authLoading, user } = useAuth()
+  const router = useRouter()
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [carriers, setCarriers] = useState<Carrier[]>([])
@@ -121,56 +117,30 @@ export default function ShipmentsPage() {
   ])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [openCreateDialog, setOpenCreateDialog] = useState(false)
-  const [createStep, setCreateStep] = useState(1)
-  const [creating, setCreating] = useState(false)
-  const [detecting, setDetecting] = useState(false)
-  const [carrierOpen, setCarrierOpen] = useState(false)
-  const carrierRef = React.useRef<HTMLDivElement>(null)
-  
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
-  const [archiveDialog, setArchiveDialog] = useState<{ open: boolean; shipment: Shipment | null }>({ open: false, shipment: null })
+  const [archiveDialog, setArchiveDialog] = useState<{
+    open: boolean
+    shipment: Shipment | null
+  }>({ open: false, shipment: null })
   const [archiving, setArchiving] = useState(false)
-
   const [actionDialog, setActionDialog] = useState<{
     open: boolean
     shipment: Shipment | null
     type: "stoptrack" | "retrack" | "changecarrier" | null
   }>({ open: false, shipment: null, type: null })
-  const [actionLoading, setActionLoading] = useState(false)
-  const [newCarrierCode, setNewCarrierCode] = useState("")
-  const [carrierAttempts, setCarrierAttempts] = useState<{ attempts: number; attempts_left: number } | null>(null)
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean
+    shipment: Shipment | null
+  }>({ open: false, shipment: null })
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([])
   const [branchId, setBranchId] = useState("all")
-
-  const [editDialog, setEditDialog] = useState<{ open: boolean; shipment: Shipment | null }>({ open: false, shipment: null })
-  const [editForm, setEditForm] = useState({ recipientName: "", recipientEmail: "", recipientPhone: "", branchId: "", billAmount: "" })
-  const [savingEdit, setSavingEdit] = useState(false)
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (carrierRef.current && !carrierRef.current.contains(event.target as Node)) {
-        setCarrierOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  const [formData, setFormData] = useState({
-    trackingNumber: "",
-    carrierCode: "",
-    carrierName: "",
-    recipientEmail: "",
-    recipientPhone: "",
-    recipientName: "",
-    userId: "",
-    branchId: "",
-    billAmount: "",
-  })
-  const [assignToSelf, setAssignToSelf] = useState(false)
-
-  const [userLookupStatus, setUserLookupStatus] = useState<{email?: string; phone?: string}>({})
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    shipment: Shipment | null
+  }>({ open: false, shipment: null })
+  const [deleting, setDeleting] = useState(false)
+  const { fire } = useUndoAction()
 
   const fetchShipments = async () => {
     setLoading(true)
@@ -197,16 +167,19 @@ export default function ShipmentsPage() {
         setTotalPages(res.totalPages || 0)
       }
     } catch (err) {
-      console.error("Failed to fetch shipments:", err)
+      toast.error("Failed to fetch shipments")
     } finally {
       setLoading(false)
     }
   }
 
-const fetchStats = async () => {
+  const fetchStats = async () => {
     if (!selectedOrganisation) return
     try {
-      const res = await api.get(`/shipments/stats?organisationId=${selectedOrganisation}`, { throwOnError: false }) as any
+      const res = (await api.get(
+        `/shipments/stats?organisationId=${selectedOrganisation}`,
+        { throwOnError: false }
+      )) as any
       if (res && res.total !== undefined) {
         setStats({
           total: Number(res.total),
@@ -216,7 +189,7 @@ const fetchStats = async () => {
         })
       }
     } catch (err) {
-      console.error("Failed to fetch stats:", err)
+      toast.error("Failed to fetch stats")
     }
   }
 
@@ -227,7 +200,7 @@ const fetchStats = async () => {
         setCarriers(res)
       }
     } catch (err) {
-      console.error("Failed to fetch carriers:", err)
+      toast.error("Failed to fetch carriers")
     }
   }
 
@@ -247,213 +220,44 @@ const fetchStats = async () => {
   const fetchBranches = async () => {
     if (!selectedOrganisation) return
     try {
-      const res = await api.get(`/organisations/${selectedOrganisation}/branches`, { throwOnError: false }) as any
+      const res = (await api.get(
+        `/organisations/${selectedOrganisation}/branches`,
+        { throwOnError: false }
+      )) as any
       if (Array.isArray(res)) {
         setBranches(res)
       }
     } catch (err) {
-      console.error("Failed to fetch branches:", err)
+      toast.error("Failed to fetch branches")
     }
   }
 
-  const detectCarrier = async (trackingNumber: string) => {
-    if (!trackingNumber) return
-    setDetecting(true)
-    try {
-      const res = (await api.get(
-        `/carriers/detect?trackingNumber=${encodeURIComponent(trackingNumber)}`,
-        { throwOnError: false }
-      )) as any
-      if (res?.detected && res?.carrierCode) {
-        setFormData((prev) => ({
-          ...prev,
-          carrierCode: res.carrierCode || "",
-          carrierName: res.carrierName || "",
-        }))
-      }
-    } catch (err) {
-      console.error("Failed to detect carrier:", err)
-    } finally {
-      setDetecting(false)
-    }
-  }
-
-  const lookupUser = async (email?: string, phone?: string) => {
-    if (!email && !phone) return null
-    
-    // Validate inputs before sending to API
-    try {
-      if (email) {
-        emailSchema.parse(email)
-      }
-      if (phone) {
-        phoneSchema.parse(phone)
-      }
-    } catch (validationErr) {
-      toast.error("Invalid input format")
-      return null
-    }
-    
-    try {
-      const params = new URLSearchParams()
-      if (email) params.set("email", email)
-      if (phone) params.set("phone", phone)
-      const res = await api.get<{ id: string; name?: string; email?: string; phoneNumber?: string }>(`/users/lookup?${params}`, { throwOnError: false })
-      if (res?.id) {
-        setFormData((prev) => ({
-          ...prev,
-          userId: res.id,
-          recipientName: res.name || prev.recipientName || "",
-          recipientEmail: res.email || prev.recipientEmail || "",
-          recipientPhone: res.phoneNumber || prev.recipientPhone || "",
-        }))
-        toast.success("User found! Notifications will be sent to this user.")
-        return res
-      } else {
-        toast.info("No user found with this email/phone. Notifications will be sent to recipient contact instead.")
-      }
-    } catch (err) {
-      console.error("Failed to lookup user:", err)
-    }
-    return null
-  }
-
-  const handleCreateShipment = async () => {
-    // Validate inputs using Zod schemas
-    try {
-      trackingNumberSchema.parse(formData.trackingNumber)
-      if (!assignToSelf) {
-        nameSchema.parse(formData.recipientName)
-        phoneSchema.parse(formData.recipientPhone)
-        if (formData.recipientEmail) {
-          emailSchema.parse(formData.recipientEmail)
-        }
-      }
-    } catch (validationErr: any) {
-      const field = validationErr?.issues?.[0]?.path?.[0] || "input"
-      toast.error(`Invalid ${field}`)
-      return
-    }
-
-    if (!formData.trackingNumber) {
-      toast.error("Please enter a tracking number")
-      return
-    }
-
-    if (!assignToSelf && (!formData.recipientName || !formData.recipientPhone)) {
-      toast.error("Please fill in recipient name and phone, or assign to self")
-      return
-    }
-
-    setCreating(true)
-    try {
-      let phone = formData.recipientPhone.replace(/\s/g, "")
-      if (!phone.startsWith("+")) {
-        const code = getDialCode(orgCountry)
-        phone = code + phone
-      }
-
-      const res: any = await api.post(
-        "/shipments",
-        {
-          trackingNumber: formData.trackingNumber,
-          carrierCode: formData.carrierCode || "unknown",
-          recipientName: formData.recipientName,
-          recipientEmail: formData.recipientEmail || undefined,
-          recipientPhone: phone,
-          userId: formData.userId || undefined,
-          organisationId: selectedOrganisation,
-          branchId: formData.branchId || undefined,
-          billAmount: formData.billAmount ? parseFloat(formData.billAmount) : undefined,
-        },
-        { throwOnError: false, timeout: 30000 }
-      )
-
-      if (res?.error) {
-        toast.error(res.message || "Failed to create shipment")
-        return
-      }
-
-      toast.success("Shipment created")
-      setOpenCreateDialog(false)
-      setFormData({
-        trackingNumber: "",
-        carrierCode: "",
-        carrierName: "",
-        recipientEmail: "",
-        recipientPhone: "",
-        recipientName: "",
-        userId: "",
-        branchId: "",
-        billAmount: "",
-      })
-      fetchShipments()
-      fetchStats()
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to create shipment")
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const openEditShipment = (shipment: Shipment) => {
-    setEditForm({
-      recipientName: shipment.recipientName || "",
-      recipientEmail: shipment.recipientEmail || "",
-      recipientPhone: shipment.recipientPhone || "",
-      branchId: shipment.branchId || "",
-      billAmount: shipment.billAmount != null ? String(shipment.billAmount) : "",
-    })
-    setEditDialog({ open: true, shipment })
-  }
-
-  const handleUpdateShipment = async () => {
-    if (!editDialog.shipment) return
-    if (!editForm.recipientName || !editForm.recipientPhone || !editForm.branchId) {
-      toast.error("Name, phone, and branch are required")
-      return
-    }
-    setSavingEdit(true)
-    try {
-      const payload: any = {
-        recipientName: editForm.recipientName,
-        recipientEmail: editForm.recipientEmail || undefined,
-        recipientPhone: editForm.recipientPhone,
-        branchId: editForm.branchId,
-      }
-      if (editForm.billAmount) {
-        payload.billAmount = parseFloat(editForm.billAmount)
-      }
-      const res: any = await api.patch(`/shipments/${editDialog.shipment.id}`, payload, { throwOnError: false })
-      if (res?.error) {
-        toast.error(res.message || "Failed to update shipment")
-        return
-      }
-      toast.success("Shipment updated")
-      setEditDialog({ open: false, shipment: null })
-      fetchShipments()
-      fetchStats()
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update shipment")
-    } finally {
-      setSavingEdit(false)
-    }
-  }
-
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; shipment: Shipment | null }>({ open: false, shipment: null })
-  const [deleting, setDeleting] = useState(false)
+  useRefetchOnFocus(fetchShipments, !loading)
 
   const handleDeleteShipment = async () => {
     if (!deleteDialog.shipment) return
+    const deletedId = deleteDialog.shipment.id
     setDeleting(true)
     try {
-      await api.delete(`/shipments/${deleteDialog.shipment.id}`, { throwOnError: false })
-      toast.success("Shipment deleted")
+      await api.delete(`/shipments/${deletedId}`, {
+        throwOnError: false,
+      })
       setDeleteDialog({ open: false, shipment: null })
       fetchShipments()
       fetchStats()
+      fire({
+        description: `Shipment ${deletedId.slice(0, 8)}... deleted`,
+        onUndo: async () => {
+          try {
+            await api.patch(`/shipments/${deletedId}/restore`)
+            toast.success("Shipment restored")
+            fetchShipments()
+          } catch {
+            toast.error("Failed to restore shipment")
+          }
+        },
+      })
     } catch (err) {
-      console.error("Failed to delete shipment:", err)
       toast.error("Failed to delete shipment")
     } finally {
       setDeleting(false)
@@ -463,14 +267,22 @@ const fetchStats = async () => {
   const handleBulkDelete = async () => {
     setBulkDeleting(true)
     try {
-      await Promise.all(selectedIds.map((id) => api.delete(`/shipments/${id}`, { throwOnError: false })))
-      toast.success(`${selectedIds.length} shipments deleted`)
+      await Promise.all(
+        selectedIds.map((id) =>
+          api.delete(`/shipments/${id}`, { throwOnError: false })
+        )
+      )
+      toast(`Deleted ${selectedIds.length} shipments`, {
+        action: {
+          label: "Undo",
+          onClick: () => toast.error("Bulk undo not supported"),
+        },
+      })
       setSelectedIds([])
       setBulkDeleteDialog(false)
       fetchShipments()
       fetchStats()
     } catch (err) {
-      console.error("Bulk delete failed:", err)
       toast.error("Failed to delete some shipments")
     } finally {
       setBulkDeleting(false)
@@ -487,7 +299,6 @@ const fetchStats = async () => {
       fetchShipments()
       fetchStats()
     } catch (err) {
-      console.error("Failed to archive shipment:", err)
       toast.error("Failed to archive shipment")
     } finally {
       setArchiving(false)
@@ -501,14 +312,14 @@ const fetchStats = async () => {
       fetchShipments()
       fetchStats()
     } catch (err) {
-      console.error("Failed to unarchive shipment:", err)
       toast.error("Failed to unarchive shipment")
     }
   }
 
   const handleDownloadInvoice = (shipment: Shipment) => {
     const token = localStorage.getItem("track_access_token")
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
     if (!token) {
       window.open(`${baseUrl}/invoices/${shipment.id}/download`, "_blank")
       return
@@ -537,101 +348,26 @@ const fetchStats = async () => {
 
   const handleSendInvoice = async (shipment: Shipment) => {
     const token = localStorage.getItem("track_access_token")
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
     try {
       const res = await fetch(`${baseUrl}/invoices/${shipment.id}/send-email`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       })
       const data = await res.json()
-      if (data.success) {
-        toast.success("Invoice email queued")
-      } else {
-        toast.error(data.message || "Failed to send invoice")
-      }
+      if (data.success) toast.success("Invoice email queued")
+      else toast.error(data.message || "Failed to send invoice")
     } catch {
       toast.error("Failed to send invoice")
     }
   }
 
-  const handleStopTrack = async (shipment: Shipment) => {
-    setActionLoading(true)
-    try {
-      const res = await api.post("/tracking/stoptrack", [
-        { number: shipment.trackingNumber, carrier: parseInt(shipment.carrierCode) || 0 }
-      ], { throwOnError: false }) as any
-      if (res?.accepted?.length > 0) {
-        toast.success(`Tracking stopped for ${shipment.trackingNumber}`)
-      } else {
-        toast.error(res?.rejected?.[0]?.error || "Failed to stop tracking")
-      }
-    } catch (err) {
-      toast.error("Failed to stop tracking")
-    } finally {
-      setActionDialog({ open: false, shipment: null, type: null })
-      setActionLoading(false)
-    }
-  }
-
-  const handleReTrack = async (shipment: Shipment) => {
-    setActionLoading(true)
-    try {
-      const res = await api.post("/tracking/retrack", [
-        { number: shipment.trackingNumber, carrier: parseInt(shipment.carrierCode) || 0 }
-      ], { throwOnError: false }) as any
-      if (res?.accepted?.length > 0) {
-        toast.success(`Re-tracking ${shipment.trackingNumber}`)
-      } else {
-        toast.error(res?.rejected?.[0]?.error || "Failed to re-track")
-      }
-    } catch (err) {
-      toast.error("Failed to re-track")
-    } finally {
-      setActionDialog({ open: false, shipment: null, type: null })
-      setActionLoading(false)
-    }
-  }
-
-  const handleChangeCarrier = async (shipment: Shipment) => {
-    if (!newCarrierCode) {
-      toast.error("Please select a new carrier")
-      return
-    }
-    setActionLoading(true)
-    try {
-      const res = await api.post("/tracking/changecarrier", [
-        { 
-          number: shipment.trackingNumber, 
-          carrier_old: parseInt(shipment.carrierCode) || 0,
-          carrier_new: parseInt(newCarrierCode)
-        }
-      ], { throwOnError: false }) as any
-      if (res?.accepted?.length > 0) {
-        toast.success(`Carrier changed for ${shipment.trackingNumber}`)
-        fetchShipments()
-      } else {
-        const rejected = res?.rejected?.[0]
-        toast.error(rejected?.error || "Failed to change carrier")
-      }
-    } catch (err) {
-      toast.error("Failed to change carrier")
-    } finally {
-      setActionDialog({ open: false, shipment: null, type: null })
-      setNewCarrierCode("")
-      setCarrierAttempts(null)
-      setActionLoading(false)
-    }
-  }
-
-  const fetchCarrierAttempts = async (trackingNumber: string) => {
-    try {
-      const res = await api.get(`/tracking/changecarrier/${trackingNumber}`, { throwOnError: false }) as any
-      if (res && res.attempts_left !== undefined) {
-        setCarrierAttempts(res)
-      }
-    } catch (err) {
-      console.error("Failed to fetch carrier attempts:", err)
-    }
+  const openEditShipment = (shipment: Shipment) => {
+    setEditDialog({ open: true, shipment })
   }
 
   useEffect(() => {
@@ -655,70 +391,36 @@ const fetchStats = async () => {
   ])
 
   useEffect(() => {
-    // Wait for auth to be initialized before making API calls
-    if (authLoading || !user) {
-      console.log('[Shipments] Waiting for auth...', { authLoading, hasUser: !!user })
-      return
-    }
-    
-    const abortController = new AbortController()
-    
-    console.log('[Shipments] Auth ready, fetching initial data')
+    if (authLoading || !user) return
     fetchStats()
     fetchCarriers()
     fetchQuota()
     fetchBranches()
-    if (user?.role === "staff" && user?.branchId) {
-      setBranchId(user.branchId)
-    } else {
-      setBranchId("")
-    }
+    if (user?.role === "staff" && user?.branchId) setBranchId(user.branchId)
+    else setBranchId("")
     const interval = setInterval(fetchQuota, 60 * 60 * 1000)
-    
-    return () => {
-      clearInterval(interval)
-      abortController.abort()
-    }
+    return () => clearInterval(interval)
   }, [selectedOrganisation, authLoading, user])
 
   useEffect(() => {
     if (authLoading || !user) return
     if (selectedOrganisation) {
-      api.get<{ countryCode?: string }>(`/organisations/${selectedOrganisation}`).then((org) => {
-        setOrgCountry(org?.countryCode || "US")
-      }).catch(() => setOrgCountry("US"))
+      api
+        .get<{ countryCode?: string }>(`/organisations/${selectedOrganisation}`)
+        .then((org) => {
+          setOrgCountry(org?.countryCode || "US")
+        })
+        .catch(() => setOrgCountry("US"))
     } else {
       setOrgCountry("US")
     }
   }, [selectedOrganisation, authLoading, user])
 
-  useEffect(() => {
-    if (!openCreateDialog) {
-      setFormData({
-        trackingNumber: "",
-        carrierCode: "",
-        carrierName: "",
-        recipientEmail: "",
-        recipientPhone: "",
-        recipientName: "",
-        userId: "",
-        branchId: "",
-        billAmount: "",
-      })
-    }
-  }, [openCreateDialog])
-
-  useEffect(() => {
-    if (!openCreateDialog) {
-      setCreateStep(1)
-    }
-  }, [openCreateDialog])
-
-  const openActionDialog = (shipment: Shipment, type: "stoptrack" | "retrack" | "changecarrier") => {
+  const openActionDialog = (
+    shipment: Shipment,
+    type: "stoptrack" | "retrack" | "changecarrier"
+  ) => {
     setActionDialog({ open: true, shipment, type })
-    if (type === "changecarrier") {
-      fetchCarrierAttempts(shipment.trackingNumber)
-    }
   }
 
   const columns: ColumnDef<Shipment>[] = [
@@ -800,16 +502,15 @@ const fetchStats = async () => {
       accessorKey: "billAmount",
       header: "Bill",
       cell: ({ row }) => {
-        const amount = row.original.billAmount;
-        return amount != null ? `$${Number(amount).toFixed(2)}` : "-";
+        const amount = row.original.billAmount
+        return amount != null ? `$${Number(amount).toFixed(2)}` : "-"
       },
       enableSorting: true,
     },
     {
       accessorKey: "createdAt",
       header: "Created",
-      cell: ({ row }) =>
-        new Date(row.original.createdAt).toLocaleDateString(),
+      cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
       enableSorting: true,
     },
     {
@@ -820,11 +521,19 @@ const fetchStats = async () => {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontalIcon className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => router.push(`/shipments/${shipment.id}`)}>
+                <EyeIcon className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => openEditShipment(shipment)}>
                 <EditIcon className="mr-2 h-4 w-4" />
                 Edit
@@ -838,15 +547,21 @@ const fetchStats = async () => {
                 Send Invoice
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openActionDialog(shipment, "changecarrier")}>
+              <DropdownMenuItem
+                onClick={() => openActionDialog(shipment, "changecarrier")}
+              >
                 <PackageCheckIcon className="mr-2 h-4 w-4" />
                 Change Carrier
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openActionDialog(shipment, "stoptrack")}>
+              <DropdownMenuItem
+                onClick={() => openActionDialog(shipment, "stoptrack")}
+              >
                 <BanIcon className="mr-2 h-4 w-4" />
                 Stop Tracking
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openActionDialog(shipment, "retrack")}>
+              <DropdownMenuItem
+                onClick={() => openActionDialog(shipment, "retrack")}
+              >
                 <RefreshCwIcon className="mr-2 h-4 w-4" />
                 Re-track
               </DropdownMenuItem>
@@ -857,7 +572,9 @@ const fetchStats = async () => {
                   Unarchive
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => setArchiveDialog({ open: true, shipment })}>
+                <DropdownMenuItem
+                  onClick={() => setArchiveDialog({ open: true, shipment })}
+                >
                   <PackageCheckIcon className="mr-2 h-4 w-4" />
                   Archive
                 </DropdownMenuItem>
@@ -882,14 +599,16 @@ const fetchStats = async () => {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">Shipments</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Shipments</h1>
             {quota && (
               <Badge variant="secondary" className="text-xs">
                 17Track Remaining Quota: {quota.remaining}/{quota.total}
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Track and manage all your shipments in one place</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Track and manage all your shipments in one place
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setOpenCreateDialog(true)}>
@@ -899,271 +618,16 @@ const fetchStats = async () => {
         </div>
       </div>
 
-      <Dialog open={openCreateDialog} onOpenChange={setOpenCreateDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create New Shipment</DialogTitle>
-            <DialogDescription>
-              {createStep === 1 && "Enter tracking number and select carrier."}
-              {createStep === 2 && "Enter recipient details."}
-              {createStep === 3 && "Assign ownership and billing."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-1 mb-4">
-            <div className={`h-1 flex-1 rounded-full ${createStep >= 1 ? "bg-primary" : "bg-muted"}`} />
-            <div className={`h-1 flex-1 rounded-full ${createStep >= 2 ? "bg-primary" : "bg-muted"}`} />
-            <div className={`h-1 flex-1 rounded-full ${createStep >= 3 ? "bg-primary" : "bg-muted"}`} />
-          </div>
-          <div className="grid gap-4">
-            {createStep === 1 && (
-              <>
-                <div className="grid gap-2">
-                  <Label htmlFor="trackingNumber">Tracking Number</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="trackingNumber"
-                      placeholder="Enter tracking number"
-                      value={formData.trackingNumber}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          trackingNumber: e.target.value,
-                        }))
-                      }
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => detectCarrier(formData.trackingNumber)}
-                      disabled={!formData.trackingNumber || detecting}
-                    >
-                      {detecting ? "..." : "Detect"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="carrier">Carrier</Label>
-                  <div className="relative" ref={carrierRef}>
-                    <Input
-                      id="carrier"
-                      placeholder="Search carrier..."
-                      value={carriers.find((c) => c.key === formData.carrierCode)?.name_en || ""}
-                      onChange={(e) => {
-                        const search = e.target.value.toLowerCase()
-                        const filtered = carriers.filter((c) => 
-                          c.name_en.toLowerCase().includes(search)
-                        )
-                        if (filtered.length === 1) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            carrierCode: filtered[0].key,
-                            carrierName: filtered[0].name_en,
-                          }))
-                        } else if (filtered.length === 0) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            carrierCode: "",
-                            carrierName: "",
-                          }))
-                        }
-                      }}
-                      onFocus={() => setCarrierOpen(true)}
-                    />
-                    {carrierOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
-                        {carriers.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground">No carriers</div>
-                        ) : (
-                          carriers.map((carrier) => (
-                            <div
-                              key={carrier.key}
-                              className="px-3 py-2 cursor-pointer hover:bg-accent"
-                              onClick={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  carrierCode: carrier.key,
-                                  carrierName: carrier.name_en,
-                                }))
-                                setCarrierOpen(false)
-                              }}
-                            >
-                              {carrier.name_en}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-            {createStep === 2 && (
-              <>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="assignToSelf"
-                    checked={assignToSelf}
-                    onCheckedChange={(checked) => {
-                      setAssignToSelf(checked as boolean)
-                      if (checked) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          userId: user?.id || "",
-                          recipientEmail: user?.email || "",
-                          recipientPhone: user?.phoneNumber || "",
-                          recipientName: user?.name || "",
-                        }))
-                      } else {
-                        setFormData((prev) => ({
-                          ...prev,
-                          userId: "",
-                          recipientEmail: "",
-                          recipientPhone: "",
-                          recipientName: "",
-                        }))
-                      }
-                    }}
-                  />
-                  <Label htmlFor="assignToSelf" className="text-sm font-normal cursor-pointer">
-                    Assign to me (self)
-                  </Label>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="recipientEmail">Email (optional)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="recipientEmail"
-                      placeholder="recipient@example.com"
-                      type="email"
-                      value={formData.recipientEmail}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          recipientEmail: e.target.value,
-                          userId: "",
-                        }))
-                      }
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => lookupUser(formData.recipientEmail)}
-                      disabled={!formData.recipientEmail}
-                      type="button"
-                    >
-                      Lookup
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="recipientPhone">Phone</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="recipientPhone"
-                      placeholder={getDialCode(orgCountry) + " 9000000000"}
-                      value={formData.recipientPhone}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          recipientPhone: e.target.value,
-                          userId: "",
-                        }))
-                      }
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => lookupUser(undefined, formData.recipientPhone)}
-                      disabled={!formData.recipientPhone}
-                      type="button"
-                    >
-                      Lookup
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="recipientName">Recipient Name</Label>
-                  <Input
-                    id="recipientName"
-                    placeholder="Enter name"
-                    value={formData.recipientName}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        recipientName: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </>
-            )}
-            {createStep === 3 && (
-              <>
-                {user?.role === "admin" && branches.length > 0 && (
-                  <div className="grid gap-2">
-                    <Label>Branch *</Label>
-                    <Select
-                      value={formData.branchId}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({ ...prev, branchId: val }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="grid gap-2">
-                  <Label>Bill Amount</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={formData.billAmount}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, billAmount: e.target.value }))
-                    }
-                  />
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            {createStep === 1 && (
-              <>
-                <Button variant="outline" onClick={() => setOpenCreateDialog(false)}>Cancel</Button>
-                <Button onClick={() => setCreateStep(2)}>Next</Button>
-              </>
-            )}
-            {createStep === 2 && (
-              <>
-                <Button variant="outline" onClick={() => setCreateStep(1)}>Back</Button>
-                <Button onClick={() => setCreateStep(3)}>Next</Button>
-              </>
-            )}
-            {createStep === 3 && (
-              <>
-                <Button variant="outline" onClick={() => setCreateStep(2)}>Back</Button>
-                <Button
-                  onClick={handleCreateShipment}
-                  disabled={creating || !formData.trackingNumber || (!assignToSelf && (!formData.recipientName || !formData.recipientPhone)) || (user?.role === "admin" && !formData.branchId)}
-                >
-                  {creating ? "Creating..." : "Create Shipment"}
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateShipmentDialog
+        open={openCreateDialog}
+        onOpenChange={setOpenCreateDialog}
+        onCreated={fetchShipments}
+        selectedOrganisation={selectedOrganisation}
+        carriers={carriers}
+        user={user}
+        orgCountry={orgCountry}
+        branches={branches}
+      />
 
       {stats && <ShipmentStatsCards stats={stats} />}
 
@@ -1187,7 +651,9 @@ const fetchStats = async () => {
                 <SelectContent>
                   <SelectItem value="all">All Branches</SelectItem>
                   {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1287,11 +753,27 @@ const fetchStats = async () => {
         data={shipments}
         loading={loading}
         getRowId={(row) => row.id}
-        emptyState={
-          <Empty>
-            <EmptyDescription>No shipments found</EmptyDescription>
-          </Empty>
-        }
+        onRowDoubleClick={(row) => router.push(`/shipments/${row.id}`)}
+        emptyState={<EmptyState entity="shipments" />}
+        renderMobileCard={(shipment) => (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-sm font-medium">
+                {shipment.trackingNumber}
+              </span>
+              <Badge className={statusVariants[shipment.status]}>
+                {shipment.status.replace("_", " ")}
+              </Badge>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {shipment.recipientName || "-"} ·{" "}
+              {shipment.carrierName || shipment.carrierCode || "Unknown"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(shipment.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+        )}
         enableRowSelection
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
@@ -1306,154 +788,50 @@ const fetchStats = async () => {
         onPageChange={setPage}
         onPageSizeChange={setLimit}
         pageSizeOptions={[10, 20, 50, 100]}
-        customFooter={<BulkActionFooter
-          selectedCount={selectedIds.length}
-          actions={[
-            { label: "Delete Selected", variant: "destructive", onClick: () => setBulkDeleteDialog(true) },
-          ]}
-        />}
+        customFooter={
+          <BulkActionFooter
+            selectedCount={selectedIds.length}
+            actions={[
+              {
+                label: "Delete Selected",
+                variant: "destructive",
+                onClick: () => setBulkDeleteDialog(true),
+              },
+            ]}
+          />
+        }
       />
 
-      <Dialog open={actionDialog.open} onOpenChange={(open) => !open && setActionDialog({ open: false, shipment: null, type: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {actionDialog.type === "stoptrack" && "Stop Tracking"}
-              {actionDialog.type === "retrack" && "Re-track Shipment"}
-              {actionDialog.type === "changecarrier" && "Change Carrier"}
-            </DialogTitle>
-            <DialogDescription>
-              {actionDialog.type === "stoptrack" && `Stop tracking updates for ${actionDialog.shipment?.trackingNumber} on 17TRACK`}
-              {actionDialog.type === "retrack" && `Restart tracking for ${actionDialog.shipment?.trackingNumber}`}
-              {actionDialog.type === "changecarrier" && `Change carrier for ${actionDialog.shipment?.trackingNumber}`}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {actionDialog.type === "changecarrier" && (
-            <div className="space-y-4">
-              {carrierAttempts && (
-                <div className="text-sm text-muted-foreground">
-                  Carrier changes remaining: <span className="font-medium">{carrierAttempts.attempts_left}/5</span>
-                </div>
-              )}
-              <div className="grid gap-2">
-                <Label>Current Carrier</Label>
-                <Input value={actionDialog.shipment?.carrierName || actionDialog.shipment?.carrierCode || ""} disabled />
-              </div>
-              <div className="grid gap-2">
-                <Label>New Carrier</Label>
-                <Select value={newCarrierCode} onValueChange={setNewCarrierCode}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new carrier..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {carriers
-                      .filter(c => c.key !== actionDialog.shipment?.carrierCode)
-                      .map(c => (
-                        <SelectItem key={c.key} value={c.key}>
-                          {c.name_en}
-                        </SelectItem>
-                      ))
-                    }
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
+      <ShipmentActionDialog
+        open={actionDialog.open}
+        onOpenChange={(open) =>
+          setActionDialog({
+            open,
+            shipment: actionDialog.shipment,
+            type: actionDialog.type,
+          })
+        }
+        shipment={actionDialog.shipment}
+        type={actionDialog.type}
+        carriers={carriers}
+      />
 
-          {actionDialog.type === "stoptrack" && (
-            <p className="text-sm text-muted-foreground">
-              This will stop tracking updates from 17TRACK. You can re-track later.
-            </p>
-          )}
-
-          {actionDialog.type === "retrack" && (
-            <p className="text-sm text-muted-foreground">
-              This will restart tracking. Each tracking number can only be re-tracked once.
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActionDialog({ open: false, shipment: null, type: null })}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => {
-                if (!actionDialog.shipment) return
-                if (actionDialog.type === "stoptrack") handleStopTrack(actionDialog.shipment)
-                else if (actionDialog.type === "retrack") handleReTrack(actionDialog.shipment)
-                else if (actionDialog.type === "changecarrier") handleChangeCarrier(actionDialog.shipment)
-              }}
-              disabled={actionLoading || (actionDialog.type === "changecarrier" && !newCarrierCode)}
-            >
-              {actionLoading ? "Processing..." : "Confirm"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Sheet open={editDialog.open} onOpenChange={(open) => { if (!open) setEditDialog({ open: false, shipment: null }) }}>
-        <SheetContent side="right" className="sm:max-w-md p-6">
-          <SheetHeader className="px-0">
-            <SheetTitle>Edit Shipment</SheetTitle>
-            <SheetDescription>
-              Update recipient details for <strong>{editDialog.shipment?.trackingNumber}</strong>
-            </SheetDescription>
-          </SheetHeader>
-          <div className="grid gap-4 flex-1">
-            <div className="grid gap-2">
-              <Label>Recipient Name *</Label>
-              <Input value={editForm.recipientName} onChange={(e) => setEditForm({ ...editForm, recipientName: e.target.value })} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Email</Label>
-              <Input value={editForm.recipientEmail} onChange={(e) => setEditForm({ ...editForm, recipientEmail: e.target.value })} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Phone *</Label>
-              <Input value={editForm.recipientPhone} onChange={(e) => setEditForm({ ...editForm, recipientPhone: e.target.value })} />
-            </div>
-            {user?.role === "admin" && branches.length > 0 && (
-              <div className="grid gap-2">
-                <Label>Branch *</Label>
-                <Select value={editForm.branchId} onValueChange={(val) => setEditForm({ ...editForm, branchId: val })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {user?.role === "admin" && (
-              <div className="grid gap-2">
-                <Label>Bill Amount</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={editForm.billAmount}
-                  onChange={(e) => setEditForm({ ...editForm, billAmount: e.target.value })}
-                />
-              </div>
-            )}
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setEditDialog({ open: false, shipment: null })}>Cancel</Button>
-            <Button onClick={handleUpdateShipment} disabled={savingEdit}>
-              {savingEdit ? "Saving..." : "Save Changes"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <EditShipmentSheet
+        open={editDialog.open}
+        onOpenChange={(open) =>
+          setEditDialog({ open, shipment: editDialog.shipment })
+        }
+        shipment={editDialog.shipment}
+        branches={branches}
+        user={user}
+        onUpdated={fetchShipments}
+      />
 
       <ConfirmDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ open, shipment: deleteDialog.shipment })}
+        onOpenChange={(open) =>
+          setDeleteDialog({ open, shipment: deleteDialog.shipment })
+        }
         title="Delete Shipment"
         description={`Are you sure you want to delete ${deleteDialog.shipment?.trackingNumber}? This action cannot be undone.`}
         confirmLabel="Delete"
@@ -1475,7 +853,9 @@ const fetchStats = async () => {
 
       <ConfirmDialog
         open={archiveDialog.open}
-        onOpenChange={(open) => setArchiveDialog({ open, shipment: archiveDialog.shipment })}
+        onOpenChange={(open) =>
+          setArchiveDialog({ open, shipment: archiveDialog.shipment })
+        }
         title="Archive Shipment"
         description={`Are you sure you want to archive ${archiveDialog.shipment?.trackingNumber}?`}
         confirmLabel="Archive"

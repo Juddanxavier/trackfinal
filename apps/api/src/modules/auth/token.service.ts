@@ -42,14 +42,17 @@ export class TokenService {
     private sessionsService: SessionsService,
   ) {
     const accessSecretStr = this.configService.get<string>('JWT_SECRET');
-    const refreshSecretStr = this.configService.get<string>('JWT_REFRESH_SECRET');
+    const refreshSecretStr =
+      this.configService.get<string>('JWT_REFRESH_SECRET');
 
     if (!accessSecretStr || !refreshSecretStr) {
       throw new InternalServerErrorException('JWT secrets not configured');
     }
 
     if (accessSecretStr.length < 32) {
-      throw new InternalServerErrorException('JWT_SECRET must be at least 32 characters');
+      throw new InternalServerErrorException(
+        'JWT_SECRET must be at least 32 characters',
+      );
     }
 
     this.accessSecret = new TextEncoder().encode(accessSecretStr);
@@ -86,7 +89,9 @@ export class TokenService {
       .setJti(payload.jti)
       .sign(this.accessSecret);
 
-    this.logger.debug(`Generated access token for user ${user.id}, sessionId: ${sessionId}`);
+    this.logger.debug(
+      `Generated access token for user ${user.id}, sessionId: ${sessionId}`,
+    );
     return token;
   }
 
@@ -108,13 +113,13 @@ export class TokenService {
       ipAddress: context.ip,
     });
 
-    this.logger.debug(`Generated refresh token for user ${userId}, sessionId: ${session.id}`);
+    this.logger.debug(
+      `Generated refresh token for user ${userId}, sessionId: ${session.id}`,
+    );
     return { token, sessionId: session.id };
   }
 
-  async generateTwoFactorToken(
-    userId: string,
-  ): Promise<string> {
+  async generateTwoFactorToken(userId: string): Promise<string> {
     const payload = {
       sub: userId,
       type: '2fa_session' as const,
@@ -131,9 +136,7 @@ export class TokenService {
     return token;
   }
 
-  async verifyTwoFactorToken(
-    token: string,
-  ): Promise<{ userId: string }> {
+  async verifyTwoFactorToken(token: string): Promise<{ userId: string }> {
     try {
       const { payload } = await jose.jwtVerify(token, this.accessSecret, {
         clockTolerance: 30,

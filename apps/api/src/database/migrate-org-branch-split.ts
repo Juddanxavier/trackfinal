@@ -29,7 +29,10 @@ async function migrate() {
       )
     `);
     console.log('✅ Created branches table');
-  } catch (e) { console.error('Step 1 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 1 failed:', e.message);
+    throw e;
+  }
 
   // 2. Copy existing branches from organisations to branches
   try {
@@ -40,7 +43,10 @@ async function migrate() {
       WHERE is_branch = true AND parent_id IS NOT NULL
     `);
     console.log(`✅ Copied ${copyResult.rowCount} branches to branches table`);
-  } catch (e) { console.error('Step 2 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 2 failed:', e.message);
+    throw e;
+  }
 
   // 3. Null out branch_id on users where the branch wasn't copied
   try {
@@ -50,14 +56,24 @@ async function migrate() {
         AND branch_id NOT IN (SELECT id FROM branches)
     `);
     console.log('✅ Cleared orphan user branch_id references');
-  } catch (e) { console.error('Step 3 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 3 failed:', e.message);
+    throw e;
+  }
 
   // 4. Update users.branch_id FK to point to branches
   try {
-    await pool.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_branch_id_fkey`);
-    await pool.query(`ALTER TABLE users ADD CONSTRAINT users_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES branches(id)`);
+    await pool.query(
+      `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_branch_id_fkey`,
+    );
+    await pool.query(
+      `ALTER TABLE users ADD CONSTRAINT users_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES branches(id)`,
+    );
     console.log('✅ Updated users.branch_id FK');
-  } catch (e) { console.error('Step 4 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 4 failed:', e.message);
+    throw e;
+  }
 
   // 5. Update invitation_statuses.branch_id FK to point to branches
   try {
@@ -66,29 +82,55 @@ async function migrate() {
       WHERE branch_id IS NOT NULL
         AND branch_id NOT IN (SELECT id FROM branches)
     `);
-    await pool.query(`ALTER TABLE invitation_statuses DROP CONSTRAINT IF EXISTS invitation_statuses_branch_id_fkey`);
-    await pool.query(`ALTER TABLE invitation_statuses ADD CONSTRAINT invitation_statuses_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES branches(id)`);
+    await pool.query(
+      `ALTER TABLE invitation_statuses DROP CONSTRAINT IF EXISTS invitation_statuses_branch_id_fkey`,
+    );
+    await pool.query(
+      `ALTER TABLE invitation_statuses ADD CONSTRAINT invitation_statuses_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES branches(id)`,
+    );
     console.log('✅ Updated invitation_statuses.branch_id FK');
-  } catch (e) { console.error('Step 5 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 5 failed:', e.message);
+    throw e;
+  }
 
   // 6. Add branch_id to quotes (optional column)
   try {
-    await pool.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id)`);
+    await pool.query(
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id)`,
+    );
     console.log('✅ Added quotes.branch_id');
-  } catch (e) { console.error('Step 6 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 6 failed:', e.message);
+    throw e;
+  }
 
   // 7. Drop old columns from organisations
   try {
-    await pool.query(`ALTER TABLE organisations DROP COLUMN IF EXISTS is_branch`);
-    await pool.query(`ALTER TABLE organisations DROP COLUMN IF EXISTS parent_id`);
-    console.log('✅ Dropped old is_branch/parent_id columns from organisations');
-  } catch (e) { console.error('Step 7 failed:', e.message); throw e; }
+    await pool.query(
+      `ALTER TABLE organisations DROP COLUMN IF EXISTS is_branch`,
+    );
+    await pool.query(
+      `ALTER TABLE organisations DROP COLUMN IF EXISTS parent_id`,
+    );
+    console.log(
+      '✅ Dropped old is_branch/parent_id columns from organisations',
+    );
+  } catch (e) {
+    console.error('Step 7 failed:', e.message);
+    throw e;
+  }
 
   // 8. Create index on branches.organisation_id
   try {
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_branches_organisation_id ON branches(organisation_id)`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_branches_organisation_id ON branches(organisation_id)`,
+    );
     console.log('✅ Created index on branches.organisation_id');
-  } catch (e) { console.error('Step 8 failed:', e.message); throw e; }
+  } catch (e) {
+    console.error('Step 8 failed:', e.message);
+    throw e;
+  }
 
   console.log('✅ Migration complete');
 }

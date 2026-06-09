@@ -22,7 +22,10 @@ export class OrgScopedService {
     return user.organisationId;
   }
 
-  buildOrgFilter(user: UserContext, additionalFilter?: Partial<OrgFilter>): OrgFilter {
+  buildOrgFilter(
+    user: UserContext,
+    additionalFilter?: Partial<OrgFilter>,
+  ): OrgFilter {
     const orgId = this.getOrgId(user);
     return {
       organisationId: orgId,

@@ -314,7 +314,10 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   )
 }
 
-function SidebarPageFooter({ className, ...props }: React.ComponentProps<"footer">) {
+function SidebarPageFooter({
+  className,
+  ...props
+}: React.ComponentProps<"footer">) {
   return (
     <footer
       data-slot="sidebar-page-footer"

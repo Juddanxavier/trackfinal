@@ -1,10 +1,11 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
+import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import {
   Card,
@@ -66,7 +67,7 @@ export default function SearchPage() {
         setResults([])
       }
     } catch (error) {
-      console.error("Search error:", error)
+      toast.error("Search failed")
       setResults([])
     } finally {
       setIsLoading(false)
@@ -119,14 +120,18 @@ export default function SearchPage() {
 
   const QUICK_LINKS = [
     { label: "Quotes", description: "View all quotes", href: "/quotes" },
-    { label: "Shipments", description: "View all shipments", href: "/shipments" },
+    {
+      label: "Shipments",
+      description: "View all shipments",
+      href: "/shipments",
+    },
     { label: "Users", description: "View all users", href: "/users" },
     { label: "Reports", description: "View reports", href: "/reports" },
   ]
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="flex-1 overflow-y-auto p-8">
+      <div className="mx-auto max-w-4xl space-y-8">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">
             <span className="flex items-center gap-3">
@@ -144,20 +149,20 @@ export default function SearchPage() {
             placeholder="Search for quotes, shipments, users..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-14 text-lg pl-12"
+            className="h-14 pl-12 text-lg"
           />
-          <SearchIcon className="absolute left-4 top-5 h-5 w-5 text-muted-foreground" />
+          <SearchIcon className="absolute top-5 left-4 h-5 w-5 text-muted-foreground" />
         </div>
 
         {!hasSearched && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Quick Links</h2>
+            <h2 className="mb-4 text-lg font-semibold">Quick Links</h2>
             <div className="grid gap-4 md:grid-cols-2">
               {QUICK_LINKS.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50"
                 >
                   <div>
                     <p className="font-medium">{link.label}</p>
@@ -174,7 +179,7 @@ export default function SearchPage() {
 
         {hasSearched && (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 {isLoading
                   ? "Searching..."
@@ -182,7 +187,7 @@ export default function SearchPage() {
               </p>
               {results.length > 0 && (
                 <Button variant="ghost" size="sm">
-                  <FilterIcon className="h-4 w-4 mr-2" />
+                  <FilterIcon className="mr-2 h-4 w-4" />
                   Filter
                 </Button>
               )}
@@ -191,19 +196,16 @@ export default function SearchPage() {
             {isLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="p-4 rounded-lg border animate-pulse"
-                  >
-                    <div className="h-5 bg-muted rounded w-1/3 mb-2" />
-                    <div className="h-4 bg-muted rounded w-2/3" />
+                  <div key={i} className="animate-pulse rounded-lg border p-4">
+                    <div className="mb-2 h-5 w-1/3 rounded bg-muted" />
+                    <div className="h-4 w-2/3 rounded bg-muted" />
                   </div>
                 ))}
               </div>
             ) : results.length === 0 ? (
               <Card>
                 <CardHeader className="text-center">
-                  <SearchIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <SearchIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                   <CardTitle>No results found</CardTitle>
                   <CardDescription>
                     Try adjusting your search terms or browse the quick links.
@@ -216,7 +218,7 @@ export default function SearchPage() {
                   <button
                     key={result.id}
                     onClick={() => handleResultClick(result)}
-                    className="w-full text-left p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/50"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
@@ -234,7 +236,7 @@ export default function SearchPage() {
                             {result.description}
                           </p>
                           {result.status && (
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="mt-1 text-sm text-muted-foreground">
                               Status: {result.status}
                             </p>
                           )}

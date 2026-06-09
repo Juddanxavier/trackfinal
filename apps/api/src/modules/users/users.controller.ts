@@ -172,6 +172,12 @@ export class UsersController {
     const organisationId =
       isAdmin && query.organisationId ? query.organisationId : userOrgId;
 
+    if (req.user.organisationId && organisationId !== req.user.organisationId) {
+      throw new ForbiddenException(
+        'You can only access stats for your organisation',
+      );
+    }
+
     return this.usersService.getAllStats(organisationId);
   }
 

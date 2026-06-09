@@ -328,8 +328,14 @@ export class UsersService {
       this.logger.log(`User ${user.id} role '${role}' synced to Casbin`);
 
       if (role === Role.STAFF && data.branchId) {
-        await this.casbinService.setUserBranchPermissions(user.id, data.branchId, role);
-        this.logger.log(`User ${user.id} branch permissions set for branch '${data.branchId}'`);
+        await this.casbinService.setUserBranchPermissions(
+          user.id,
+          data.branchId,
+          role,
+        );
+        this.logger.log(
+          `User ${user.id} branch permissions set for branch '${data.branchId}'`,
+        );
       }
     } catch (error) {
       this.logger.error(`Failed to sync role to Casbin: ${error}`);
@@ -356,7 +362,11 @@ export class UsersService {
     const oldUser = await this.findById(id);
 
     if (data.phoneNumber) {
-      const existing = await this.findByPhoneNumber(data.phoneNumber, oldUser?.organisationId ?? undefined, id);
+      const existing = await this.findByPhoneNumber(
+        data.phoneNumber,
+        oldUser?.organisationId ?? undefined,
+        id,
+      );
       if (existing) {
         throw new Error('Phone number already in use');
       }
@@ -365,7 +375,9 @@ export class UsersService {
     const oldBranchId = oldUser?.branchId;
     const updateData = {
       ...data,
-      role: data.role ? (data.role as 'admin' | 'staff' | 'customer') : undefined,
+      role: data.role
+        ? (data.role as 'admin' | 'staff' | 'customer')
+        : undefined,
       updatedAt: new Date(),
     };
     const result = await db
@@ -378,22 +390,41 @@ export class UsersService {
 
     if (data.role && data.role !== oldUser?.role) {
       try {
-        await this.casbinService.syncUserRole(user.id, data.role, user.organisationId || undefined);
-        this.logger.log(`User ${user.id} role updated to '${data.role}' in Casbin`);
+        await this.casbinService.syncUserRole(
+          user.id,
+          data.role,
+          user.organisationId || undefined,
+        );
+        this.logger.log(
+          `User ${user.id} role updated to '${data.role}' in Casbin`,
+        );
       } catch (error) {
         this.logger.error(`Failed to sync role to Casbin: ${error}`);
       }
     }
 
-    if (data.branchId !== undefined && data.branchId !== oldBranchId && user.role === Role.STAFF) {
+    if (
+      data.branchId !== undefined &&
+      data.branchId !== oldBranchId &&
+      user.role === Role.STAFF
+    ) {
       try {
         if (oldBranchId) {
-          await this.casbinService.clearUserBranchPermissions(user.id, oldBranchId);
+          await this.casbinService.clearUserBranchPermissions(
+            user.id,
+            oldBranchId,
+          );
         }
         if (data.branchId) {
-          await this.casbinService.setUserBranchPermissions(user.id, data.branchId, Role.STAFF);
+          await this.casbinService.setUserBranchPermissions(
+            user.id,
+            data.branchId,
+            Role.STAFF,
+          );
         }
-        this.logger.log(`User ${user.id} branch permissions updated from '${oldBranchId}' to '${data.branchId}'`);
+        this.logger.log(
+          `User ${user.id} branch permissions updated from '${oldBranchId}' to '${data.branchId}'`,
+        );
       } catch (error) {
         this.logger.error(`Failed to update branch permissions: ${error}`);
       }

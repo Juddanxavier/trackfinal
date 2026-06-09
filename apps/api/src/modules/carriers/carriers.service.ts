@@ -27,7 +27,9 @@ export class CarriersService {
         })
         .from(carriers);
       this.carriers = result.map((r) => ({ key: r.key, name_en: r.nameEn }));
-      this.logger.log(`[CarriersService] Loaded ${this.carriers.length} carriers`);
+      this.logger.log(
+        `[CarriersService] Loaded ${this.carriers.length} carriers`,
+      );
     } catch (err) {
       this.logger.error('[CarriersService] Failed to load carriers:', err);
       this.carriers = [];

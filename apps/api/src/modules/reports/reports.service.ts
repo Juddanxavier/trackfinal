@@ -6,7 +6,17 @@ import { users } from '../../database/schema/user';
 import { organisations } from '../../database/schema/organisations';
 import { branches } from '../../database/schema/branches';
 import { carriers } from '../../database/schema/carriers';
-import { eq, and, gte, lte, sql, isNull, count, inArray, SQL } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  gte,
+  lte,
+  sql,
+  isNull,
+  count,
+  inArray,
+  SQL,
+} from 'drizzle-orm';
 
 type ShipmentStatus =
   | 'pending'
@@ -116,6 +126,129 @@ interface QuoteRecord {
   price: string | null;
   deletedAt: Date | null;
   userId: string;
+}
+
+type ShipmentRow = {
+  id: string;
+  status: string | null;
+  carrierCode: string | null;
+  createdAt: Date | null;
+  deliveredAt: Date | null;
+};
+
+function computeTransitDays(group: ShipmentRow[]): number[] {
+  return group
+    .filter((s) => s.deliveredAt && s.createdAt)
+    .map(
+      (s) =>
+        (s.deliveredAt!.getTime() - s.createdAt!.getTime()) /
+        (1000 * 60 * 60 * 24),
+    )
+    .sort((a, b) => a - b);
+}
+
+function computePercentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  return sorted[Math.floor(sorted.length * p)];
+}
+
+function computeOnTimeCount(group: ShipmentRow[], slaDays: number): number {
+  return group.filter((s) => {
+    if (s.status !== 'delivered' || !s.deliveredAt || !s.createdAt)
+      return false;
+    const days =
+      (s.deliveredAt.getTime() - s.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    return days <= slaDays;
+  }).length;
+}
+
+function computeMonthlyTrend(group: ShipmentRow[]): CarrierTrend[] {
+  const monthBuckets = new Map<string, { total: number; delivered: number }>();
+  for (const s of group) {
+    if (!s.createdAt) continue;
+    const key = s.createdAt.toISOString().slice(0, 7);
+    if (!monthBuckets.has(key))
+      monthBuckets.set(key, { total: 0, delivered: 0 });
+    const b = monthBuckets.get(key)!;
+    b.total++;
+    if (s.status === 'delivered') b.delivered++;
+  }
+  return Array.from(monthBuckets.entries())
+    .map(([month, b]) => ({
+      month,
+      total: b.total,
+      delivered: b.delivered,
+      deliveryRate: b.total > 0 ? b.delivered / b.total : 0,
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+function computeCarrierStats(
+  code: string,
+  group: ShipmentRow[],
+  carrierMap: Map<string, string>,
+  slaDays: number,
+): CarrierAnalytic {
+  const total = group.length;
+  const delivered = group.filter((s) => s.status === 'delivered').length;
+  const exceptionCount = group.filter((s) => s.status === 'exception').length;
+  const deliveryRate = total > 0 ? delivered / total : 0;
+  const exceptionRate = total > 0 ? exceptionCount / total : 0;
+
+  const transitDays = computeTransitDays(group);
+  const avgDays =
+    transitDays.length > 0
+      ? transitDays.reduce((a, b) => a + b, 0) / transitDays.length
+      : 0;
+  const p50 = computePercentile(transitDays, 0.5);
+  const p90 = computePercentile(transitDays, 0.9);
+
+  const onTime = computeOnTimeCount(group, slaDays);
+  const onTimeRate = delivered > 0 ? onTime / delivered : 0;
+
+  const trend = computeMonthlyTrend(group);
+
+  return {
+    carrier: carrierMap.get(code) || code,
+    total,
+    delivered,
+    exceptionCount,
+    deliveryRate,
+    exceptionRate,
+    onTimeRate,
+    avgDays,
+    p50,
+    p90,
+    trend,
+  };
+}
+
+function computeCarrierSummary(
+  carriersResult: CarrierAnalytic[],
+): CarrierAnalyticsResult['summary'] {
+  const allDelivered = carriersResult.reduce((s, c) => s + c.delivered, 0);
+  const allOnTime = carriersResult.reduce(
+    (s, c) => s + Math.round(c.onTimeRate * c.delivered),
+    0,
+  );
+  const overallOnTimeRate = allDelivered > 0 ? allOnTime / allDelivered : 0;
+  const allTransitDays = carriersResult.filter((c) => c.avgDays > 0);
+  const avgTransitDays =
+    allTransitDays.length > 0
+      ? allTransitDays.reduce((s, c) => s + c.avgDays, 0) /
+        allTransitDays.length
+      : 0;
+
+  const sortedByOnTime = [...carriersResult]
+    .filter((c) => c.delivered >= 5)
+    .sort((a, b) => b.onTimeRate - a.onTimeRate);
+
+  return {
+    bestPerformer: sortedByOnTime[0]?.carrier || 'N/A',
+    worstPerformer: sortedByOnTime[sortedByOnTime.length - 1]?.carrier || 'N/A',
+    overallOnTimeRate,
+    avgTransitDays,
+  };
 }
 
 @Injectable()
@@ -252,10 +385,7 @@ export class ReportsService {
             })
             .from(shipments)
             .where(
-              and(
-                ...conditions,
-                sql`${shipments.billAmount} IS NOT NULL`,
-              ),
+              and(...conditions, sql`${shipments.billAmount} IS NOT NULL`),
             ),
         ]);
 
@@ -494,14 +624,12 @@ export class ReportsService {
     return { organisation: org, branch };
   }
 
-  async getCarrierAnalytics(
-    options: {
-      organisationId?: string;
-      branchId?: string;
-      range: string;
-      slaDays?: number;
-    },
-  ): Promise<CarrierAnalyticsResult> {
+  async getCarrierAnalytics(options: {
+    organisationId?: string;
+    branchId?: string;
+    range: string;
+    slaDays?: number;
+  }): Promise<CarrierAnalyticsResult> {
     const { organisationId, branchId, range, slaDays = 7 } = options;
     const dateRange = this.getDateRange(range);
 
@@ -509,12 +637,9 @@ export class ReportsService {
       gte(shipments.createdAt, dateRange.start),
       lte(shipments.createdAt, dateRange.end),
     ];
-    if (organisationId) {
+    if (organisationId)
       conditions.push(eq(shipments.organisationId, organisationId));
-    }
-    if (branchId) {
-      conditions.push(eq(shipments.branchId, branchId));
-    }
+    if (branchId) conditions.push(eq(shipments.branchId, branchId));
 
     const allShipments = await db
       .select({
@@ -527,7 +652,7 @@ export class ReportsService {
       .from(shipments)
       .where(and(...conditions));
 
-    const carrierGroups = new Map<string, typeof allShipments>();
+    const carrierGroups = new Map<string, ShipmentRow[]>();
     for (const s of allShipments) {
       const code = s.carrierCode || 'unknown';
       if (!carrierGroups.has(code)) carrierGroups.set(code, []);
@@ -541,107 +666,18 @@ export class ReportsService {
         .select({ key: carriers.key, name: carriers.nameEn })
         .from(carriers)
         .where(inArray(carriers.key, codes));
-      for (const row of rows) {
-        carrierMap.set(row.key, row.name);
-      }
+      for (const row of rows) carrierMap.set(row.key, row.name);
     }
 
-    const carriersResult: CarrierAnalytic[] = [];
-    for (const [code, group] of carrierGroups) {
-      const total = group.length;
-      const delivered = group.filter((s) => s.status === 'delivered').length;
-      const exceptionCount = group.filter((s) => s.status === 'exception').length;
-      const deliveryRate = total > 0 ? delivered / total : 0;
-      const exceptionRate = total > 0 ? exceptionCount / total : 0;
-
-      const transitDays: number[] = [];
-      for (const s of group) {
-        if (s.deliveredAt && s.createdAt) {
-          transitDays.push(
-            (s.deliveredAt.getTime() - s.createdAt.getTime()) /
-              (1000 * 60 * 60 * 24),
-          );
-        }
-      }
-      transitDays.sort((a, b) => a - b);
-      const avgDays =
-        transitDays.length > 0
-          ? transitDays.reduce((a, b) => a + b, 0) / transitDays.length
-          : 0;
-      const p50 = transitDays.length > 0
-        ? transitDays[Math.floor(transitDays.length * 0.5)]
-        : 0;
-      const p90 = transitDays.length > 0
-        ? transitDays[Math.floor(transitDays.length * 0.9)]
-        : 0;
-
-      const onTime = group.filter((s) => {
-        if (s.status !== 'delivered' || !s.deliveredAt || !s.createdAt) return false;
-        const days =
-          (s.deliveredAt.getTime() - s.createdAt.getTime()) /
-          (1000 * 60 * 60 * 24);
-        return days <= slaDays;
-      }).length;
-      const onTimeRate = delivered > 0 ? onTime / delivered : 0;
-
-      const monthBuckets = new Map<string, { total: number; delivered: number }>();
-      for (const s of group) {
-        const key = s.createdAt.toISOString().slice(0, 7);
-        if (!monthBuckets.has(key)) monthBuckets.set(key, { total: 0, delivered: 0 });
-        const b = monthBuckets.get(key)!;
-        b.total++;
-        if (s.status === 'delivered') b.delivered++;
-      }
-      const trend: CarrierTrend[] = Array.from(monthBuckets.entries())
-        .map(([month, b]) => ({
-          month,
-          total: b.total,
-          delivered: b.delivered,
-          deliveryRate: b.total > 0 ? b.delivered / b.total : 0,
-        }))
-        .sort((a, b) => a.month.localeCompare(b.month));
-
-      carriersResult.push({
-        carrier: carrierMap.get(code) || code,
-        total,
-        delivered,
-        exceptionCount,
-        deliveryRate,
-        exceptionRate,
-        onTimeRate,
-        avgDays,
-        p50,
-        p90,
-        trend,
-      });
-    }
-
-    carriersResult.sort((a, b) => b.total - a.total);
-
-    const allDelivered = carriersResult.reduce((s, c) => s + c.delivered, 0);
-    const allOnTime = carriersResult.reduce(
-      (s, c) => s + Math.round(c.onTimeRate * c.delivered),
-      0,
-    );
-    const overallOnTimeRate = allDelivered > 0 ? allOnTime / allDelivered : 0;
-    const allTransitDays = carriersResult.filter((c) => c.avgDays > 0);
-    const avgTransitDays =
-      allTransitDays.length > 0
-        ? allTransitDays.reduce((s, c) => s + c.avgDays, 0) / allTransitDays.length
-        : 0;
-
-    const sortedByOnTime = [...carriersResult]
-      .filter((c) => c.delivered >= 5)
-      .sort((a, b) => b.onTimeRate - a.onTimeRate);
+    const carriersResult = Array.from(carrierGroups.entries())
+      .map(([code, group]) =>
+        computeCarrierStats(code, group, carrierMap, slaDays),
+      )
+      .sort((a, b) => b.total - a.total);
 
     return {
       carriers: carriersResult,
-      summary: {
-        bestPerformer: sortedByOnTime[0]?.carrier || 'N/A',
-        worstPerformer: sortedByOnTime[sortedByOnTime.length - 1]?.carrier || 'N/A',
-        overallOnTimeRate,
-        avgTransitDays,
-      },
+      summary: computeCarrierSummary(carriersResult),
     };
   }
 
@@ -702,8 +738,7 @@ export class ReportsService {
       parseFloat(s.billAmount || '0'),
     );
     const totalRevenue = invoiceAmounts.reduce((a, b) => a + b, 0);
-    const avgInvoiceAmount =
-      invoiceCount > 0 ? totalRevenue / invoiceCount : 0;
+    const avgInvoiceAmount = invoiceCount > 0 ? totalRevenue / invoiceCount : 0;
 
     return {
       shipments: {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactNode } from "react"
 import {
   flexRender,
   getCoreRowModel,
@@ -31,6 +31,7 @@ interface DataTableProps<TData> {
   loading?: boolean
   emptyState?: React.ReactNode
   onRowClick?: (row: TData) => void
+  onRowDoubleClick?: (row: TData) => void
   getRowId?: (row: TData) => string
 
   // Server-side sorting
@@ -51,6 +52,9 @@ interface DataTableProps<TData> {
   // Client-side pagination (only when manualPagination is false)
   clientPageSize?: number
 
+  // Mobile card view: renders small-screen card layout
+  renderMobileCard?: (row: TData) => ReactNode
+
   // Custom footer rendered before pagination in TableFooter
   customFooter?: React.ReactNode
 
@@ -65,7 +69,10 @@ interface DataTableProps<TData> {
   className?: string
 }
 
-function getPageNumbers(currentPage: number, totalPages: number): (number | "...")[] {
+function getPageNumbers(
+  currentPage: number,
+  totalPages: number
+): (number | "...")[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
   }
@@ -90,12 +97,365 @@ function SortIcon({ direction }: { direction: false | "asc" | "desc" }) {
   )
 }
 
+interface TableStateProps {
+  manualSorting: boolean
+  externalSorting: SortingState | undefined
+  onSortingChange: ((sorting: SortingState) => void) | undefined
+  manualPagination: boolean
+  externalPage: number | undefined
+  externalPageSize: number | undefined
+  externalPageCount: number | undefined
+  externalTotal: number | undefined
+  onPageChange: ((page: number) => void) | undefined
+  onPageSizeChange: ((pageSize: number) => void) | undefined
+  clientPageSize: number
+  data: unknown[]
+}
+
+interface TableState {
+  sorting: SortingState
+  setSorting: (
+    updater: SortingState | ((old: SortingState) => SortingState)
+  ) => void
+  pagination: { pageIndex: number; pageSize: number }
+  setPagination: (updater: any) => void
+  currentPage: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+function useTableState(props: TableStateProps): TableState {
+  const [internalSorting, setInternalSorting] = useState<SortingState>([])
+  const [internalPagination, setInternalPagination] = useState({
+    pageIndex: 0,
+    pageSize: props.clientPageSize,
+  })
+
+  const sorting = props.manualSorting
+    ? (props.externalSorting ?? [])
+    : internalSorting
+  const setSorting = props.manualSorting
+    ? (updater: SortingState | ((old: SortingState) => SortingState)) => {
+        const next = typeof updater === "function" ? updater(sorting) : updater
+        props.onSortingChange?.(next)
+      }
+    : setInternalSorting
+
+  const pagination = props.manualPagination
+    ? {
+        pageIndex: (props.externalPage ?? 1) - 1,
+        pageSize: props.externalPageSize ?? 10,
+      }
+    : internalPagination
+
+  const setPagination = props.manualPagination
+    ? (updater: any) => {
+        const next =
+          typeof updater === "function" ? updater(pagination) : updater
+        props.onPageChange?.(next.pageIndex + 1)
+        if (next.pageSize !== pagination.pageSize) {
+          props.onPageSizeChange?.(next.pageSize)
+        }
+      }
+    : setInternalPagination
+
+  return {
+    sorting,
+    setSorting,
+    pagination,
+    setPagination,
+    currentPage: props.manualPagination
+      ? (props.externalPage ?? 1)
+      : internalPagination.pageIndex + 1,
+    pageSize: props.manualPagination
+      ? (props.externalPageSize ?? 10)
+      : internalPagination.pageSize,
+    total: props.externalTotal ?? props.data.length,
+    totalPages:
+      props.externalPageCount ??
+      Math.max(
+        1,
+        Math.ceil(
+          (props.externalTotal ?? props.data.length) /
+            (props.manualPagination
+              ? (props.externalPageSize ?? 10)
+              : internalPagination.pageSize)
+        )
+      ),
+  }
+}
+
+interface DataTableHeaderProps {
+  headerGroups: ReturnType<ReturnType<typeof useReactTable>["getHeaderGroups"]>
+}
+
+function DataTableHeader({ headerGroups }: DataTableHeaderProps) {
+  return (
+    <TableHeader className="bg-muted/50">
+      {headerGroups.map((headerGroup) => (
+        <TableRow key={headerGroup.id}>
+          {headerGroup.headers.map((header) => {
+            const canSort = header.column.getCanSort()
+            return (
+              <TableHead
+                key={header.id}
+                className={cn(
+                  canSort && "cursor-pointer select-none hover:bg-muted/70"
+                )}
+                onClick={
+                  canSort ? header.column.getToggleSortingHandler() : undefined
+                }
+              >
+                <div className="flex items-center">
+                  {flexRender(
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
+                  {canSort && (
+                    <SortIcon direction={header.column.getIsSorted()} />
+                  )}
+                </div>
+              </TableHead>
+            )
+          })}
+        </TableRow>
+      ))}
+    </TableHeader>
+  )
+}
+
+interface DataTableBodyProps<TData> {
+  loading: boolean
+  columns: ColumnDef<TData>[]
+  rows: ReturnType<
+    ReturnType<typeof useReactTable<TData>>["getRowModel"]
+  >["rows"]
+  enableRowSelection: boolean
+  onRowClick?: (row: TData) => void
+  onRowDoubleClick?: (row: TData) => void
+  emptyState?: ReactNode
+}
+
+function DataTableBody<TData>({
+  loading,
+  columns,
+  rows,
+  enableRowSelection,
+  onRowClick,
+  onRowDoubleClick,
+  emptyState,
+}: DataTableBodyProps<TData>) {
+  if (loading && rows.length === 0) {
+    return (
+      <TableBody>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <TableRow key={`skeleton-${i}`}>
+            {columns.map((_, j) => (
+              <TableCell key={`skeleton-cell-${i}-${j}`}>
+                <div className="h-4 animate-pulse rounded bg-muted" />
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    )
+  }
+
+  if (rows.length === 0) {
+    return (
+      <TableBody>
+        <TableRow>
+          <TableCell
+            colSpan={columns.length}
+            className="py-12 text-center text-muted-foreground"
+          >
+            {emptyState ?? (
+              <div className="flex flex-col items-center gap-2">
+                <p>No data found</p>
+              </div>
+            )}
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    )
+  }
+
+  return (
+    <TableBody>
+      {rows.map((row) => (
+        <TableRow
+          key={row.id}
+          data-state={
+            enableRowSelection && row.getIsSelected() ? "selected" : undefined
+          }
+          className={cn(
+            "border-t transition-colors",
+            (onRowClick || onRowDoubleClick) &&
+              "cursor-pointer hover:bg-muted/50"
+          )}
+          onClick={() => onRowClick?.(row.original)}
+          onDoubleClick={() => onRowDoubleClick?.(row.original)}
+        >
+          {row.getVisibleCells().map((cell) => (
+            <TableCell key={cell.id}>
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+      {loading && (
+        <TableRow>
+          <TableCell colSpan={columns.length} className="py-3 text-center">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Updating...
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </TableBody>
+  )
+}
+
+interface DataTablePaginationProps {
+  currentPage: number
+  totalPages: number
+  total: number
+  pageSize: number
+  pageSizeOptions: number[]
+  manualPagination: boolean
+  enableRowSelection: boolean
+  selectedCount: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (size: number) => void
+  columnsLength: number
+  hasFooterGroups: boolean
+  footerGroups: ReturnType<ReturnType<typeof useReactTable>["getFooterGroups"]>
+  customFooter?: ReactNode
+  showPagination: boolean
+}
+
+function DataTablePagination({
+  currentPage,
+  totalPages,
+  total,
+  pageSize,
+  pageSizeOptions,
+  manualPagination,
+  enableRowSelection,
+  selectedCount,
+  onPageChange,
+  onPageSizeChange,
+  columnsLength,
+  hasFooterGroups,
+  footerGroups,
+  customFooter,
+  showPagination,
+}: DataTablePaginationProps) {
+  if (!hasFooterGroups && !customFooter && !showPagination) return null
+
+  return (
+    <TableFooter>
+      {hasFooterGroups &&
+        footerGroups.map((footerGroup) => (
+          <TableRow key={footerGroup.id}>
+            {footerGroup.headers.map((header) => (
+              <TableCell key={header.id}>
+                {flexRender(
+                  header.column.columnDef.footer,
+                  header.getContext()
+                )}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      {customFooter && (
+        <TableRow>
+          <TableCell colSpan={columnsLength} className="px-4 py-3">
+            {customFooter}
+          </TableCell>
+        </TableRow>
+      )}
+      {showPagination && (
+        <TableRow>
+          <TableCell colSpan={columnsLength} className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">
+                  {enableRowSelection && selectedCount > 0
+                    ? `${selectedCount} of ${total} selected`
+                    : total === 0
+                      ? "No results"
+                      : `Page ${currentPage} of ${totalPages} · ${total} total`}
+                </p>
+                {pageSizeOptions.length > 1 && manualPagination && (
+                  <select
+                    className="rounded border bg-transparent px-1 py-0.5 text-sm text-muted-foreground"
+                    value={pageSize}
+                    onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+                  >
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={size}>
+                        {size} per page
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange?.(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </Button>
+                {getPageNumbers(currentPage, totalPages).map((p, i) =>
+                  p === "..." ? (
+                    <span
+                      key={`ellipsis-${i}`}
+                      className="px-1 text-sm text-muted-foreground"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <Button
+                      key={`page-${p}`}
+                      variant={currentPage === p ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => onPageChange?.(p)}
+                      className="min-w-[2.25rem]"
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange?.(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </TableFooter>
+  )
+}
+
 export function DataTable<TData>({
   columns,
   data,
-  loading,
+  loading = false,
   emptyState,
   onRowClick,
+  onRowDoubleClick,
   getRowId,
   manualSorting = false,
   sorting: externalSorting,
@@ -113,54 +473,39 @@ export function DataTable<TData>({
   selectedIds = [],
   onSelectionChange,
   customFooter,
+  renderMobileCard,
   footer,
   className,
 }: DataTableProps<TData>) {
-  const [internalSorting, setInternalSorting] = useState<SortingState>([])
-  const [internalPagination, setInternalPagination] = useState({
-    pageIndex: 0,
-    pageSize: clientPageSize,
-  })
   const [internalSelection, setInternalSelection] = useState<string[]>([])
 
-  const sorting = manualSorting ? (externalSorting ?? []) : internalSorting
-  const setSorting = manualSorting
-    ? (updater: SortingState | ((old: SortingState) => SortingState)) => {
-        const next =
-          typeof updater === "function" ? updater(sorting) : updater
-        onSortingChange?.(next)
-      }
-    : setInternalSorting
+  const {
+    sorting,
+    setSorting,
+    pagination,
+    setPagination,
+    currentPage,
+    pageSize,
+    total,
+    totalPages,
+  } = useTableState({
+    manualSorting,
+    externalSorting,
+    onSortingChange,
+    manualPagination,
+    externalPage,
+    externalPageSize,
+    externalPageCount,
+    externalTotal,
+    onPageChange,
+    onPageSizeChange,
+    clientPageSize,
+    data,
+  })
 
-  const pagination = manualPagination
-    ? {
-        pageIndex: (externalPage ?? 1) - 1,
-        pageSize: externalPageSize ?? 10,
-      }
-    : internalPagination
-
-  const setPagination = manualPagination
-    ? (updater: any) => {
-        const next =
-          typeof updater === "function" ? updater(pagination) : updater
-        onPageChange?.(next.pageIndex + 1)
-        if (next.pageSize !== pagination.pageSize) {
-          onPageSizeChange?.(next.pageSize)
-        }
-      }
-    : setInternalPagination
-
-  const currentPage = manualPagination
-    ? externalPage ?? 1
-    : internalPagination.pageIndex + 1
-  const pageSize = manualPagination
-    ? externalPageSize ?? 10
-    : internalPagination.pageSize
-  const total = externalTotal ?? data.length
-  const totalPages =
-    externalPageCount ?? Math.max(1, Math.ceil(total / pageSize))
-
-  const effectiveSelectedIds = onSelectionChange ? selectedIds : internalSelection
+  const effectiveSelectedIds = onSelectionChange
+    ? selectedIds
+    : internalSelection
   const rowSelectionState: RowSelectionState = {}
   if (enableRowSelection) {
     effectiveSelectedIds.forEach((id) => {
@@ -187,19 +532,17 @@ export function DataTable<TData>({
                 ? updater(rowSelectionState)
                 : updater
             const ids = Object.keys(next).filter((k) => next[k])
-            if (onSelectionChange) {
-              onSelectionChange(ids)
-            } else {
-              setInternalSelection(ids)
-            }
+            if (onSelectionChange) onSelectionChange(ids)
+            else setInternalSelection(ids)
           },
           enableRowSelection: true,
         }
       : {}),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
-    getPaginationRowModel:
-      manualPagination ? undefined : getPaginationRowModel(),
+    getPaginationRowModel: manualPagination
+      ? undefined
+      : getPaginationRowModel(),
     manualSorting,
     manualPagination,
     pageCount: manualPagination ? totalPages : undefined,
@@ -213,210 +556,92 @@ export function DataTable<TData>({
 
   const hasFooterGroups = (columns as any[]).some((col) => col.footer != null)
 
+  const loadingRows = table.getRowModel().rows
+
   return (
-    <div
-      className={cn(
-        "rounded-xl border bg-card overflow-hidden",
-        className
-      )}
-    >
-      <Table>
-        <TableHeader className="bg-muted/50">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => {
-                const canSort = header.column.getCanSort()
-                return (
-                  <TableHead
-                    key={header.id}
+    <div className={cn("overflow-hidden rounded-xl border bg-card", className)}>
+      <div className="hidden sm:block">
+        <Table>
+          <DataTableHeader headerGroups={table.getHeaderGroups()} />
+          <DataTableBody
+            loading={!!loading}
+            columns={columns}
+            rows={loadingRows}
+            enableRowSelection={enableRowSelection}
+            onRowClick={onRowClick}
+            onRowDoubleClick={onRowDoubleClick}
+            emptyState={emptyState}
+          />
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
+            manualPagination={manualPagination}
+            enableRowSelection={enableRowSelection}
+            selectedCount={effectiveSelectedIds.length}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            columnsLength={columns.length}
+            hasFooterGroups={hasFooterGroups}
+            footerGroups={table.getFooterGroups()}
+            customFooter={customFooter}
+            showPagination={data.length > 0}
+          />
+        </Table>
+      </div>
+
+      {renderMobileCard && (
+        <div className="block sm:hidden">
+          <div className="divide-y divide-border">
+            {loading && loadingRows.length === 0
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-2 p-4">
+                    <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+                  </div>
+                ))
+              : loadingRows.map((row) => (
+                  <div
+                    key={row.id}
                     className={cn(
-                      canSort &&
-                        "cursor-pointer select-none hover:bg-muted/70"
+                      "p-4",
+                      (onRowClick || onRowDoubleClick) &&
+                        "cursor-pointer hover:bg-muted/50"
                     )}
-                    onClick={
-                      canSort
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
+                    onClick={() => onRowClick?.(row.original)}
+                    onDoubleClick={() => onRowDoubleClick?.(row.original)}
                   >
-                    <div className="flex items-center">
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                      {canSort && (
-                        <SortIcon
-                          direction={header.column.getIsSorted()}
-                        />
-                      )}
-                    </div>
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={`skeleton-${i}`}>
-                {columns.map((_, j) => (
-                  <TableCell key={`skeleton-cell-${i}-${j}`}>
-                    <div className="h-4 bg-muted rounded animate-pulse" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : table.getRowModel().rows.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="text-center py-12 text-muted-foreground"
-              >
-                {emptyState ?? (
-                  <div className="flex flex-col items-center gap-2">
-                    <p>No data found</p>
+                    {renderMobileCard(row.original)}
                   </div>
-                )}
-              </TableCell>
-            </TableRow>
-          ) : (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={
-                  enableRowSelection && row.getIsSelected()
-                    ? "selected"
-                    : undefined
-                }
-                className={cn(
-                  "border-t transition-colors",
-                  onRowClick && "cursor-pointer hover:bg-muted/50"
-                )}
-                onClick={() => onRowClick?.(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
                 ))}
-              </TableRow>
-            ))
-          )}
-          {loading && table.getRowModel().rows.length > 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="text-center py-3"
-              >
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Updating...
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-        {(hasFooterGroups || customFooter || data.length > 0) && (
-          <TableFooter>
-            {hasFooterGroups &&
-              table.getFooterGroups().map((footerGroup) => (
-                <TableRow key={footerGroup.id}>
-                  {footerGroup.headers.map((header) => (
-                    <TableCell key={header.id}>
-                      {flexRender(
-                        header.column.columnDef.footer,
-                        header.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            {customFooter && (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="px-4 py-3">
-                  {customFooter}
-                </TableCell>
-              </TableRow>
+            {!loading && loadingRows.length === 0 && (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                {emptyState ?? "No data found"}
+              </div>
             )}
-            {(data.length > 0) && (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <p className="text-sm text-muted-foreground">
-                        {enableRowSelection &&
-                        effectiveSelectedIds.length > 0
-                          ? `${effectiveSelectedIds.length} of ${total} selected`
-                          : total === 0
-                            ? "No results"
-                            : `Page ${currentPage} of ${totalPages} · ${total} total`}
-                      </p>
-                      {pageSizeOptions.length > 1 && manualPagination && (
-                        <select
-                          className="text-sm bg-transparent border rounded px-1 py-0.5 text-muted-foreground"
-                          value={pageSize}
-                          onChange={(e) => {
-                            const newSize = Number(e.target.value)
-                            onPageSizeChange?.(newSize)
-                          }}
-                        >
-                          {pageSizeOptions.map((size) => (
-                            <option key={size} value={size}>
-                              {size} per page
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onPageChange?.(currentPage - 1)}
-                        disabled={currentPage <= 1}
-                      >
-                        <ChevronLeftIcon className="h-4 w-4" />
-                      </Button>
-                      {getPageNumbers(currentPage, totalPages).map(
-                        (p, index) =>
-                          p === "..." ? (
-                            <span
-                              key={`ellipsis-${index}`}
-                              className="px-1 text-muted-foreground text-sm"
-                            >
-                              ...
-                            </span>
-                          ) : (
-                            <Button
-                              key={`page-${p}`}
-                              variant={
-                                currentPage === p ? "default" : "outline"
-                              }
-                              size="sm"
-                              onClick={() => onPageChange?.(p)}
-                              className="min-w-[2.25rem]"
-                            >
-                              {p}
-                            </Button>
-                          )
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onPageChange?.(currentPage + 1)}
-                        disabled={currentPage >= totalPages}
-                      >
-                        <ChevronRightIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableFooter>
-        )}
-      </Table>
+          </div>
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
+            manualPagination={manualPagination}
+            enableRowSelection={enableRowSelection}
+            selectedCount={effectiveSelectedIds.length}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            columnsLength={columns.length}
+            hasFooterGroups={hasFooterGroups}
+            footerGroups={table.getFooterGroups()}
+            customFooter={customFooter}
+            showPagination={data.length > 0}
+          />
+        </div>
+      )}
+
       {footer}
     </div>
   )

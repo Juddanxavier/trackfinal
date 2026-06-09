@@ -27,20 +27,23 @@ export class CasbinGuard implements CanActivate {
     }
 
     const httpRequest = context.switchToHttp().getRequest();
-    const user = httpRequest?.user as { id?: string; role?: string; organisationId?: string } | undefined;
+    const user = httpRequest?.user as
+      | { id?: string; role?: string; organisationId?: string }
+      | undefined;
 
     if (!user?.id) {
       throw new UnauthorizedException('Authentication required');
     }
 
     if (!user.organisationId) {
-      throw new ForbiddenException('No organisation associated with user');
+      if (user.role !== 'admin') {
+        throw new ForbiddenException('No organisation associated with user');
+      }
     }
 
-    const requiredPermissions = this.reflector.getAllAndOverride<Array<{ resource: string; action: string }>>(
-      'permissions',
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<
+      Array<{ resource: string; action: string }>
+    >('permissions', [context.getHandler(), context.getClass()]);
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
@@ -53,7 +56,7 @@ export class CasbinGuard implements CanActivate {
           ? perm.resource.replace(':id', httpRequest.params?.id || '')
           : perm.resource;
         return this.casbinService.can(role, obj, perm.action);
-      })
+      }),
     );
 
     if (!results.some(Boolean)) {

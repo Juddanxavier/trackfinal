@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ConfigService } from '@nestjs/config';
 import {
   NotificationChannel,
   NotificationPayload,
@@ -13,10 +14,13 @@ const USE_QUEUE = process.env.NOTIFICATION_USE_QUEUE !== 'false';
 @Injectable()
 export class WhatsAppChannel implements NotificationChannel {
   readonly channelName = 'whatsapp';
+  private readonly logger = new Logger(WhatsAppChannel.name);
+  private apiUrl = 'https://graph.facebook.com/v17.0';
 
   constructor(
     @InjectQueue('notifications')
     private notificationQueue: Queue,
+    private configService: ConfigService,
   ) {}
 
   canSend(payload: NotificationPayload): boolean {
@@ -40,9 +44,9 @@ export class WhatsAppChannel implements NotificationChannel {
         : JSON.stringify(payload.data);
 
     if (!USE_QUEUE || !this.notificationQueue) {
-      console.log(
-        '[WhatsAppChannel DEV] Would send WhatsApp:',
-        message,
+      this.logger.log(
+        'DEV mode: Would send WhatsApp:',
+        template?.subject || 'notification',
         'to',
         payload.recipientPhone,
       );

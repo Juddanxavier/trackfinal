@@ -2,12 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { api } from "@/lib/api"
-import {
-  BellIcon,
-  CheckIcon,
-  PackageIcon,
-  TruckIcon,
-} from "lucide-react"
+import { BellIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -18,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface Notification {
   id: string
@@ -27,10 +23,12 @@ interface Notification {
   createdAt: string
 }
 
-const notificationIcons: Record<string, React.ElementType> = {
-}
+const notificationIcons: Record<string, React.ElementType> = {}
 
-const getMessage = (titleKey: string, data: Record<string, unknown>): string => {
+const getMessage = (
+  titleKey: string,
+  data: Record<string, unknown>
+): string => {
   return titleKey
 }
 
@@ -55,28 +53,38 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
 
   const fetchNotifications = useCallback(async () => {
-    const token = sessionStorage.getItem('accessToken')
+    const token = sessionStorage.getItem("accessToken")
     if (!token) return
 
     try {
       const data = await api.get<Notification[]>("/notifications?limit=5")
       setNotifications(data)
     } catch (error) {
-      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
-      console.error("Failed to fetch notifications:", error)
+      if (
+        error instanceof Error &&
+        "statusCode" in error &&
+        (error as { statusCode: number }).statusCode === 401
+      )
+        return
+      toast.error("Failed to fetch notifications")
     }
   }, [])
 
   const fetchUnreadCount = useCallback(async () => {
-    const token = sessionStorage.getItem('accessToken')
+    const token = sessionStorage.getItem("accessToken")
     if (!token) return
 
     try {
       const count = await api.get<number>("/notifications/unread-count")
       setUnreadCount(count)
     } catch (error) {
-      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
-      console.error("Failed to fetch unread count:", error)
+      if (
+        error instanceof Error &&
+        "statusCode" in error &&
+        (error as { statusCode: number }).statusCode === 401
+      )
+        return
+      toast.error("Failed to fetch unread count")
     }
   }, [])
 
@@ -96,8 +104,13 @@ export function NotificationBell() {
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (error) {
-      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
-      console.error("Failed to mark as read:", error)
+      if (
+        error instanceof Error &&
+        "statusCode" in error &&
+        (error as { statusCode: number }).statusCode === 401
+      )
+        return
+      toast.error("Failed to mark notification as read")
     }
   }
 
@@ -107,8 +120,13 @@ export function NotificationBell() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
       setUnreadCount(0)
     } catch (error) {
-      if (error instanceof Error && 'statusCode' in error && (error as { statusCode: number }).statusCode === 401) return
-      console.error("Failed to mark all as read:", error)
+      if (
+        error instanceof Error &&
+        "statusCode" in error &&
+        (error as { statusCode: number }).statusCode === 401
+      )
+        return
+      toast.error("Failed to mark all notifications as read")
     }
   }
 
@@ -127,7 +145,7 @@ export function NotificationBell() {
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs"
             >
               {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
@@ -141,7 +159,7 @@ export function NotificationBell() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-auto py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
+              className="h-auto px-1 py-0 text-xs text-muted-foreground hover:text-foreground"
               onClick={handleMarkAllRead}
             >
               Mark all read
@@ -161,21 +179,25 @@ export function NotificationBell() {
                 <DropdownMenuItem
                   key={notification.id}
                   className={cn(
-                    "flex flex-col items-start gap-1 px-2 py-2 cursor-pointer",
+                    "flex cursor-pointer flex-col items-start gap-1 px-2 py-2",
                     !notification.isRead && "bg-accent/50"
                   )}
-                  onClick={() => !notification.isRead && handleMarkRead(notification.id)}
+                  onClick={() =>
+                    !notification.isRead && handleMarkRead(notification.id)
+                  }
                 >
-                  <div className="flex items-start gap-2 w-full">
-                    <Icon className="size-4 mt-0.5 shrink-0 text-muted-foreground" />
-                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                      <span className="text-sm">{getMessage(notification.titleKey, notification.data)}</span>
+                  <div className="flex w-full items-start gap-2">
+                    <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-sm">
+                        {getMessage(notification.titleKey, notification.data)}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {formatTimeAgo(notification.createdAt)}
                       </span>
                     </div>
                     {!notification.isRead && (
-                      <div className="size-2 rounded-full bg-primary shrink-0 mt-1.5" />
+                      <div className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
                     )}
                   </div>
                 </DropdownMenuItem>

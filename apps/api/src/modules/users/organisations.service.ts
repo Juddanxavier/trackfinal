@@ -10,7 +10,10 @@ export class OrganisationsService {
   async findAll(organisationId?: string) {
     this.logger.log('findAll called with orgId:' + organisationId);
     if (organisationId) {
-      const org = await db.select().from(organisations).where(eq(organisations.id, organisationId));
+      const org = await db
+        .select()
+        .from(organisations)
+        .where(eq(organisations.id, organisationId));
       return org;
     }
     return db.select().from(organisations);
@@ -98,16 +101,12 @@ export class OrganisationsService {
   }
 
   async remove(id: string) {
-    await db
-      .delete(organisations)
-      .where(eq(organisations.id, id));
+    await db.delete(organisations).where(eq(organisations.id, id));
     return { message: 'Organisation deleted' };
   }
 
   async getOrgTree() {
-    const allOrgs = await db
-      .select()
-      .from(organisations);
+    const allOrgs = await db.select().from(organisations);
     const allBranches = await db
       .select()
       .from(branches)
@@ -132,7 +131,7 @@ export class OrganisationsService {
         and(
           eq(branches.organisationId, organisationId),
           eq(branches.isActive, true),
-        )
+        ),
       );
   }
 
@@ -144,7 +143,11 @@ export class OrganisationsService {
     }));
   }
 
-  async getUserAccessibleOrgs(userId: string, userRole: string, userOrganisationId: string | null) {
+  async getUserAccessibleOrgs(
+    userId: string,
+    userRole: string,
+    userOrganisationId: string | null,
+  ) {
     if (!userOrganisationId) {
       return [];
     }
@@ -155,25 +158,27 @@ export class OrganisationsService {
     const accessibleOrgs: any[] = [userOrg];
 
     const branchList = await this.getBranches(userOrganisationId);
-    accessibleOrgs.push(...branchList.map((b) => ({
-      id: b.id,
-      name: b.name,
-      slug: b.name.toLowerCase().replace(/\s+/g, '-'),
-      email: b.email,
-      phone: b.phone,
-      address: b.address,
-      city: b.city,
-      state: b.state,
-      postalCode: b.postalCode,
-      countryCode: b.countryCode,
-      currency: null,
-      logoUrl: null,
-      websiteUrl: null,
-      trackingDomain: null,
-      isActive: b.isActive,
-      createdAt: b.createdAt,
-      updatedAt: b.updatedAt,
-    })));
+    accessibleOrgs.push(
+      ...branchList.map((b) => ({
+        id: b.id,
+        name: b.name,
+        slug: b.name.toLowerCase().replace(/\s+/g, '-'),
+        email: b.email,
+        phone: b.phone,
+        address: b.address,
+        city: b.city,
+        state: b.state,
+        postalCode: b.postalCode,
+        countryCode: b.countryCode,
+        currency: null,
+        logoUrl: null,
+        websiteUrl: null,
+        trackingDomain: null,
+        isActive: b.isActive,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
+      })),
+    );
 
     return accessibleOrgs;
   }

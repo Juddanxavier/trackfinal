@@ -59,7 +59,9 @@ export function prependCountryCode(phone: string, countryCode: string): string {
 export function formatPhoneDisplay(phone: string): string {
   if (!phone) return ""
   const cleaned = phone.replace(/[^\d+]/g, "")
-  const dialCode = cleaned.startsWith("+") ? cleaned.match(/^\+\d+/)?.[0] || "" : ""
+  const dialCode = cleaned.startsWith("+")
+    ? cleaned.match(/^\+\d+/)?.[0] || ""
+    : ""
   const number = cleaned.replace(dialCode, "")
   const groups: string[] = []
   for (let i = 0; i < number.length; i += 3) {

@@ -17,7 +17,7 @@ import { InvitationsService } from './invitations.service';
 import { TwoFactorService } from './two-factor.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { TenantGuard } from '../../common/guards/tenant.guard';
+
 import { CasbinService, CasbinGuard } from '../../common/casbin';
 
 @Module({
@@ -53,7 +53,6 @@ import { CasbinService, CasbinGuard } from '../../common/casbin';
     GoogleStrategy,
     JwtAuthGuard,
     RolesGuard,
-    TenantGuard,
     CasbinService,
     CasbinGuard,
     EmailService,
@@ -66,7 +65,6 @@ import { CasbinService, CasbinGuard } from '../../common/casbin';
     TokenService,
     JwtAuthGuard,
     RolesGuard,
-    TenantGuard,
     CasbinService,
     CasbinGuard,
     InvitationsService,

@@ -246,7 +246,7 @@ async function seed() {
           name: `${org.name} Staff`,
           role: Role.STAFF,
           organisationId: org.id,
-            emailVerified: true,
+          emailVerified: true,
         })
         .returning();
       staffForOrg = newStaff;

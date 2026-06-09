@@ -1,9 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import * as React from 'react';
 import { MSG91Service } from './msg91.service';
+import { EmailService } from '../auth/email.service';
 import { NotificationLogsService } from './notification-logs.service';
 import { InAppChannel } from './channels/in-app.channel';
+import { getTemplate, parseTemplate } from './notification-templates';
+import { render } from '../email/templates/render';
+import { ShipmentNotification } from '../email/templates/ShipmentNotification';
 
 export interface SendNotificationJob {
   organisationId: string;
@@ -22,6 +27,7 @@ export class NotificationProcessor extends WorkerHost {
 
   constructor(
     private msg91: MSG91Service,
+    private emailService: EmailService,
     private logs: NotificationLogsService,
     private inApp: InAppChannel,
   ) {
@@ -64,7 +70,7 @@ export class NotificationProcessor extends WorkerHost {
           status,
         );
       } else if (channel === 'in_app') {
-        return this.sendInApp(
+        return await this.sendInApp(
           organisationId,
           userId || '',
           shipmentId || '',
@@ -87,33 +93,41 @@ export class NotificationProcessor extends WorkerHost {
     to: string,
     status: string,
   ) {
-    const result = await this.msg91.sendEmail(
-      to,
-      data.recipientName || 'Customer',
-      status,
-      data,
-    );
-    if (result.success) {
-      await this.logs.logSuccess(
-        orgId,
-        userId,
-        shipId,
-        'email',
-        titleKey,
-        data,
+    let success = false;
+    let errorMsg: string | undefined;
+
+    try {
+      const template = getTemplate(titleKey);
+      const subject = template
+        ? parseTemplate(template.subject, data)
+        : `Shipment Update: ${titleKey}`;
+
+      const html = await render(
+        React.createElement(ShipmentNotification, {
+          titleKey,
+          ...data,
+        }),
       );
+
+      await this.emailService.sendEmail({
+        to,
+        subject,
+        html,
+      });
+      success = true;
+    } catch (err: any) {
+      errorMsg = err.message;
+      this.logger.error(`Email failed: ${errorMsg}`);
+    }
+
+    if (success) {
+      await this.logs.logSuccess(orgId, userId, shipId, 'email', titleKey, data);
       return { sent: true, channel: 'email' };
     }
     await this.logs.logFailure(
-      orgId,
-      userId,
-      shipId,
-      'email',
-      titleKey,
-      data,
-      result.error || 'Unknown',
+      orgId, userId, shipId, 'email', titleKey, data, errorMsg || 'Unknown',
     );
-    return { sent: false, channel: 'email', error: result.error };
+    return { sent: false, channel: 'email', error: errorMsg };
   }
 
   private async sendWhatsApp(
@@ -149,14 +163,14 @@ export class NotificationProcessor extends WorkerHost {
     return { sent: false, channel: 'whatsapp', error: result.error };
   }
 
-  private sendInApp(
+  private async sendInApp(
     orgId: string,
     userId: string,
     shipId: string,
     titleKey: string,
     data: Record<string, any>,
   ) {
-    return this.inApp.send({
+    return await this.inApp.send({
       organisationId: orgId,
       userId,
       titleKey,

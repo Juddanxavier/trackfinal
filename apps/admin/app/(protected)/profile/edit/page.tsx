@@ -1,18 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { getDialCode, prependCountryCode } from "@/lib/phone"
-import { profileSchema, fieldErrors, type ProfileFormData } from "@/lib/validation"
+import { profileSchema, type ProfileFormData } from "@/lib/validation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Loader2Icon, SaveIcon, ArrowLeftIcon } from "lucide-react"
+import { Breadcrumbs } from "@/components/breadcrumbs"
 import Link from "next/link"
+import { toast } from "sonner"
+import { useUnsavedChanges } from "@/lib/hooks/use-unsaved-changes"
 
 interface UserProfile {
   id: string
@@ -26,13 +31,19 @@ export default function EditProfilePage() {
   const router = useRouter()
   const { user: authUser, refreshUser } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [errors, setErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({})
-  const [formData, setFormData] = useState({
-    name: "",
-    phoneNumber: "",
-  })
   const [orgCountry, setOrgCountry] = useState("IN")
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors, isSubmitting, isDirty },
+  } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+  })
+
+  useUnsavedChanges(isDirty)
 
   useEffect(() => {
     if (!authUser) {
@@ -43,70 +54,63 @@ export default function EditProfilePage() {
     const fetchProfile = async () => {
       try {
         const userRes = await api.get<UserProfile>("/users/me")
-        setFormData({
+        reset({
           name: userRes.name || "",
           phoneNumber: userRes.phoneNumber || "",
         })
         if (authUser.organisationId) {
-          const org: any = await api.get(`/organisations/${authUser.organisationId}`)
+          const org: any = await api.get(
+            `/organisations/${authUser.organisationId}`
+          )
           if (org?.countryCode) setOrgCountry(org.countryCode)
         }
       } catch (error) {
-        console.error("Failed to fetch profile:", error)
+        toast.error("Failed to load profile")
       } finally {
         setLoading(false)
       }
     }
 
     fetchProfile()
-  }, [authUser, router])
+  }, [authUser, router, reset])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const result = profileSchema.safeParse(formData)
-    if (!result.success) {
-      setErrors(fieldErrors<ProfileFormData>(result))
-      return
-    }
-    setErrors({})
-    setSaving(true)
-
+  const onSubmit = async (data: ProfileFormData) => {
     try {
-      await api.put<UserProfile>("/users/me", result.data)
+      await api.patch<UserProfile>("/auth/profile", data)
       await refreshUser()
       router.push("/profile")
-    } catch (error) {
-      console.error("Failed to update profile:", error)
-    } finally {
-      setSaving(false)
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update profile")
     }
   }
 
   if (loading) {
     return (
       <div className="p-6">
-        <div className="animate-pulse space-y-4 max-w-2xl">
-          <div className="h-48 bg-muted rounded-lg" />
-          <div className="h-32 bg-muted rounded-lg" />
+        <div className="max-w-2xl animate-pulse space-y-4">
+          <div className="h-48 rounded-lg bg-muted" />
+          <div className="h-32 rounded-lg bg-muted" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div className="flex items-center gap-4">
         <Link href="/profile">
           <Button variant="ghost" size="sm">
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            <ArrowLeftIcon className="mr-2 h-4 w-4" />
             Back
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Edit Profile</h1>
+        <Breadcrumbs
+          items={[{ label: "Profile", href: "/profile" }, { label: "Edit" }]}
+        />
+        <h1 className="text-3xl font-bold tracking-tight">Edit Profile</h1>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit(onSubmit)}>
         <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
@@ -114,14 +118,15 @@ export default function EditProfilePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => { setErrors({ ...errors, name: undefined }); setFormData({ ...formData, name: e.target.value }) }}
-                  placeholder="Your full name"
-                />
-                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-              </div>
+              <Input
+                id="name"
+                {...register("name")}
+                placeholder="Your full name"
+              />
+              {errors.name && (
+                <p className="text-sm text-red-500">{errors.name.message}</p>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -140,12 +145,19 @@ export default function EditProfilePage() {
               <Label htmlFor="phoneNumber">Phone Number</Label>
               <Input
                 id="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={(e) => { setErrors({ ...errors, phoneNumber: undefined }); setFormData({ ...formData, phoneNumber: e.target.value }) }}
-                onBlur={(e) => { const v = e.target.value; if (v) setFormData(f => ({ ...f, phoneNumber: prependCountryCode(v, orgCountry) })) }}
+                {...register("phoneNumber")}
+                onBlur={(e) => {
+                  const v = e.target.value
+                  if (v)
+                    setValue("phoneNumber", prependCountryCode(v, orgCountry))
+                }}
                 placeholder={getDialCode(orgCountry) + " 9000000000"}
               />
-                {errors.phoneNumber && <p className="text-sm text-red-500">{errors.phoneNumber}</p>}
+              {errors.phoneNumber && (
+                <p className="text-sm text-red-500">
+                  {errors.phoneNumber.message}
+                </p>
+              )}
             </div>
 
             <Separator />
@@ -156,13 +168,13 @@ export default function EditProfilePage() {
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" disabled={saving}>
-                {saving ? (
-                  <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <SaveIcon className="h-4 w-4 mr-2" />
+                  <SaveIcon className="mr-2 h-4 w-4" />
                 )}
-                {saving ? "Saving..." : "Save Changes"}
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </CardContent>

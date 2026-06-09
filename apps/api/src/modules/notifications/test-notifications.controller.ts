@@ -1,7 +1,7 @@
-import { Controller, Get, Query, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationService } from './notification.service';
-import { Public } from '../../common/decorators/public.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { db } from '../../database';
 import { shipments } from '../../database/schema/shipments';
 import { organisations } from '../../database/schema/organisations';
@@ -10,7 +10,7 @@ import { sql } from 'drizzle-orm';
 import { EmailService } from '../auth/email.service';
 
 @Controller('test-notifications')
-@Public()
+@UseGuards(JwtAuthGuard)
 export class TestNotificationsController {
   constructor(
     private configService: ConfigService,

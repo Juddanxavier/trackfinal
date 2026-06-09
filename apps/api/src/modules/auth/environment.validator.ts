@@ -2,11 +2,14 @@ import {
   Injectable,
   OnModuleInit,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class EnvironmentValidator implements OnModuleInit {
+  private readonly logger = new Logger(EnvironmentValidator.name);
+
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
@@ -59,8 +62,8 @@ export class EnvironmentValidator implements OnModuleInit {
     if (bcryptRounds) {
       const rounds = parseInt(bcryptRounds, 10);
       if (isNaN(rounds) || rounds < 10) {
-        console.warn(
-          `WARNING: BCRYPT_ROUNDS should be at least 10, got ${bcryptRounds}. Using default of 12.`,
+        this.logger.warn(
+          `BCRYPT_ROUNDS should be at least 10, got ${bcryptRounds}. Using default of 12.`,
         );
       }
     }

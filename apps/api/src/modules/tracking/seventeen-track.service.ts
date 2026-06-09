@@ -5,14 +5,15 @@ import {
   trackingJobs,
   trackingJobEvents,
   trackingSettings,
-  trackingApiRateLimits,
   trackingTransLog,
 } from '../../database/schema/tracking';
-import { eq, and, gt, lt, asc, sql, or, isNull, count } from 'drizzle-orm';
+import { eq, and, asc, sql, or, isNull } from 'drizzle-orm';
 import {
   CircuitBreaker,
   CircuitBreakerRegistry,
 } from '../../common/utils/circuit-breaker';
+import { TrackingRateLimiter } from './tracking-rate-limiter';
+import { TrackingParserService, TrackingData } from './tracking-parser.service';
 
 const logger = new Logger('SeventeenTrack');
 
@@ -88,26 +89,6 @@ interface GetTrackacesResponse {
   };
 }
 
-export interface TrackingData {
-  trackingNumber: string;
-  carrierCode: string;
-  status: 'pending' | 'in_transit' | 'delivered' | 'exception' | 'not_found';
-  statusRaw: string;
-  lastEvent: string | null;
-  lastLocation: string | null;
-  lastEventTime: string | null;
-  originCountry: string | null;
-  destinationCountry: string | null;
-  events: Array<{
-    status: string;
-    statusRaw: string;
-    description: string;
-    location: string;
-    eventTime: string;
-  }>;
-  rawData: Record<string, any>;
-}
-
 export interface RegisterResult {
   trackingNumber: string;
   carrierCode: string;
@@ -115,117 +96,28 @@ export interface RegisterResult {
   error?: string;
 }
 
-const STATUS_MAP: Record<string, TrackingData['status']> = {
-  NotFound: 'not_found',
-  InfoReceived: 'pending',
-  PickedUp: 'in_transit',
-  InTransit: 'in_transit',
-  Arrival: 'in_transit',
-  Departure: 'in_transit',
-  AvailableForPickup: 'in_transit',
-  OutForDelivery: 'in_transit',
-  Delivered: 'delivered',
-  Returned: 'exception',
-  Returning: 'exception',
-  Exception: 'exception',
-};
-
 @Injectable()
 export class SeventeenTrackService {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.17track.net/track/v2.4';
   private circuitBreaker: CircuitBreaker;
 
-  private rateLimits = {
-    register: { maxRequests: 100, windowMs: 60000 },
-    gettrackinfo: { maxRequests: 500, windowMs: 60000 },
-  };
-
-  private requestCounts: Map<string, { count: number; resetAt: Date }> =
-    new Map();
-
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private rateLimiter: TrackingRateLimiter,
+    private parser: TrackingParserService,
+  ) {
     this.apiKey = this.configService.get<string>('SEVENTEEN_API_KEY') || '';
     if (!this.apiKey) {
       throw new Error('SEVENTEEN_API_KEY is required');
     }
 
-    // Initialize circuit breaker for 17Track API
     this.circuitBreaker = CircuitBreakerRegistry.getOrCreate('17track-api', {
       failureThreshold: 5,
       resetTimeout: 60000,
       halfOpenMaxCalls: 3,
       successThreshold: 2,
     });
-    this.loadRateLimitsFromDb();
-  }
-
-  private async loadRateLimitsFromDb() {
-    try {
-      const limits = await db
-        .select()
-        .from(trackingApiRateLimits)
-        .where(eq(trackingApiRateLimits.apiKey, this.apiKey));
-
-      for (const limit of limits) {
-        this.requestCounts.set(limit.endpoint, {
-          count: limit.requestCount,
-          resetAt: new Date(limit.windowEnd),
-        });
-      }
-    } catch (err) {
-      logger.warn('Failed to load rate limits from DB, using defaults');
-    }
-  }
-
-  private async checkRateLimit(endpoint: string): Promise<boolean> {
-    const limit = this.rateLimits[endpoint as keyof typeof this.rateLimits];
-    if (!limit) return true;
-
-    const now = new Date();
-    let record = this.requestCounts.get(endpoint);
-
-    if (!record || now >= record.resetAt) {
-      record = { count: 0, resetAt: new Date(now.getTime() + limit.windowMs) };
-      this.requestCounts.set(endpoint, record);
-    }
-
-    if (record.count >= limit.maxRequests) {
-      const waitTime = record.resetAt.getTime() - now.getTime();
-      logger.warn(`Rate limit reached for ${endpoint}, waiting ${waitTime}ms`);
-      return false;
-    }
-
-    record.count++;
-    await this.recordRequest(endpoint);
-    return true;
-  }
-
-  private async recordRequest(endpoint: string) {
-    try {
-      await db
-        .insert(trackingApiRateLimits)
-        .values({
-          apiKey: this.apiKey,
-          endpoint,
-          requestCount: 1,
-          windowStart: new Date(),
-          windowEnd: new Date(Date.now() + 60000),
-        })
-        .onConflictDoUpdate({
-          target: [
-            trackingApiRateLimits.apiKey,
-            trackingApiRateLimits.endpoint,
-          ],
-          set: {
-            requestCount: sql`${trackingApiRateLimits.requestCount} + 1`,
-            windowStart: new Date(),
-            windowEnd: new Date(Date.now() + 60000),
-          },
-        });
-    } catch (err) {
-      logger.debug('Failed to record API request');
-    }
   }
 
   async getquota(): Promise<{
@@ -285,7 +177,7 @@ export class SeventeenTrackService {
     carrierCode?: string,
     options?: { tag?: string; email?: string; phone?: string },
   ): Promise<RegisterResult> {
-    const available = await this.checkRateLimit('register');
+    const available = await this.rateLimiter.checkRateLimit('register');
     if (!available) {
       await this.createJob(
         trackingNumber,
@@ -347,7 +239,7 @@ export class SeventeenTrackService {
         },
       );
 
-      console.log('[17Track] Register response:', JSON.stringify(data));
+      logger.log('[17Track] Register response:', JSON.stringify(data));
 
       if (data.code !== 0) {
         const error = data.data?.rejected?.[0]?.error || {
@@ -397,7 +289,7 @@ export class SeventeenTrackService {
     trackingNumber: string,
     carrierCode?: string,
   ): Promise<TrackingData | null> {
-    const available = await this.checkRateLimit('gettrackinfo');
+    const available = await this.rateLimiter.checkRateLimit('gettrackinfo');
     if (!available) {
       await this.createJob(
         trackingNumber,
@@ -445,7 +337,7 @@ export class SeventeenTrackService {
         return null;
       }
 
-      console.log('[17Track] GetTracking response:', JSON.stringify(data));
+      logger.log('[17Track] GetTracking response:', JSON.stringify(data));
 
       if (data.code !== 0 || !data.data?.accepted?.[0]) {
         logger.warn(
@@ -454,7 +346,10 @@ export class SeventeenTrackService {
         return null;
       }
 
-      return this.parseTrackingResponse(data.data.accepted[0], carrierCode);
+      return this.parser.parseTrackingResponse(
+        data.data.accepted[0],
+        carrierCode,
+      );
     } catch (error: any) {
       logger.error(
         `[17Track] GetTracking failed for ${trackingNumber}:`,
@@ -462,103 +357,6 @@ export class SeventeenTrackService {
       );
       return null;
     }
-  }
-
-  private parseTrackingResponse(
-    accepted: any,
-    carrierCode?: string,
-  ): TrackingData {
-    const trackInfo = accepted.track_info || accepted;
-    const tracking = trackInfo?.tracking?.providers?.[0];
-    const latestEvent = trackInfo?.latest_event;
-    const shippingInfo = trackInfo?.shipping_info;
-
-    console.log(
-      '[17Track] trackInfo:',
-      JSON.stringify(trackInfo).slice(0, 300),
-    );
-
-    const status = this.mapStatus(
-      trackInfo?.latest_status?.status ||
-        trackInfo?.status ||
-        tracking?.events?.[0]?.stage ||
-        'InfoReceived',
-    );
-    const statusRaw =
-      trackInfo?.latest_status?.status ||
-      trackInfo?.status ||
-      tracking?.events?.[0]?.stage ||
-      'Unknown';
-
-    const events = (tracking?.events || []).map((event: any) => {
-      const address = event.address;
-      const eventLocation =
-        event.location ||
-        (address?.city
-          ? `${address.city}, ${address.state}, ${address.country}`
-          : '');
-      return {
-        status: this.mapStatus(event.stage || event.sub_status || 'InTransit'),
-        statusRaw: event.stage || event.sub_status || 'InTransit',
-        description: event.description || '',
-        location: eventLocation,
-        eventTime: event.time_utc
-          ? new Date(event.time_utc).toISOString()
-          : new Date().toISOString(),
-      };
-    });
-
-    const originCountry = shippingInfo?.shipper_address?.country
-      ? this.getCountryName(shippingInfo.shipper_address.country)
-      : null;
-    const destinationCountry = shippingInfo?.recipient_address?.country
-      ? this.getCountryName(shippingInfo.recipient_address.country)
-      : null;
-
-    const carrierId = accepted.carrier?.toString() || carrierCode || '';
-
-    return {
-      trackingNumber: accepted.number,
-      carrierCode: carrierId,
-      status,
-      statusRaw,
-      lastEvent: latestEvent?.description || events[0]?.description || null,
-      lastLocation: latestEvent?.location || events[0]?.location || null,
-      lastEventTime: latestEvent?.time_utc
-        ? new Date(latestEvent.time_utc).toISOString()
-        : events[0]?.eventTime || null,
-      originCountry,
-      destinationCountry,
-      events,
-      rawData: trackInfo || {},
-    };
-  }
-
-  private mapStatus(status?: string): TrackingData['status'] {
-    if (!status) return 'not_found';
-    return STATUS_MAP[status] || 'in_transit';
-  }
-
-  private getCountryName(code: string): string {
-    const countryMap: Record<string, string> = {
-      IN: 'India',
-      US: 'United States',
-      GB: 'United Kingdom',
-      DE: 'Germany',
-      FR: 'France',
-      AU: 'Australia',
-      CA: 'Canada',
-      JP: 'Japan',
-      CN: 'China',
-      SG: 'Singapore',
-      AE: 'United Arab Emirates',
-      NL: 'Netherlands',
-      IT: 'Italy',
-      ES: 'Spain',
-      BR: 'Brazil',
-      MX: 'Mexico',
-    };
-    return countryMap[code?.toUpperCase()] || code || 'Unknown';
   }
 
   async createJob(

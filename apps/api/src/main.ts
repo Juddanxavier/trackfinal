@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -10,8 +10,10 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { TenantInterceptor } from './common/interceptors/tenant.interceptor';
 
+const logger = new Logger('Bootstrap');
+
 async function migrateCarriers() {
-  console.log('[Carrier Migration] Starting...');
+  logger.log('[Carrier Migration] Starting...');
   try {
     const db = await import('./database/index.js').then((m) => m.db);
     const { carriers } = await import('./database/schema/carriers.js');
@@ -22,14 +24,14 @@ async function migrateCarriers() {
         .from(carriers)
         .limit(1);
       if (existing) {
-        console.log('[Carrier Migration] Already loaded, skipping');
+        logger.log('[Carrier Migration] Already loaded, skipping');
         return;
       }
-    } catch (e) {
-      console.log('[Carrier Migration] Table may not exist, will create');
+    } catch {
+      logger.log('[Carrier Migration] Table may not exist, will create');
     }
 
-    console.log('[Carrier Migration] Creating table...');
+    logger.log('[Carrier Migration] Creating table...');
     await db.execute(`
       CREATE TABLE IF NOT EXISTS carriers (
         key VARCHAR(20) PRIMARY KEY,
@@ -39,21 +41,21 @@ async function migrateCarriers() {
         url VARCHAR(500)
       )
     `);
-    console.log('[Carrier Migration] Table created');
+    logger.log('[Carrier Migration] Table created');
 
     const fs = await import('fs');
     const path = await import('path');
     const csvPath = path.join(__dirname, 'carriers.csv');
-    console.log('[Carrier Migration] CSV path:', csvPath);
+    logger.log('[Carrier Migration] CSV path:', csvPath);
 
     if (!fs.existsSync(csvPath)) {
-      console.error('[Carrier Migration] CSV file not found at:', csvPath);
+      logger.error('[Carrier Migration] CSV file not found at:', csvPath);
       return;
     }
 
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n').slice(1);
-    console.log('[Carrier Migration] Lines to process:', lines.length);
+    logger.log('[Carrier Migration] Lines to process:', lines.length);
 
     let inserted = 0;
     for (const line of lines) {
@@ -76,14 +78,14 @@ async function migrateCarriers() {
         inserted++;
       }
     }
-    console.log(`[Carrier Migration] Complete: ${inserted} carriers inserted`);
+    logger.log(`[Carrier Migration] Complete: ${inserted} carriers inserted`);
   } catch (err) {
-    console.error('[Carrier Migration] FAILED:', err);
+    logger.error('[Carrier Migration] FAILED:', err);
   }
 }
 
 async function migrateAdditionalColumns() {
-  console.log('[Additional Columns Migration] Starting...');
+  logger.log('[Additional Columns Migration] Starting...');
   try {
     const db = await import('./database/index.js').then((m) => m.db);
 
@@ -103,9 +105,9 @@ async function migrateAdditionalColumns() {
       `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`,
     );
 
-    console.log('[Additional Columns Migration] Complete');
+    logger.log('[Additional Columns Migration] Complete');
   } catch (err) {
-    console.error('[Additional Columns Migration] FAILED:', err);
+    logger.error('[Additional Columns Migration] FAILED:', err);
   }
 }
 
@@ -121,9 +123,9 @@ async function migrateQuotesColumns() {
     await db.execute(
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP`,
     );
-    console.log('[Quotes Migration] archived_at column ready');
+    logger.log('[Quotes Migration] archived_at column ready');
   } catch (err) {
-    console.error('[Quotes Migration] FAILED:', err.message);
+    logger.error('[Quotes Migration] FAILED:', err.message);
   }
 }
 
@@ -151,7 +153,7 @@ async function migrateTrackingTables() {
         completed_at TIMESTAMP
       )
     `);
-    console.log('[Tracking Migration] tracking_jobs table ready');
+    logger.log('[Tracking Migration] tracking_jobs table ready');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS tracking_api_rate_limits (
@@ -164,7 +166,7 @@ async function migrateTrackingTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('[Tracking Migration] tracking_api_rate_limits table ready');
+    logger.log('[Tracking Migration] tracking_api_rate_limits table ready');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS tracking_settings (
@@ -180,7 +182,7 @@ async function migrateTrackingTables() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('[Tracking Migration] tracking_settings table ready');
+    logger.log('[Tracking Migration] tracking_settings table ready');
 
     await db.execute(
       `ALTER TABLE organisations ADD COLUMN IF NOT EXISTS website_url TEXT`,
@@ -188,11 +190,11 @@ async function migrateTrackingTables() {
     await db.execute(
       `ALTER TABLE organisations ADD COLUMN IF NOT EXISTS tracking_domain TEXT`,
     );
-    console.log(
+    logger.log(
       '[Org Migration] website_url and tracking_domain columns ready',
     );
   } catch (err) {
-    console.error('[Tracking Migration] FAILED:', err.message);
+    logger.error('[Tracking Migration] FAILED:', err.message);
   }
 }
 
@@ -267,10 +269,10 @@ async function bootstrap() {
   app.useGlobalFilters(new ThrottlerExceptionFilter());
 
   await app.listen(process.env.PORT ?? 4000);
-  console.log(
+  logger.log(
     `Application is running on: http://localhost:${process.env.PORT ?? 4000}`,
   );
-  console.log(`API v1: http://localhost:${process.env.PORT ?? 4000}/api/v1`);
-  console.log(`Swagger docs: http://localhost:${process.env.PORT ?? 4000}/api`);
+  logger.log(`API v1: http://localhost:${process.env.PORT ?? 4000}/api/v1`);
+  logger.log(`Swagger docs: http://localhost:${process.env.PORT ?? 4000}/api`);
 }
 bootstrap();

@@ -15,7 +15,7 @@ declare global {
 export class RequestLoggingMiddleware implements NestMiddleware {
   private readonly logger = new Logger('HTTP');
 
-  use(req: Request, res: Response, next: NextFunction) {
+  use = (req: Request, res: Response, next: NextFunction): void => {
     const correlationId =
       (req.headers['x-correlation-id'] as string) ||
       randomBytes(8).toString('hex');
@@ -30,14 +30,11 @@ export class RequestLoggingMiddleware implements NestMiddleware {
 
     res.setHeader('X-Correlation-ID', correlationId);
 
-    console.log(
+    this.logger.log(
       `--> ${method} ${reqUrl} [correlationId=${correlationId}] ip=${ip} ua=${userAgent}`,
     );
 
     const originalEnd = res.end;
-    const log = (...args: any[]) => console.log(...args);
-    const logError = (...args: any[]) => console.error(...args);
-    const logWarn = (...args: any[]) => console.warn(...args);
 
     res.end = function (...args: any[]) {
       const duration = Date.now() - startTime;
@@ -46,11 +43,11 @@ export class RequestLoggingMiddleware implements NestMiddleware {
       const message = `<-- ${method} ${reqUrl} ${statusCode} ${duration}ms [correlationId=${correlationId}]`;
 
       if (statusCode >= 500) {
-        logError(message);
+        Logger.error(message, undefined, 'HTTP');
       } else if (statusCode >= 400) {
-        logWarn(message);
+        Logger.warn(message, 'HTTP');
       } else {
-        log(message);
+        Logger.log(message, 'HTTP');
       }
 
       return originalEnd.apply(res, args);

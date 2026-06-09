@@ -1,16 +1,22 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { jwtDecode } from "jwt-decode";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-const TOKEN_KEY = 'gt_access_token';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const TOKEN_KEY = "gt_access_token";
 
 export class TwoFactorRequiredError extends Error {
   sessionToken: string;
   constructor(sessionToken: string, message: string) {
     super(message);
-    this.name = 'TwoFactorRequiredError';
+    this.name = "TwoFactorRequiredError";
     this.sessionToken = sessionToken;
   }
 }
@@ -61,7 +67,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Get token from localStorage
 function getStoredToken(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     return localStorage.getItem(TOKEN_KEY);
   } catch {
@@ -71,7 +77,7 @@ function getStoredToken(): string | null {
 
 // Set token in localStorage
 function setStoredToken(token: string | null): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
@@ -101,7 +107,7 @@ function decodeUserFromToken(token: string): User | null {
 function isTokenExpired(token: string, bufferMs = 5 * 60 * 1000): boolean {
   try {
     const decoded = jwtDecode<JwtPayload>(token);
-    return Date.now() >= (decoded.exp * 1000) - bufferMs;
+    return Date.now() >= decoded.exp * 1000 - bufferMs;
   } catch {
     return true;
   }
@@ -126,17 +132,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshToken = useCallback(async (): Promise<boolean> => {
     try {
       const url = `${API_URL}/auth/refresh`;
-      console.log('[Auth] Refreshing token at', url);
+      console.log("[Auth] Refreshing token at", url);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const res = await fetch(url, {
-        method: 'POST',
-        credentials: 'include',
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
         signal: controller.signal,
       });
@@ -144,12 +150,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeoutId);
 
       if (!res.ok) {
-        console.log('[Auth] Refresh failed:', res.status);
+        console.log("[Auth] Refresh failed:", res.status);
         return false;
       }
 
       const data = await res.json();
-      console.log('[Auth] Refresh successful');
+      console.log("[Auth] Refresh successful");
       setStoredToken(data.accessToken);
       const userData = decodeUserFromToken(data.accessToken);
       if (userData) {
@@ -157,10 +163,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return true;
     } catch (error: any) {
-      if (error?.name === 'AbortError') {
-        console.warn('[Auth] Refresh aborted (timeout)');
+      if (error?.name === "AbortError") {
+        console.warn("[Auth] Refresh aborted (timeout)");
       } else {
-        console.error('[Auth] Refresh error:', error?.message || error);
+        console.error("[Auth] Refresh error:", error?.message || error);
       }
       return false;
     }
@@ -169,47 +175,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize auth state - only runs once on mount
   useEffect(() => {
     let isMounted = true;
-    
+
     const initAuth = async () => {
-      console.log('[Auth] Initializing...');
-      
+      console.log("[Auth] Initializing...");
+
       const token = getStoredToken();
-      console.log('[Auth] Token exists:', !!token);
-      
+      console.log("[Auth] Token exists:", !!token);
+
       if (token && !isTokenExpired(token)) {
-        console.log('[Auth] Token valid, decoding user');
+        console.log("[Auth] Token valid, decoding user");
         const userData = decodeUserFromToken(token);
         if (userData && isMounted) {
-          console.log('[Auth] User decoded:', userData.email);
+          console.log("[Auth] User decoded:", userData.email);
           setUser(userData);
         } else if (isMounted) {
-          console.log('[Auth] Failed to decode user, clearing');
+          console.log("[Auth] Failed to decode user, clearing");
           setStoredToken(null);
         }
       } else if (token && isTokenExpired(token)) {
-        console.log('[Auth] Token expired, attempting refresh');
+        console.log("[Auth] Token expired, attempting refresh");
         // Token expired, try to refresh
         const refreshed = await refreshToken();
         if (!refreshed && isMounted) {
-          console.log('[Auth] Refresh failed, clearing auth');
+          console.log("[Auth] Refresh failed, clearing auth");
           setStoredToken(null);
           setUser(null);
         }
       } else {
-        console.log('[Auth] No token found');
+        console.log("[Auth] No token found");
         if (isMounted) {
           setUser(null);
         }
       }
-      
+
       if (isMounted) {
-        console.log('[Auth] Initialization complete');
+        console.log("[Auth] Initialization complete");
         setIsLoading(false);
       }
     };
 
     initAuth();
-    
+
     return () => {
       isMounted = false;
     };
@@ -219,12 +225,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Also refresh when the page regains focus (user returns to an open tab)
   useEffect(() => {
     // Interval: refresh token every 50 minutes
-    const interval = setInterval(async () => {
-      const token = getStoredToken();
-      if (token) {
-        await refreshToken();
-      }
-    }, 50 * 60 * 1000);
+    const interval = setInterval(
+      async () => {
+        const token = getStoredToken();
+        if (token) {
+          await refreshToken();
+        }
+      },
+      50 * 60 * 1000,
+    );
 
     // Page visibility/focus: refresh when user comes back to the tab
     const onFocus = async () => {
@@ -233,90 +242,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await refreshToken();
       }
     };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
         onFocus();
       }
     });
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener("focus", onFocus);
     };
   }, [refreshToken]);
 
   // Login function
-  const login = useCallback(async (email: string, password: string): Promise<void> => {
-    console.log('[Auth] Logging in:', email);
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ email, password }),
-    });
+  const login = useCallback(
+    async (email: string, password: string): Promise<void> => {
+      console.log("[Auth] Logging in:", email);
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('[Auth] Login failed:', error.message);
-      throw new Error(error.message || 'Login failed');
-    }
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("[Auth] Login failed:", error.message);
+        throw new Error(error.message || "Login failed");
+      }
 
-    const data: LoginResponse = await response.json();
-    
-    // Handle 2FA challenge
-    if (data.requiresTwoFactor) {
-      throw new TwoFactorRequiredError(data.sessionToken || '', data.message || 'Two-factor authentication required');
-    }
-    
-    console.log('[Auth] Login successful');
-    setStoredToken(data.accessToken!);
-    setUser(data.user!);
-  }, []);
+      const data: LoginResponse = await response.json();
+
+      // Handle 2FA challenge
+      if (data.requiresTwoFactor) {
+        throw new TwoFactorRequiredError(
+          data.sessionToken || "",
+          data.message || "Two-factor authentication required",
+        );
+      }
+
+      console.log("[Auth] Login successful");
+      setStoredToken(data.accessToken!);
+      setUser(data.user!);
+    },
+    [],
+  );
 
   // Complete 2FA challenge after login
-  const login2fa = useCallback(async (sessionToken: string, code: string): Promise<void> => {
-    console.log('[Auth] Completing 2FA challenge');
-    const response = await fetch(`${API_URL}/auth/2fa/challenge`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ sessionToken, code }),
-    });
+  const login2fa = useCallback(
+    async (sessionToken: string, code: string): Promise<void> => {
+      console.log("[Auth] Completing 2FA challenge");
+      const response = await fetch(`${API_URL}/auth/2fa/challenge`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ sessionToken, code }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || '2FA verification failed');
-    }
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "2FA verification failed");
+      }
 
-    const data = await response.json();
-    console.log('[Auth] 2FA challenge successful');
-    setStoredToken(data.accessToken);
-    setUser(data.user);
-  }, []);
+      const data = await response.json();
+      console.log("[Auth] 2FA challenge successful");
+      setStoredToken(data.accessToken);
+      setUser(data.user);
+    },
+    [],
+  );
 
   // Logout function
   const logout = useCallback(async (): Promise<void> => {
     const token = getStoredToken();
-    
+
     if (token) {
       try {
         await fetch(`${API_URL}/auth/logout`, {
-          method: 'POST',
-          headers: { 
+          method: "POST",
+          headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          credentials: 'include',
+          credentials: "include",
         });
       } catch (error) {
-        console.error('[Auth] Logout API call failed:', error);
+        console.error("[Auth] Logout API call failed:", error);
       }
     }
 
@@ -346,7 +364,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

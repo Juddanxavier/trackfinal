@@ -1,5 +1,11 @@
-import { pgTable, text, timestamp, uuid, boolean, index } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  boolean,
+  index,
+} from 'drizzle-orm/pg-core';
 import { organisations } from './organisations';
 
 export const branches = pgTable(
@@ -21,17 +27,8 @@ export const branches = pgTable(
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },
-  (table) => [
-    index('idx_branches_organisation_id').on(table.organisationId),
-  ],
+  (table) => [index('idx_branches_organisation_id').on(table.organisationId)],
 );
-
-export const branchesRelations = relations(branches, ({ one }) => ({
-  organisation: one(organisations, {
-    fields: [branches.organisationId],
-    references: [organisations.id],
-  }),
-}));
 
 export type Branch = typeof branches.$inferSelect;
 export type NewBranch = typeof branches.$inferInsert;

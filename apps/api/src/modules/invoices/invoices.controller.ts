@@ -39,10 +39,7 @@ export class InvoicesController {
   @Get(':id/download')
   @Public()
   @ApiOperation({ summary: 'Download invoice PDF for a shipment' })
-  async download(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ) {
+  async download(@Param('id') id: string, @Res() res: Response) {
     try {
       const shipment = await this.shipmentsService.findOne(id);
 
@@ -64,7 +61,12 @@ export class InvoicesController {
           .where(eq(organisations.id, shipment.organisationId));
         if (org) {
           orgName = org.name || orgName;
-          const parts = [org.address, org.city, org.state, org.postalCode].filter(Boolean);
+          const parts = [
+            org.address,
+            org.city,
+            org.state,
+            org.postalCode,
+          ].filter(Boolean);
           orgAddress = parts.join(', ');
           orgEmail = org.email || '';
           orgPhone = org.phone || '';
@@ -79,7 +81,12 @@ export class InvoicesController {
         if (branch) {
           branchName = branch.name || '';
           if (branch.address) {
-            const parts = [branch.address, branch.city, branch.state, branch.postalCode].filter(Boolean);
+            const parts = [
+              branch.address,
+              branch.city,
+              branch.state,
+              branch.postalCode,
+            ].filter(Boolean);
             orgAddress = parts.join(', ');
           }
           orgEmail = branch.email || orgEmail;
@@ -87,7 +94,9 @@ export class InvoicesController {
         }
       }
 
-      this.logger.log(`Generating invoice for shipment ${id} (${shipment.trackingNumber})`);
+      this.logger.log(
+        `Generating invoice for shipment ${id} (${shipment.trackingNumber})`,
+      );
 
       const pdf = await this.invoicesService.generateShipmentInvoice({
         trackingNumber: shipment.trackingNumber,
@@ -118,7 +127,10 @@ export class InvoicesController {
       });
       res.end(pdf);
     } catch (err) {
-      this.logger.error(`Invoice generation failed: ${(err as Error).message}`, (err as Error).stack);
+      this.logger.error(
+        `Invoice generation failed: ${(err as Error).message}`,
+        (err as Error).stack,
+      );
       res.status(500).json({ message: 'Failed to generate invoice' });
     }
   }
@@ -145,24 +157,33 @@ export class InvoicesController {
       const now = Date.now();
       const msHalfDay = 12 * 60 * 60 * 1000;
       if (now - lastSent < msHalfDay) {
-        return { success: false, message: 'Invoice already sent recently, try again later' };
+        return {
+          success: false,
+          message: 'Invoice already sent recently, try again later',
+        };
       }
     }
 
-    await this.invoiceEmailQueue.add('send-invoice', {
-      shipmentId: id,
-      trackingNumber: shipment.trackingNumber,
-      whiteLabelTrackingCode: shipment.whiteLabelTrackingCode ?? undefined,
-      to: email,
-      recipientName: shipment.recipientName || 'Customer',
-    }, {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 50 },
-    });
+    await this.invoiceEmailQueue.add(
+      'send-invoice',
+      {
+        shipmentId: id,
+        trackingNumber: shipment.trackingNumber,
+        whiteLabelTrackingCode: shipment.whiteLabelTrackingCode ?? undefined,
+        to: email,
+        recipientName: shipment.recipientName || 'Customer',
+      },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 50 },
+      },
+    );
 
-    this.logger.log(`Queued invoice email for ${shipment.trackingNumber} to ${email}`);
+    this.logger.log(
+      `Queued invoice email for ${shipment.trackingNumber} to ${email}`,
+    );
 
     return { success: true, message: 'Invoice email queued' };
   }

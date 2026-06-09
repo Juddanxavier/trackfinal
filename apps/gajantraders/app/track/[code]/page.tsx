@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function TrackCodeRedirect() {
   const params = useParams();
@@ -12,7 +12,7 @@ export default function TrackCodeRedirect() {
     if (code) {
       router.replace(`/track?code=${encodeURIComponent(code)}`);
     } else {
-      router.replace('/track');
+      router.replace("/track");
     }
   }, [code, router]);
 

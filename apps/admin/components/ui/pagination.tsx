@@ -3,7 +3,10 @@
 import { Button } from "@/components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
-function getPageNumbers(currentPage: number, totalPages: number): (number | "...")[] {
+function getPageNumbers(
+  currentPage: number,
+  totalPages: number
+): (number | "...")[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
   }
@@ -69,7 +72,10 @@ export function TablePagination({
 
             {pageNumbers.map((page, index) =>
               page === "..." ? (
-                <span key={`ellipsis-${index}`} className="px-1 text-muted-foreground">
+                <span
+                  key={`ellipsis-${index}`}
+                  className="px-1 text-muted-foreground"
+                >
                   ...
                 </span>
               ) : (
@@ -117,11 +123,12 @@ export function Pagination({
 }: PaginationProps) {
   const items = itemsPerPage ?? 10
   const startItem = totalItems === undefined ? 0 : (currentPage - 1) * items + 1
-  const endItem = totalItems === undefined ? 0 : Math.min(currentPage * items, totalItems)
+  const endItem =
+    totalItems === undefined ? 0 : Math.min(currentPage * items, totalItems)
   const pageNumbers = getPageNumbers(currentPage, totalPages)
 
   return (
-    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+    <div className="mt-6 flex items-center justify-between border-t pt-4">
       <p className="text-sm text-muted-foreground">
         Showing {startItem} to {endItem} of {totalItems}
       </p>
@@ -137,7 +144,10 @@ export function Pagination({
 
         {pageNumbers.map((page, index) =>
           page === "..." ? (
-            <span key={`ellipsis-${index}`} className="px-1 text-muted-foreground">
+            <span
+              key={`ellipsis-${index}`}
+              className="px-1 text-muted-foreground"
+            >
               ...
             </span>
           ) : (
@@ -172,7 +182,11 @@ interface SimplePaginationProps {
   onPageChange: (page: number) => void
 }
 
-export function SimplePagination({ page, totalPages, onPageChange }: SimplePaginationProps) {
+export function SimplePagination({
+  page,
+  totalPages,
+  onPageChange,
+}: SimplePaginationProps) {
   if (totalPages <= 0) {
     return null
   }
@@ -192,7 +206,10 @@ export function SimplePagination({ page, totalPages, onPageChange }: SimplePagin
 
       {pageNumbers.map((p, index) =>
         p === "..." ? (
-          <span key={`ellipsis-${index}`} className="px-1 text-muted-foreground">
+          <span
+            key={`ellipsis-${index}`}
+            className="px-1 text-muted-foreground"
+          >
             ...
           </span>
         ) : (

@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "clean": "rm -rf .next dist"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -15,27 +18,26 @@
     "@repo/utils": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
-    "country-flag-icons": "^1.6.17",
+    "zod": "^3.24.1",
     "framer-motion": "^12.38.0",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^1.8.0",
     "next": "16.2.6",
-    "react": "19.2.4",
+    "react": "^19.2.4",
     "react-country-flag": "^3.1.0",
-    "react-dom": "19.2.4",
+    "react-dom": "^19.2.4",
     "react-hook-form": "^7.54.2",
     "svg-dotted-map": "^2.1.0",
-    "tailwind-merge": "^3.5.0",
-    "zod": "^3.24.1"
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

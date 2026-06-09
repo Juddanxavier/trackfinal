@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Logger,
   UseGuards,
   Request,
   NotFoundException,
@@ -41,7 +42,8 @@ interface PaginationQuery {
 
 function sanitizeQuoteForCustomer(quote: any) {
   if (!quote) return null;
-  const { assignedToId, assignedTo, organisationId, userId, ...sanitized } = quote;
+  const { assignedToId, assignedTo, organisationId, userId, ...sanitized } =
+    quote;
   return sanitized;
 }
 
@@ -50,6 +52,8 @@ function sanitizeQuoteForCustomer(quote: any) {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class QuotesController {
+  private readonly logger = new Logger(QuotesController.name);
+
   constructor(
     private readonly quotesService: QuotesService,
     private readonly usersService: UsersService,
@@ -61,31 +65,25 @@ export class QuotesController {
   @ApiResponse({ status: 201, description: 'Quote created' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   async create(@Body() createDto: CreateQuoteDto, @Request() req: any) {
-    console.log('Create quote - user:', req.user);
-    
     let organisationId = req.user.organisationId;
-    console.log('Initial org ID:', organisationId);
-    
+
     if (!organisationId) {
       try {
         let org = await this.organisationsService.findBySlug('gajan-traders');
-        console.log('Found org:', org);
         if (!org) {
           org = await this.organisationsService.create({
             name: 'Gajan Traders',
             slug: 'gajan-traders',
           });
-          console.log('Created org:', org);
         }
         organisationId = org.id;
         await this.usersService.update(req.user.id, { organisationId });
-        console.log('Updated user org');
       } catch (err) {
-        console.error('Error getting org:', err);
+        this.logger.error('Error getting org:', err);
         throw err;
       }
     }
-    
+
     return this.quotesService.create({
       organisationId,
       branchId: req.user.branchId || null,
@@ -105,7 +103,10 @@ export class QuotesController {
   @ApiResponse({ status: 200, description: 'List of my quotes' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findMyQuotes(@Request() req: any) {
-    const quotes = await this.quotesService.findByUser(req.user.id, req.user.organisationId);
+    const quotes = await this.quotesService.findByUser(
+      req.user.id,
+      req.user.organisationId,
+    );
     return quotes.map(sanitizeQuoteForCustomer);
   }
 
@@ -145,7 +146,8 @@ export class QuotesController {
   @ApiOperation({ summary: 'Get pending quotes' })
   @ApiResponse({ status: 200, description: 'List of pending quotes' })
   async findPending(@Request() req: any) {
-    const branchId = req.user.role === Role.STAFF ? req.user.branchId : undefined;
+    const branchId =
+      req.user.role === Role.STAFF ? req.user.branchId : undefined;
     return this.quotesService.findPendingByOrganisation(
       req.user.organisationId,
       branchId,
@@ -247,12 +249,10 @@ export class QuotesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get quote statistics' })
   @ApiResponse({ status: 200, description: 'Quote statistics' })
-  async getStats(
-    @Request() req: any,
-    @Query() query: { branchId?: string },
-  ) {
+  async getStats(@Request() req: any, @Query() query: { branchId?: string }) {
     const organisationId = req.user.organisationId;
-    const branchId = req.user.role === Role.STAFF ? req.user.branchId : query.branchId;
+    const branchId =
+      req.user.role === Role.STAFF ? req.user.branchId : query.branchId;
     return this.quotesService.getStats(organisationId, branchId);
   }
 
@@ -260,14 +260,18 @@ export class QuotesController {
   @UseGuards(JwtAuthGuard, CasbinGuard)
   @Require({ resource: 'quotes', action: 'read' })
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get quote activity history', description: 'Get daily quote creation counts for charting' })
+  @ApiOperation({
+    summary: 'Get quote activity history',
+    description: 'Get daily quote creation counts for charting',
+  })
   @ApiResponse({ status: 200, description: 'Activity history data' })
   async getActivityHistory(
     @Request() req: any,
     @Query() query: { days?: string },
   ) {
     const organisationId = req.user.organisationId;
-    const branchId = req.user.role === Role.STAFF ? req.user.branchId : undefined;
+    const branchId =
+      req.user.role === Role.STAFF ? req.user.branchId : undefined;
     return this.quotesService.getActivityHistory(
       organisationId,
       branchId,

@@ -3,19 +3,11 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { db } from '../../database';
 import { shipments, shipmentEvents } from '../../database/schema/shipments';
-import {
-  eq,
-  and,
-  not,
-  inArray,
-  isNull,
-  isNotNull,
-  sql,
-  desc,
-} from 'drizzle-orm';
-import { SeventeenTrackService, TrackingData } from './seventeen-track.service';
+import { eq, and, not, inArray, isNull, sql } from 'drizzle-orm';
+import { SeventeenTrackService } from './seventeen-track.service';
+import { STATUS_MAP, TrackingData } from './tracking-parser.service';
 import { NotificationService } from '../notifications/notification.service';
-import { WebhooksService } from '../webhooks/webhooks.service';
+import { WebhooksService, WebhookEvent } from '../webhooks/webhooks.service';
 
 interface WebhookPayload {
   number: string;
@@ -49,21 +41,6 @@ interface WebhookPayload {
     };
   };
 }
-
-const STATUS_MAP: Record<string, string> = {
-  NotFound: 'not_found',
-  InfoReceived: 'pending',
-  PickedUp: 'in_transit',
-  InTransit: 'in_transit',
-  Arrival: 'in_transit',
-  Departure: 'in_transit',
-  AvailableForPickup: 'in_transit',
-  OutForDelivery: 'in_transit',
-  Delivered: 'delivered',
-  Returned: 'exception',
-  Returning: 'exception',
-  Exception: 'exception',
-};
 
 @Injectable()
 export class TrackingSyncService {
@@ -179,6 +156,116 @@ export class TrackingSyncService {
     return { success: true, processed: payload.length };
   }
 
+  private getStatusTitleKey(status: string): string {
+    switch (status) {
+      case 'delivered':
+        return 'shipment.delivered';
+      case 'in_transit':
+        return 'shipment.in_transit';
+      default:
+        return `shipment.${status}`;
+    }
+  }
+
+  private getWebhookEventType(status: string): WebhookEvent | null {
+    switch (status) {
+      case 'delivered':
+        return 'delivered';
+      case 'in_transit':
+        return 'in_transit';
+      case 'exception':
+        return 'exception';
+      case 'cancelled':
+        return 'cancelled';
+      default:
+        return null;
+    }
+  }
+
+  private async sendStatusChangeNotification(
+    shipment: typeof shipments.$inferSelect,
+    status: string,
+    location: string | null,
+  ) {
+    if (
+      !shipment.userId &&
+      !shipment.recipientEmail &&
+      !shipment.recipientPhone
+    )
+      return;
+
+    try {
+      await this.notificationService.sendToAll({
+        organisationId: shipment.organisationId,
+        userId: shipment.userId || undefined,
+        recipientEmail: shipment.recipientEmail || undefined,
+        recipientPhone: shipment.recipientPhone || undefined,
+        titleKey: this.getStatusTitleKey(status),
+        data: {
+          trackingNumber: shipment.trackingNumber,
+          carrierCode: shipment.carrierCode,
+          status,
+          recipientName: shipment.recipientName,
+          destinationCountry: shipment.destinationCountry,
+          whiteLabelCode: shipment.whiteLabelTrackingCode,
+          location,
+        },
+      });
+    } catch (err) {
+      this.logger.error(`[Webhook] Failed to send notification: ${err}`);
+    }
+  }
+
+  private async deduplicateAndSaveEvents(
+    shipmentId: string,
+    events: TrackingData['events'],
+    defaultStatus: string,
+    defaultStatusRaw: string,
+  ) {
+    if (!events || events.length === 0) return;
+
+    const existingEvents = await db
+      .select()
+      .from(shipmentEvents)
+      .where(eq(shipmentEvents.shipmentId, shipmentId));
+
+    const existingKeys = new Set(
+      existingEvents.map(
+        (e) => `${e.eventTime?.getTime()}-${e.description}-${e.location}`,
+      ),
+    );
+
+    let eventsSaved = 0;
+    for (const event of events) {
+      const eventTime = event.eventTime
+        ? new Date(event.eventTime)
+        : new Date();
+      const key = `${eventTime.getTime()}-${event.description || ''}-${event.location || ''}`;
+
+      if (existingKeys.has(key)) continue;
+
+      try {
+        await db
+          .insert(shipmentEvents)
+          .values({
+            shipmentId,
+            status: event.status || defaultStatus,
+            statusRaw: event.statusRaw || defaultStatusRaw,
+            description: event.description || null,
+            location: event.location || null,
+            eventTime,
+          })
+          .onConflictDoNothing();
+        eventsSaved++;
+      } catch (err) {
+        this.logger.error(`Failed to save event: ${err}`);
+      }
+    }
+    this.logger.debug(
+      `Saved ${eventsSaved} new events for shipment ${shipmentId}`,
+    );
+  }
+
   private async processWebhookItem(item: WebhookPayload) {
     const trackingNumber = item.number;
 
@@ -238,67 +325,36 @@ export class TrackingSyncService {
         .onConflictDoNothing();
     }
 
-    if (shipment.status !== status) {
-      this.logger.log(
-        `[Webhook] Status changed for ${trackingNumber}: ${shipment.status} -> ${status}`,
-      );
+    this.logger.log(
+      `[Webhook] Status changed for ${trackingNumber}: ${shipment.status} -> ${status}`,
+    );
+    await this.sendStatusChangeNotification(
+      shipment,
+      status,
+      latestEvent?.location || null,
+    );
 
-      if (
-        shipment.userId ||
-        shipment.recipientEmail ||
-        shipment.recipientPhone
-      ) {
-        const titleKey =
-          status === 'delivered'
-            ? 'shipment.delivered'
-            : status === 'in_transit'
-              ? 'shipment.in_transit'
-              : `shipment.${status}`;
-
-        try {
-          await this.notificationService.sendToAll({
+    const webhookEvent = this.getWebhookEventType(status);
+    if (webhookEvent) {
+      this.webhooksService
+        .dispatch(
+          webhookEvent,
+          {
+            trackingNumber: shipment.trackingNumber,
+            carrierCode: shipment.carrierCode,
+            status,
+            statusRaw,
+            recipientName: shipment.recipientName,
+            destinationCountry: shipment.destinationCountry,
+            location: latestEvent?.location || null,
+            eventTime: latestEvent?.time_utc || null,
             organisationId: shipment.organisationId,
-            userId: shipment.userId || undefined,
-            recipientEmail: shipment.recipientEmail || undefined,
-            recipientPhone: shipment.recipientPhone || undefined,
-            titleKey,
-            data: {
-              trackingNumber: shipment.trackingNumber,
-              carrierCode: shipment.carrierCode,
-              status,
-              recipientName: shipment.recipientName,
-              destinationCountry: shipment.destinationCountry,
-              whiteLabelCode: shipment.whiteLabelTrackingCode,
-              location: latestEvent?.location || null,
-            },
-          });
-          this.logger.log(`[Webhook] Notification sent for ${trackingNumber}`);
-        } catch (err) {
-          this.logger.error(`[Webhook] Failed to send notification: ${err}`);
-        }
-      }
-
-      const webhookEvent = status === 'delivered' ? 'delivered'
-        : status === 'in_transit' ? 'in_transit'
-        : status === 'exception' ? 'exception'
-        : status === 'cancelled' ? 'cancelled'
-        : null;
-
-      if (webhookEvent) {
-        this.webhooksService.dispatch(webhookEvent, {
-          trackingNumber: shipment.trackingNumber,
-          carrierCode: shipment.carrierCode,
-          status,
-          statusRaw,
-          recipientName: shipment.recipientName,
-          destinationCountry: shipment.destinationCountry,
-          location: latestEvent?.location || null,
-          eventTime: latestEvent?.time_utc || null,
-          organisationId: shipment.organisationId,
-        }, shipment.organisationId).catch((err) => {
+          },
+          shipment.organisationId,
+        )
+        .catch((err) => {
           this.logger.error(`[Webhook] Failed to dispatch webhook: ${err}`);
         });
-      }
     }
 
     this.logger.log(`[Webhook] Updated shipment ${trackingNumber}: ${status}`);
@@ -367,96 +423,18 @@ export class TrackingSyncService {
       })
       .where(eq(shipments.id, shipment.id));
 
-    if (tracking.events && tracking.events.length > 0) {
-      const existingEvents = await db
-        .select()
-        .from(shipmentEvents)
-        .where(eq(shipmentEvents.shipmentId, shipment.id));
-
-      const existingKeys = new Set(
-        existingEvents.map(
-          (e) => `${e.eventTime?.getTime()}-${e.description}-${e.location}`,
-        ),
-      );
-
-      let eventsSaved = 0;
-      for (const event of tracking.events) {
-        const eventTime = event.eventTime
-          ? new Date(event.eventTime)
-          : new Date();
-        const key = `${eventTime.getTime()}-${event.description || ''}-${event.location || ''}`;
-
-        if (existingKeys.has(key)) {
-          this.logger.debug(
-            `[updateShipmentFromTracking] Skipping duplicate event: ${event.description}`,
-          );
-          continue;
-        }
-
-        try {
-          await db
-            .insert(shipmentEvents)
-            .values({
-              shipmentId: shipment.id,
-              status: event.status || status,
-              statusRaw: event.statusRaw || statusRaw,
-              description: event.description || null,
-              location: event.location || null,
-              eventTime,
-            })
-            .onConflictDoNothing();
-          eventsSaved++;
-        } catch (err) {
-          this.logger.error(`Failed to save event: ${err}`);
-        }
-      }
-      this.logger.debug(
-        `Saved ${eventsSaved} new events for shipment ${shipment.id}`,
-      );
-    }
+    await this.deduplicateAndSaveEvents(
+      shipment.id,
+      tracking.events,
+      status,
+      statusRaw,
+    );
 
     if (shipment.status !== status) {
       this.logger.log(
         `[updateShipmentFromTracking] Status changed for ${shipment.trackingNumber}: ${shipment.status} -> ${status}`,
       );
-
-      if (
-        shipment.userId ||
-        shipment.recipientEmail ||
-        shipment.recipientPhone
-      ) {
-        const titleKey =
-          status === 'delivered'
-            ? 'shipment.delivered'
-            : status === 'in_transit'
-              ? 'shipment.in_transit'
-              : `shipment.${status}`;
-
-        try {
-          await this.notificationService.sendToAll({
-            organisationId: shipment.organisationId,
-            userId: shipment.userId || undefined,
-            recipientEmail: shipment.recipientEmail || undefined,
-            recipientPhone: shipment.recipientPhone || undefined,
-            titleKey,
-            data: {
-              trackingNumber: shipment.trackingNumber,
-              carrierCode: shipment.carrierCode,
-              status,
-              recipientName: shipment.recipientName,
-              destinationCountry: shipment.destinationCountry,
-              whiteLabelCode: shipment.whiteLabelTrackingCode,
-            },
-          });
-          this.logger.log(
-            `[updateShipmentFromTracking] Notification sent for ${shipment.trackingNumber}`,
-          );
-        } catch (err) {
-          this.logger.error(
-            `[updateShipmentFromTracking] Failed to send notification: ${err}`,
-          );
-        }
-      }
+      await this.sendStatusChangeNotification(shipment, status, null);
     }
 
     this.logger.log(
@@ -532,6 +510,7 @@ export class TrackingSyncService {
           else failCount++;
         } catch (error) {
           failCount++;
+          this.logger.error(`Sync failed for shipment ${shipment.id}:`, error);
         }
       }
 

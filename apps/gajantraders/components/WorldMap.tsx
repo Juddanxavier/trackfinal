@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { Globe, type Marker, type Arc } from '@repo/ui/ui/globe';
+import { Globe, type Marker, type Arc } from "@repo/ui/ui/globe";
 
 interface WorldMapProps {
   className?: string;
@@ -16,7 +16,7 @@ interface WorldMapProps {
 }
 
 export function WorldMap({
-  className = '',
+  className = "",
   size = 450,
   dark = 0,
   markers,

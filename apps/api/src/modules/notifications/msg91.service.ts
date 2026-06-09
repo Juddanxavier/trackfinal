@@ -47,21 +47,18 @@ export class MSG91Service {
     }
   }
   private mapComponents(data: Record<string, any>) {
-    return {
-      body_1: data.whiteLabelCode
-        ? { type: 'text', value: data.whiteLabelCode }
-        : undefined,
-      body_2: data.destinationCountry
-        ? { type: 'text', value: data.destinationCountry }
-        : undefined,
-      body_3: data.location
-        ? { type: 'text', value: data.location }
-        : undefined,
-      body_4: data.trackingUrl
-        ? { type: 'text', value: data.trackingUrl }
-        : undefined,
-      body_5: data.orgName ? { type: 'text', value: data.orgName } : undefined,
-    };
+    const components: Record<string, { type: string; value: string }> = {};
+    const fields: [string, string][] = [
+      ['body_1', data.whiteLabelCode],
+      ['body_2', data.destinationCountry],
+      ['body_3', data.location],
+      ['body_4', data.trackingUrl],
+      ['body_5', data.orgName],
+    ];
+    for (const [key, value] of fields) {
+      if (value) components[key] = { type: 'text', value };
+    }
+    return components;
   }
   private buildWhatsAppMessage(
     status: string,

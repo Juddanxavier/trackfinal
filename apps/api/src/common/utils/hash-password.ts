@@ -1,5 +1,8 @@
 import * as bcrypt from 'bcrypt';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+
+const logger = new Logger('HashPassword');
 
 function getBcryptRounds(configService: ConfigService): number {
   const roundsStr = configService.get<string>('BCRYPT_ROUNDS');
@@ -7,7 +10,7 @@ function getBcryptRounds(configService: ConfigService): number {
   const rounds = parseInt(roundsStr, 10);
   if (isNaN(rounds) || rounds < 10) return 12;
   if (rounds > 14) {
-    console.warn(
+    logger.warn(
       `BCRYPT_ROUNDS of ${rounds} is very high and may cause slow authentication`,
     );
   }
@@ -32,7 +35,8 @@ export async function comparePassword(
   }
   try {
     return bcrypt.compare(password, hash);
-  } catch {
+  } catch (error) {
+    logger.error('bcrypt.compare failed:', error);
     return false;
   }
 }

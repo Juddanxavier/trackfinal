@@ -204,7 +204,10 @@ export class QuotesService {
   }
 
   async findByUser(userId: string, organisationId?: string) {
-    const filters: any[] = [eq(quotes.userId, userId), isNull(quotes.deletedAt)];
+    const filters: any[] = [
+      eq(quotes.userId, userId),
+      isNull(quotes.deletedAt),
+    ];
     if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
     return db
       .select()
@@ -340,7 +343,8 @@ export class QuotesService {
   async getStats(organisationId?: string, branchId?: string) {
     try {
       const filters: any[] = [isNull(quotes.deletedAt)];
-      if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
+      if (organisationId)
+        filters.push(eq(quotes.organisationId, organisationId));
       if (branchId) filters.push(eq(quotes.branchId, branchId));
       const whereCondition = and(...filters);
 
@@ -372,10 +376,15 @@ export class QuotesService {
     }
   }
 
-  async getActivityHistory(organisationId?: string, branchId?: string, days: number = 30) {
+  async getActivityHistory(
+    organisationId?: string,
+    branchId?: string,
+    days: number = 30,
+  ) {
     try {
       const filters: any[] = [isNull(quotes.deletedAt)];
-      if (organisationId) filters.push(eq(quotes.organisationId, organisationId));
+      if (organisationId)
+        filters.push(eq(quotes.organisationId, organisationId));
       if (branchId) filters.push(eq(quotes.branchId, branchId));
       const whereClause = and(...filters);
 

@@ -1,6 +1,12 @@
 "use client"
 
-import { FileText, Clock, DollarSign, CheckCircle2, XCircle } from "lucide-react"
+import {
+  FileText,
+  Clock,
+  DollarSign,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react"
 import { StatsCard, StatsCardGrid } from "@/components/stats-card"
 
 interface QuoteStatsCardsProps {

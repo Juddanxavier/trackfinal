@@ -14,7 +14,12 @@ import {
 import { eq, and, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
-const WEBHOOK_EVENTS = ['in_transit', 'delivered', 'exception', 'cancelled'] as const;
+const WEBHOOK_EVENTS = [
+  'in_transit',
+  'delivered',
+  'exception',
+  'cancelled',
+] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
 @Injectable()
@@ -111,9 +116,7 @@ export class WebhooksService {
       throw new NotFoundException('Webhook endpoint not found');
     }
 
-    await db
-      .delete(webhookEndpoints)
-      .where(eq(webhookEndpoints.id, id));
+    await db.delete(webhookEndpoints).where(eq(webhookEndpoints.id, id));
   }
 
   async dispatch(event: WebhookEvent, payload: object, organisationId: string) {

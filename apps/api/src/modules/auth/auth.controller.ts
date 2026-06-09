@@ -58,7 +58,7 @@ function getRefreshCookieOptions(): Record<string, unknown> {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' as const : 'lax' as const,
+    sameSite: isProduction ? ('none' as const) : ('lax' as const),
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
     ...(isProduction ? { domain: REFRESH_COOKIE_DOMAIN } : {}),
@@ -85,17 +85,20 @@ export class AuthController {
   }
 
   private get googleCallbackUrl(): string {
-    return this.configService.get('GOOGLE_CALLBACK_URL', 'http://localhost:4000/api/auth/google/callback');
+    return this.configService.get(
+      'GOOGLE_CALLBACK_URL',
+      'http://localhost:4000/api/auth/google/callback',
+    );
   }
 
   private getRefreshToken(req: ExpressRequest) {
     const cookieToken = req.cookies?.refresh_token;
     if (cookieToken) return cookieToken;
-    
+
     if (req.body && req.body.refreshToken) {
       return req.body.refreshToken;
     }
-    
+
     return null;
   }
 
@@ -121,14 +124,29 @@ export class AuthController {
   }
 
   @Public()
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register with invitation token' })
+  @ApiBody({ type: InviteRegisterDto })
+  async registerWithInvitation(
+    @Body() dto: InviteRegisterDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const result = await this.authService.registerWithInvitation(
+      dto.token,
+      dto.password,
+      dto.name,
+      this.extractContext(req),
+    );
+    return result;
+  }
+
+  @Public()
   @Post('customer-register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Customer self-registration with customer role' })
   @ApiBody({ type: RegisterDto })
-  async customerRegister(
-    @Body() dto: RegisterDto,
-    @Req() req: ExpressRequest,
-  ) {
+  async customerRegister(@Body() dto: RegisterDto, @Req() req: ExpressRequest) {
     const result = await this.authService.customerRegister(
       dto.email,
       dto.password,
@@ -152,12 +170,21 @@ export class AuthController {
   ) {
     const result = await this.authService.login(dto, this.extractContext(req));
     if (result.requiresTwoFactor) {
-      return { requiresTwoFactor: true, sessionToken: result.sessionToken, message: result.message };
+      return {
+        requiresTwoFactor: true,
+        sessionToken: result.sessionToken,
+        message: result.message,
+      };
     }
     if (result.refreshToken) {
       this.setRefreshCookie(res, result.refreshToken);
     }
-    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user, sessionId: result.sessionId };
+    return {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+      sessionId: result.sessionId,
+    };
   }
 
   @Public()
@@ -177,7 +204,12 @@ export class AuthController {
     if (result.refreshToken) {
       this.setRefreshCookie(res, result.refreshToken);
     }
-    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user, sessionId: result.sessionId };
+    return {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+      sessionId: result.sessionId,
+    };
   }
 
   @Get('2fa/status')
@@ -337,7 +369,10 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Revoke all sessions except current' })
   async revokeOtherSessions(@Request() req: any) {
-    return this.authService.revokeOtherSessions(req.user.id, req.user.sessionId);
+    return this.authService.revokeOtherSessions(
+      req.user.id,
+      req.user.sessionId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -346,7 +381,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile with permissions' })
   async getProfile(@Request() req: any) {
     const user = await this.usersService.findById(req.user.id);
-    const permissions = await this.casbinService.getPermissionsForRole(user?.role || '');
+    const permissions = await this.casbinService.getPermissionsForRole(
+      user?.role || '',
+    );
     return {
       id: user?.id,
       email: user?.email,
@@ -365,7 +402,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('permissions')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user permissions for frontend (Casbin.js format)' })
+  @ApiOperation({
+    summary: 'Get current user permissions for frontend (Casbin.js format)',
+  })
   async getPermissions(@Request() req: any) {
     const user = await this.usersService.findById(req.user.id);
     const role = user?.role || '';
@@ -406,7 +445,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Create user invitation' })
   async createInvitation(
     @Body()
-    dto: { email: string; role: 'admin' | 'staff'; organisationId?: string; branchId?: string | null },
+    dto: {
+      email: string;
+      role: 'admin' | 'staff';
+      organisationId?: string;
+      branchId?: string | null;
+    },
     @Request() req: any,
   ) {
     if (req.user.role !== Role.ADMIN) {
@@ -451,20 +495,20 @@ export class AuthController {
     if (!targetOrgId) {
       return { data: [], total: 0, page: 1, totalPages: 0 };
     }
-    
+
     const invitations = await this.authService.listInvitations(targetOrgId);
 
     // Apply filters
     let filtered = [...invitations];
     if (search) {
       const searchLower = search.toLowerCase();
-      filtered = filtered.filter(inv => 
-        inv.email.toLowerCase().includes(searchLower)
+      filtered = filtered.filter((inv) =>
+        inv.email.toLowerCase().includes(searchLower),
       );
     }
     if (status) {
       const now = new Date();
-      filtered = filtered.filter(inv => {
+      filtered = filtered.filter((inv) => {
         const isExpired = new Date(inv.expiresAt) <= now;
         const isAccepted = !!inv.acceptedAt;
         if (status === 'pending') return !isAccepted && !isExpired;
@@ -474,12 +518,15 @@ export class AuthController {
       });
     }
     if (role) {
-      filtered = filtered.filter(inv => inv.role === role);
+      filtered = filtered.filter((inv) => inv.role === role);
     }
 
     const total = filtered.length;
     const totalPages = Math.ceil(total / limitNum);
-    const paginated = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+    const paginated = filtered.slice(
+      (pageNum - 1) * limitNum,
+      pageNum * limitNum,
+    );
 
     return { data: paginated, total, page: pageNum, totalPages };
   }
@@ -531,10 +578,11 @@ export class AuthController {
     }
 
     const accessToken = await this.tokenService.generateAccessToken(user);
-    const { token: refreshToken } = await this.tokenService.generateRefreshToken(
-      user.id,
-      this.extractContext(req),
-    );
+    const { token: refreshToken } =
+      await this.tokenService.generateRefreshToken(
+        user.id,
+        this.extractContext(req),
+      );
 
     this.setRefreshCookie(res, refreshToken);
     return {

@@ -19,10 +19,7 @@ export class SearchController {
 
   @Get()
   @ApiOperation({ summary: 'Search across shipments, quotes, and users' })
-  async search(
-    @Query('q') query: string,
-    @Request() req: any,
-  ) {
+  async search(@Query('q') query: string, @Request() req: any) {
     if (!query || query.trim().length < 1) {
       return [];
     }

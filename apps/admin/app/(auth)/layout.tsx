@@ -8,9 +8,7 @@ export default function AuthLayout({
 }) {
   return (
     <ThemeProvider defaultTheme="dark" attribute="class" enableSystem={false}>
-      <AuthProvider>
-        {children}
-      </AuthProvider>
+      <AuthProvider>{children}</AuthProvider>
     </ThemeProvider>
   )
 }

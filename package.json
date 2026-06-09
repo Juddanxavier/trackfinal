@@ -9,9 +9,14 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "test": "turbo test",
+    "db:migrate": "cd apps/api && pnpm db:migrate",
+    "seed": "cd apps/api && pnpm seed",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json}\""
   },
   "devDependencies": {
+    "gitnexus": "^1.6.6",
     "prettier": "^3.8.1",
     "turbo": "^2.0.0"
   },
@@ -20,10 +25,7 @@
     "pnpm": ">=9"
   },
   "dependencies": {
-    "@csrf-armor/nextjs": "^1.4.4",
-    "@repo/auth": "workspace:*",
     "framer-motion": "^12.38.0",
-    "jwt-decode": "^4.0.0",
-    "primer-avatars": "^2.0.0"
+    "jwt-decode": "^4.0.0"
   }
 }

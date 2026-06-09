@@ -67,7 +67,9 @@ export class ShipmentsController {
     let branchId: string | null;
     if (req.user.role === 'admin') {
       if (!dto.branchId) {
-        throw new BadRequestException('Branch is required for admin-created shipments');
+        throw new BadRequestException(
+          'Branch is required for admin-created shipments',
+        );
       }
       branchId = dto.branchId;
     } else {
@@ -110,10 +112,14 @@ export class ShipmentsController {
         'User must be assigned to an organisation to view shipments.',
       );
     }
+    if (req.user.organisationId && orgId !== req.user.organisationId) {
+      throw new ForbiddenException(
+        'You can only access shipments in your organisation',
+      );
+    }
     // Staff are restricted to their own branch; admins can override via query param
-    const resolvedBranchId = req.user.role === 'staff'
-      ? req.user.branchId
-      : branchId || undefined;
+    const resolvedBranchId =
+      req.user.role === 'staff' ? req.user.branchId : branchId || undefined;
     return this.shipmentsService.findAll({
       organisationId: orgId,
       branchId: resolvedBranchId,
@@ -152,10 +158,11 @@ export class ShipmentsController {
   }
 
   @Post('test-create')
-  @Public()
-  @ApiOperation({ summary: 'Create test shipment (no auth)' })
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
+  @ApiOperation({ summary: 'Create test shipment' })
   @ApiResponse({ status: 201, description: 'Test shipment created' })
-  async createTest(@Body() dto: CreateShipmentDto) {
+  async createTest(@Request() req: any, @Body() dto: CreateShipmentDto) {
     const testOrgId = '00000000-0000-0000-0000-000000000001';
     return this.shipmentsService.create({
       organisationId: testOrgId,
@@ -190,14 +197,16 @@ export class ShipmentsController {
   }
 
   @Get('lookup-user')
-  @Public()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Lookup user by email or phone' })
   @ApiResponse({ status: 200, description: 'User info if found' })
   async lookupUser(
+    @Request() req: any,
     @Query('email') email?: string,
     @Query('phone') phone?: string,
   ) {
-    return this.usersService.lookupUser(email, phone);
+    return this.usersService.lookupUser(email, phone, req.user.organisationId);
   }
 
   @Get('public/track/:code')
@@ -225,13 +234,17 @@ export class ShipmentsController {
   async getStats(
     @Request() req: any,
     @Query('organisationId') organisationId?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const requestedOrgId = organisationId || req.user.organisationId;
-    // Admin/staff can only access their own organisation
     if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
-      throw new ForbiddenException('You can only access stats for your organisation');
+      throw new ForbiddenException(
+        'You can only access stats for your organisation',
+      );
     }
-    return this.shipmentsService.getStats(requestedOrgId || '');
+    const resolvedBranchId =
+      req.user.role === 'staff' ? req.user.branchId : branchId || undefined;
+    return this.shipmentsService.getStats(requestedOrgId || '', resolvedBranchId);
   }
 
   @Get('activity')
@@ -243,12 +256,21 @@ export class ShipmentsController {
     @Request() req: any,
     @Query('organisationId') organisationId?: string,
     @Query('days') days?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const requestedOrgId = organisationId || req.user.organisationId;
     if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
-      throw new ForbiddenException('You can only access activity for your organisation');
+      throw new ForbiddenException(
+        'You can only access activity for your organisation',
+      );
     }
-    return this.shipmentsService.getActivity(requestedOrgId || '', days ? parseInt(days) : 30);
+    const resolvedBranchId =
+      req.user.role === 'staff' ? req.user.branchId : branchId || undefined;
+    return this.shipmentsService.getActivity(
+      requestedOrgId || '',
+      resolvedBranchId,
+      days ? parseInt(days) : 30,
+    );
   }
 
   @Get('destinations')
@@ -260,13 +282,19 @@ export class ShipmentsController {
     @Request() req: any,
     @Query('organisationId') organisationId?: string,
     @Query('limit') limit?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const requestedOrgId = organisationId || req.user.organisationId;
     if (req.user.organisationId && requestedOrgId !== req.user.organisationId) {
-      throw new ForbiddenException('You can only access destinations for your organisation');
+      throw new ForbiddenException(
+        'You can only access destinations for your organisation',
+      );
     }
+    const resolvedBranchId =
+      req.user.role === 'staff' ? req.user.branchId : branchId || undefined;
     return this.shipmentsService.getDestinations(
       requestedOrgId || '',
+      resolvedBranchId,
       limit ? parseInt(limit) : 6,
     );
   }
@@ -286,13 +314,22 @@ export class ShipmentsController {
     if (!orgId) {
       throw new BadRequestException('User must be assigned to an organisation');
     }
-    const data = await this.shipmentsService.findByUserAndOrganisation(userId, orgId);
+    const data = await this.shipmentsService.findByUserAndOrganisation(
+      userId,
+      orgId,
+    );
     const pageNum = page ? parseInt(page) : 1;
     const limitNum = limit ? parseInt(limit) : 20;
     const total = data.length;
     const totalPages = Math.ceil(total / limitNum);
     const paginated = data.slice((pageNum - 1) * limitNum, pageNum * limitNum);
-    return { data: paginated, total, page: pageNum, limit: limitNum, totalPages };
+    return {
+      data: paginated,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+    };
   }
 
   @Get(':id')
@@ -346,11 +383,13 @@ export class ShipmentsController {
   }
 
   @Patch(':id/status')
-  @Public()
+  @UseGuards(CasbinGuard)
+  @Require({ resource: 'shipments', action: 'write' })
   @ApiOperation({ summary: 'Update shipment status' })
   @ApiResponse({ status: 200, description: 'Shipment status updated' })
   async updateStatus(
     @Param('id') id: string,
+    @Request() req: any,
     @Body()
     body: {
       status: string;
@@ -359,6 +398,15 @@ export class ShipmentsController {
       description?: string;
     },
   ) {
+    const shipment = await this.shipmentsService.findOne(id);
+
+    if (
+      req.user.organisationId &&
+      shipment.organisationId !== req.user.organisationId
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+
     return this.shipmentsService.updateStatus(id, body.status, {
       location: body.location,
       statusRaw: body.statusRaw,

@@ -1,8 +1,0 @@
-{
-  "files": ["apps/gajantraders/app/**/page.tsx"],
-  "insertBefore": "</body>",
-  "commentSyntax": "html",
-  "framework": "next",
-  "port": 3000,
-  "cspChecked": true
-}

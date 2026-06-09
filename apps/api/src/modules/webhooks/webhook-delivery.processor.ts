@@ -46,12 +46,16 @@ export class WebhookDeliveryProcessor extends WorkerHost {
           statusCode: response.status,
           responseBody: responseBody.slice(0, 1000),
           completedAt: response.ok ? new Date() : undefined,
-          nextRetryAt: response.ok ? undefined : this.getNextRetry(job.attemptsMade),
+          nextRetryAt: response.ok
+            ? undefined
+            : this.getNextRetry(job.attemptsMade),
         })
         .where(eq(webhookDeliveryLogs.id, deliveryLogId));
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${responseBody.slice(0, 200)}`);
+        throw new Error(
+          `HTTP ${response.status}: ${responseBody.slice(0, 200)}`,
+        );
       }
 
       this.logger.log(`Webhook delivered to ${url} (${response.status})`);

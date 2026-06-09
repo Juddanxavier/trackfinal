@@ -10,7 +10,15 @@ export function fadeIn(delay: number = 0) {
   }
 }
 
-export function FadeIn({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+export function FadeIn({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: React.ReactNode
+  delay?: number
+  className?: string
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -23,7 +31,13 @@ export function FadeIn({ children, delay = 0, className }: { children: React.Rea
   )
 }
 
-export function StaggerContainer({ children, className }: { children: React.ReactNode; className?: string }) {
+export function StaggerContainer({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <motion.div
       initial="initial"
@@ -44,7 +58,13 @@ export function StaggerContainer({ children, className }: { children: React.Reac
   )
 }
 
-export function StaggerItem({ children, className }: { children: React.ReactNode; className?: string }) {
+export function StaggerItem({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <motion.div
       variants={{
@@ -59,7 +79,15 @@ export function StaggerItem({ children, className }: { children: React.ReactNode
   )
 }
 
-export function ScaleIn({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+export function ScaleIn({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: React.ReactNode
+  delay?: number
+  className?: string
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -72,7 +100,17 @@ export function ScaleIn({ children, delay = 0, className }: { children: React.Re
   )
 }
 
-export function SlideIn({ children, direction = "left", delay = 0, className }: { children: React.ReactNode; direction?: "left" | "right" | "up" | "down"; delay?: number; className?: string }) {
+export function SlideIn({
+  children,
+  direction = "left",
+  delay = 0,
+  className,
+}: {
+  children: React.ReactNode
+  direction?: "left" | "right" | "up" | "down"
+  delay?: number
+  className?: string
+}) {
   const directions = {
     left: { x: -20, y: 0 },
     right: { x: 20, y: 0 },

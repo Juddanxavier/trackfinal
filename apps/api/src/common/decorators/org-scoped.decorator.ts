@@ -7,10 +7,13 @@ export interface OrgParams {
 }
 
 export const Org = createParamDecorator(
-  (data: keyof OrgParams | undefined, ctx: ExecutionContext): OrgParams | string => {
+  (
+    data: keyof OrgParams | undefined,
+    ctx: ExecutionContext,
+  ): OrgParams | string => {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user;
-    
+
     const orgParams: OrgParams = {
       organisationId: user?.organisationId || '',
       userId: user?.id || '',

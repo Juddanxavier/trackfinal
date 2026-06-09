@@ -1,398 +1,478 @@
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from "jwt-decode"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === "development"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function log(...args: any[]) {
-  if (isDev) console.log(...args);
+  if (isDev) console.log(...args)
 }
 
-const DEFAULT_TIMEOUT = 10000;
-const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
+const DEFAULT_TIMEOUT = 10000
+const TOKEN_EXPIRY_BUFFER_MS = 60 * 1000
 
-const TOKEN_KEY = 'track_access_token';
-const REFRESH_TOKEN_KEY = 'track_refresh_token';
-const CSRF_TOKEN_KEY = 'csrf_token';
+const TOKEN_KEY = "track_access_token"
+const REFRESH_TOKEN_KEY = "track_refresh_token"
+const CSRF_TOKEN_KEY = "csrf_token"
 
 // CSRF Token management
-let csrfToken: string | null = null;
+let csrfToken: string | null = null
 
 export async function fetchCsrfToken(): Promise<string | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/csrf/token`, {
-      method: 'GET',
-      credentials: 'include',
-    });
+      method: "GET",
+      credentials: "include",
+    })
     if (response.ok) {
-      const data = await response.json();
-      csrfToken = data.csrfToken;
-      return csrfToken;
+      const data = await response.json()
+      csrfToken = data.csrfToken
+      return csrfToken
     }
   } catch (error) {
-    console.error('[API] Failed to fetch CSRF token:', error);
+    console.error("[API] Failed to fetch CSRF token:", error)
   }
-  return null;
+  return null
 }
 
 // Simple token storage - always read from localStorage directly
 function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY)
   } catch {
-    return null;
+    return null
   }
 }
 
 export function setToken(token: string | null): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return
   try {
     if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(TOKEN_KEY, token)
     } else {
-      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TOKEN_KEY)
     }
-  } catch {}
+  } catch {
+    console.warn("localStorage not available")
+  }
 }
 
 function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null
   try {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    return localStorage.getItem(REFRESH_TOKEN_KEY)
   } catch {
-    return null;
+    return null
   }
 }
 
 export function setRefreshToken(token: string | null): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return
   try {
     if (token) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, token);
+      localStorage.setItem(REFRESH_TOKEN_KEY, token)
+      document.cookie = "track_session=1; path=/; max-age=604800; SameSite=Lax"
     } else {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+      document.cookie = "track_session=; path=/; max-age=0; SameSite=Lax"
     }
-  } catch {}
+  } catch {
+    console.warn("localStorage not available")
+  }
 }
 
 export class ApiError extends Error {
   constructor(
     message: string,
-    public statusCode: number,
+    public statusCode: number
   ) {
-    super(message);
-    this.name = 'ApiError';
+    super(message)
+    this.name = "ApiError"
   }
 }
 
 interface ApiOptions extends RequestInit {
-  throwOnError?: boolean;
-  timeout?: number;
+  throwOnError?: boolean
+  timeout?: number
 }
 
-let refreshPromise: Promise<string> | null = null;
-const listeners: Set<() => void> = new Set();
+let refreshPromise: Promise<string> | null = null
+const listeners: Set<() => void> = new Set()
 
 export function notifyAuthChange() {
-  listeners.forEach(cb => cb());
+  listeners.forEach((cb) => cb())
 }
 
 export function subscribeAuthChange(callback: () => void) {
-  listeners.add(callback);
-  return () => listeners.delete(callback);
+  listeners.add(callback)
+  return () => listeners.delete(callback)
 }
 
 class ApiClient {
-  private baseUrl: string;
+  private baseUrl: string
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+    this.baseUrl = baseUrl
   }
 
   private getUrl(path: string): string {
-    const prefix = path.startsWith('/') ? '' : '/';
-    const url = `${this.baseUrl}${prefix}${path}`;
-    
+    const prefix = path.startsWith("/") ? "" : "/"
+    const url = `${this.baseUrl}${prefix}${path}`
+
     // Validate URL
     try {
-      new URL(url);
+      new URL(url)
     } catch (e) {
-      console.error(`[API] Invalid URL constructed: ${url}`);
-      throw new Error(`Invalid API URL: ${url}`);
+      console.error(`[API] Invalid URL constructed: ${url}`)
+      throw new Error(`Invalid API URL: ${url}`)
     }
-    
-    return url;
+
+    return url
   }
 
-  private async fetchWithTimeout(url: string, options: RequestInit, timeout: number): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    timeout: number
+  ): Promise<Response> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
-      log(`[API] Making request to: ${url}`, { method: options.method || 'GET' });
-      const response = await fetch(url, { ...options, signal: controller.signal });
-      log(`[API] Response from ${url}:`, response.status);
-      return response;
+      log(`[API] Making request to: ${url}`, {
+        method: options.method || "GET",
+      })
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      })
+      log(`[API] Response from ${url}:`, response.status)
+      return response
     } catch (error) {
-      console.error(`[API] Fetch failed for ${url}:`, error);
+      console.error(`[API] Fetch failed for ${url}:`, error)
       // Re-throw with more context
       if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          throw new Error(`Request timeout after ${timeout}ms`);
+        if (error.name === "AbortError") {
+          throw new Error(`Request timeout after ${timeout}ms`)
         }
-        if (error.message.includes('fetch')) {
-          throw new Error(`Network error: Cannot connect to ${url}. Is the API server running?`);
+        if (error.message.includes("fetch")) {
+          throw new Error(
+            `Network error: Cannot connect to ${url}. Is the API server running?`
+          )
         }
       }
-      throw error;
+      throw error
     } finally {
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId)
     }
   }
 
   private async refreshAccessToken(): Promise<string> {
     if (refreshPromise) {
-      return refreshPromise;
+      return refreshPromise
     }
 
     refreshPromise = (async () => {
       try {
-        log('[API] Attempting token refresh...');
-        const storedRefreshToken = getRefreshToken();
-        const body = storedRefreshToken ? { refreshToken: storedRefreshToken } : undefined;
+        log("[API] Attempting token refresh...")
+        const storedRefreshToken = getRefreshToken()
+        const body = storedRefreshToken
+          ? { refreshToken: storedRefreshToken }
+          : undefined
 
         const res = await this.fetchWithTimeout(
-          this.getUrl('auth/refresh'),
+          this.getUrl("auth/refresh"),
           {
-            method: 'POST',
-            credentials: 'include',
+            method: "POST",
+            credentials: "include",
             headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
+              "Content-Type": "application/json",
+              Accept: "application/json",
             },
             body: body ? JSON.stringify(body) : undefined,
           },
           DEFAULT_TIMEOUT
-        );
+        )
 
         if (!res.ok) {
-          console.error('[API] Token refresh failed:', res.status);
-          setToken(null);
-          setRefreshToken(null);
-          notifyAuthChange();
-          throw new ApiError('Session expired', 401);
+          console.error("[API] Token refresh failed:", res.status)
+          setToken(null)
+          setRefreshToken(null)
+          notifyAuthChange()
+          throw new ApiError("Session expired", 401)
         }
 
-        const data = await res.json();
-        setToken(data.accessToken);
-        if (data.refreshToken) setRefreshToken(data.refreshToken);
-        notifyAuthChange();
-        log('[API] Token refresh successful');
-        return data.accessToken;
+        const data = await res.json()
+        setToken(data.accessToken)
+        if (data.refreshToken) setRefreshToken(data.refreshToken)
+        notifyAuthChange()
+        log("[API] Token refresh successful")
+        return data.accessToken
       } finally {
-        refreshPromise = null;
+        refreshPromise = null
       }
-    })();
+    })()
 
-    return refreshPromise;
+    return refreshPromise
+  }
+
+  private buildHeaders(fetchOptions: ApiOptions): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(fetchOptions.headers as Record<string, string>),
+    }
+
+    const token = getToken()
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    const mutatingMethods = ["POST", "PUT", "PATCH", "DELETE"]
+    if (mutatingMethods.includes(fetchOptions.method || "GET") && csrfToken) {
+      headers["X-CSRF-Token"] = csrfToken
+    }
+
+    return headers
+  }
+
+  private isAuthEndpoint(path: string): boolean {
+    return (
+      path.includes("auth/login") ||
+      path.includes("auth/refresh") ||
+      path.includes("auth/register")
+    )
+  }
+
+  private async maybeRetryCsrf(
+    initialResponse: Response,
+    path: string,
+    fetchOptions: ApiOptions,
+    headers: Record<string, string>,
+    timeout: number
+  ): Promise<Response> {
+    const errorData = await initialResponse.json().catch(() => ({}))
+    if (
+      !errorData.message?.includes("CSRF") &&
+      !errorData.error?.includes("CSRF")
+    ) {
+      return initialResponse
+    }
+
+    log("[API] Got 403 CSRF error, fetching new token...")
+    const newCsrfToken = await fetchCsrfToken()
+    if (!newCsrfToken) return initialResponse
+
+    headers["X-CSRF-Token"] = newCsrfToken
+    return this.fetchWithTimeout(
+      this.getUrl(path),
+      { ...fetchOptions, credentials: "include", headers },
+      timeout
+    )
+  }
+
+  private async retryAfterRefresh(
+    path: string,
+    fetchOptions: ApiOptions,
+    headers: Record<string, string>,
+    timeout: number,
+    throwOnError: boolean
+  ): Promise<Response> {
+    log("[API] Got 401, attempting token refresh...")
+    try {
+      const newToken = await this.refreshAccessToken()
+      headers["Authorization"] = `Bearer ${newToken}`
+      return this.fetchWithTimeout(
+        this.getUrl(path),
+        { ...fetchOptions, credentials: "include", headers },
+        timeout
+      )
+    } catch (refreshError) {
+      console.error("[API] Token refresh failed:", refreshError)
+      setToken(null)
+      notifyAuthChange()
+      if (typeof window !== "undefined" && throwOnError) {
+        window.location.href = "/login"
+      }
+      throw new ApiError("Session expired", 401)
+    }
+  }
+
+  private async parseErrorBody<T>(
+    res: Response,
+    throwOnError: boolean
+  ): Promise<T> {
+    let message = "An error occurred"
+    try {
+      const errorData = await res.json()
+      message = errorData.message || `Request failed with status ${res.status}`
+    } catch {
+      message = `Request failed with status ${res.status}`
+    }
+
+    if (!throwOnError) {
+      return { statusCode: res.status, message, error: true } as unknown as T
+    }
+    throw new ApiError(message, res.status)
   }
 
   async fetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
-    const { throwOnError = true, timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
-    let hasRetried = false;
+    const {
+      throwOnError = true,
+      timeout = DEFAULT_TIMEOUT,
+      ...fetchOptions
+    } = options
 
-    // Validate path
     if (!path) {
-      console.error('[API] Error: path is empty or undefined');
-      if (!throwOnError) return {} as T;
-      throw new ApiError('Request path is empty', 400);
+      if (!throwOnError) return {} as T
+      throw new ApiError("Request path is empty", 400)
     }
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(fetchOptions.headers as Record<string, string>),
-    };
+    const headers = this.buildHeaders(fetchOptions)
 
-    // Always get fresh token from localStorage
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    // Add CSRF token for mutating operations
-    const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-    if (mutatingMethods.includes(fetchOptions.method || 'GET') && csrfToken) {
-      headers['X-CSRF-Token'] = csrfToken;
-    }
-
-    let res: Response;
-    try {
-      const url = this.getUrl(path);
+    const performRequest = (): Promise<Response> => {
+      const url = this.getUrl(path)
       log(`[API] Fetching: ${url}`, {
-        method: fetchOptions.method || 'GET',
-        hasAuth: !!token,
-        path: path
-      });
-      res = await this.fetchWithTimeout(
+        method: fetchOptions.method || "GET",
+        hasAuth: !!headers["Authorization"],
+        path,
+      })
+      return this.fetchWithTimeout(
         url,
-        { ...fetchOptions, credentials: 'include', headers },
+        { ...fetchOptions, credentials: "include", headers },
         timeout
-      );
+      )
+    }
+
+    let res: Response
+    try {
+      res = await performRequest()
     } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') {
-        throw new ApiError('Request timed out', 408);
+      if (e instanceof Error && e.name === "AbortError") {
+        throw new ApiError("Request timed out", 408)
       }
-      console.error(`[API] Fetch failed for ${path}:`, e);
-      throw new ApiError(e instanceof Error ? e.message : 'Network error', 0);
+      throw new ApiError(e instanceof Error ? e.message : "Network error", 0)
     }
 
-    // Handle 403 CSRF errors - fetch new CSRF token and retry
-    if (res.status === 403 && !hasRetried) {
-      const errorData = await res.json().catch(() => ({}));
-      if (errorData.message?.includes('CSRF') || errorData.error?.includes('CSRF')) {
-        log('[API] Got 403 CSRF error, fetching new token...');
-        hasRetried = true;
-        const newCsrfToken = await fetchCsrfToken();
-        if (newCsrfToken) {
-          headers['X-CSRF-Token'] = newCsrfToken;
-          res = await this.fetchWithTimeout(
-            this.getUrl(path),
-            { ...fetchOptions, credentials: 'include', headers },
-            timeout
-          );
-        }
-      }
+    if (res.status === 403) {
+      res = await this.maybeRetryCsrf(res, path, fetchOptions, headers, timeout)
     }
 
-    // Handle 401 - try to refresh token (skip for public auth endpoints)
-    const isAuthEndpoint = path.includes('auth/login') || path.includes('auth/refresh') || path.includes('auth/register');
-    if (res.status === 401 && !hasRetried && !isAuthEndpoint) {
-      log('[API] Got 401, attempting token refresh...');
-      hasRetried = true;
-      try {
-        const newToken = await this.refreshAccessToken();
-        headers['Authorization'] = `Bearer ${newToken}`;
-        res = await this.fetchWithTimeout(
-          this.getUrl(path),
-          { ...fetchOptions, credentials: 'include', headers },
-          timeout
-        );
-        log('[API] Retry after refresh successful:', res.status);
-      } catch (refreshError) {
-        console.error('[API] Token refresh failed:', refreshError);
-        setToken(null);
-        notifyAuthChange();
-        if (typeof window !== 'undefined' && throwOnError) {
-          window.location.href = '/login';
-        }
-        throw new ApiError('Session expired', 401);
-      }
+    if (res.status === 401 && !this.isAuthEndpoint(path)) {
+      res = await this.retryAfterRefresh(
+        path,
+        fetchOptions,
+        headers,
+        timeout,
+        throwOnError
+      )
     }
 
     if (!res.ok) {
-      let message = 'An error occurred';
-      try {
-        const errorData = await res.json();
-        message = errorData.message || `Request failed with status ${res.status}`;
-      } catch {
-        message = `Request failed with status ${res.status}`;
-      }
-      
-      if (!throwOnError) {
-        // Return error response as object for non-throwing calls
-        return { 
-          statusCode: res.status, 
-          message,
-          error: true 
-        } as unknown as T;
-      }
-      throw new ApiError(message, res.status);
+      return this.parseErrorBody(res, throwOnError)
     }
 
-    if (res.status === 204 || res.headers.get('content-length') === '0') {
-      return undefined as T;
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as T
     }
 
-    return res.json() as T;
+    return res.json() as T
   }
 
   async get<T>(path: string, options?: ApiOptions): Promise<T> {
-    return this.fetch<T>(path, { ...options, method: 'GET' });
+    return this.fetch<T>(path, { ...options, method: "GET" })
   }
 
-  async post<T>(path: string, body?: unknown, options?: ApiOptions): Promise<T> {
+  async post<T>(
+    path: string,
+    body?: unknown,
+    options?: ApiOptions
+  ): Promise<T> {
     return this.fetch<T>(path, {
       ...options,
-      method: 'POST',
+      method: "POST",
       body: body ? JSON.stringify(body) : undefined,
-    });
+    })
   }
 
   async put<T>(path: string, body?: unknown, options?: ApiOptions): Promise<T> {
     return this.fetch<T>(path, {
       ...options,
-      method: 'PUT',
+      method: "PUT",
       body: body ? JSON.stringify(body) : undefined,
-    });
+    })
   }
 
-  async patch<T>(path: string, body?: unknown, options?: ApiOptions): Promise<T> {
+  async patch<T>(
+    path: string,
+    body?: unknown,
+    options?: ApiOptions
+  ): Promise<T> {
     return this.fetch<T>(path, {
       ...options,
-      method: 'PATCH',
+      method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
-    });
+    })
   }
 
   async delete<T>(path: string, options?: ApiOptions): Promise<T> {
-    return this.fetch<T>(path, { ...options, method: 'DELETE' });
+    return this.fetch<T>(path, { ...options, method: "DELETE" })
   }
 }
 
-export const api = new ApiClient(API_BASE_URL);
+export const api = new ApiClient(API_BASE_URL)
 
 export async function logout() {
   try {
-    await api.post('auth/logout');
+    await api.post("auth/logout")
   } finally {
-    setToken(null);
-    setRefreshToken(null);
-    notifyAuthChange();
+    setToken(null)
+    setRefreshToken(null)
+    notifyAuthChange()
   }
 }
 
 export async function login(email: string, password: string) {
-  const data = await api.post<{ accessToken: string; refreshToken?: string; user: AuthUser; requiresTwoFactor?: boolean; sessionToken?: string }>('auth/login', { email, password });
+  const data = await api.post<{
+    accessToken: string
+    refreshToken?: string
+    user: AuthUser
+    requiresTwoFactor?: boolean
+    sessionToken?: string
+  }>("auth/login", { email, password })
   if (data.requiresTwoFactor) {
-    return { requiresTwoFactor: true as const, sessionToken: data.sessionToken! };
+    return {
+      requiresTwoFactor: true as const,
+      sessionToken: data.sessionToken!,
+    }
   }
-  setToken(data.accessToken);
-  if (data.refreshToken) setRefreshToken(data.refreshToken);
-  notifyAuthChange();
-  return data.user;
+  setToken(data.accessToken)
+  if (data.refreshToken) setRefreshToken(data.refreshToken)
+  notifyAuthChange()
+  return data.user
 }
 
 export interface AuthUser {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  organisationId: string | null;
-  branchId: string | null;
-  emailVerified: boolean;
-  avatar: string;
-  phoneNumber?: string;
-  permissions?: Record<string, string[]>;
+  id: string
+  email: string
+  name: string
+  role: string
+  organisationId: string | null
+  branchId: string | null
+  emailVerified: boolean
+  avatar: string
+  phoneNumber?: string
+  permissions?: Record<string, string[]>
 }
 
 export function getCurrentUser(): AuthUser | null {
-  const token = getToken();
-  if (!token) return null;
-  
+  const token = getToken()
+  if (!token) return null
+
   try {
-    const decoded = jwtDecode<any>(token);
+    const decoded = jwtDecode<any>(token)
     return {
       id: decoded.sub,
       email: decoded.email,
@@ -401,70 +481,71 @@ export function getCurrentUser(): AuthUser | null {
       organisationId: decoded.organisationId,
       branchId: decoded.branchId || null,
       emailVerified: decoded.email_verified || true,
-      avatar: '',
-    };
+      avatar: "",
+    }
   } catch {
-    return null;
+    return null
   }
 }
 
 export function hasValidSession(): boolean {
-  return !!getToken();
+  return !!getToken()
+}
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  const storedRefreshToken = getRefreshToken()
+  const refreshBody = storedRefreshToken
+    ? { refreshToken: storedRefreshToken }
+    : undefined
+
+  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: refreshBody ? JSON.stringify(refreshBody) : undefined,
+  })
+
+  if (!res.ok) {
+    log("[Auth] Refresh failed, clearing session")
+    setToken(null)
+    setRefreshToken(null)
+    return false
+  }
+
+  const data = await res.json()
+  setToken(data.accessToken)
+  if (data.refreshToken) setRefreshToken(data.refreshToken)
+  return true
 }
 
 export async function restoreSession(): Promise<AuthUser | null> {
-  // Check if we have a token
-  const token = getToken();
-  if (!token) {
-    log('[Auth] No token to restore');
-    return null;
+  if (!getToken()) {
+    log("[Auth] No token to restore")
+    return null
   }
 
-  // Try to validate token by calling auth/me
   try {
-    log('[Auth] Validating token with auth/me...');
-    const user = await api.get<AuthUser>('auth/me');
-    log('[Auth] Token valid, user:', user.email);
-    return user;
-  } catch (error) {
-    log('[Auth] Token validation failed, trying refresh...');
-    
-    // Token might be expired, try to refresh
-    try {
-      const storedRefreshToken = getRefreshToken();
-      
-      const refreshBody = storedRefreshToken 
-        ? { refreshToken: storedRefreshToken }
-        : undefined;
-      
-      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: refreshBody ? JSON.stringify(refreshBody) : undefined,
-      });
+    log("[Auth] Validating token with auth/me...")
+    const user = await api.get<AuthUser>("auth/me")
+    log("[Auth] Token valid, user:", user.email)
+    return user
+  } catch {
+    log("[Auth] Token validation failed, trying refresh...")
+  }
 
-      if (!res.ok) {
-        log('[Auth] Refresh failed, clearing session');
-        setToken(null);
-        return null;
-      }
+  try {
+    const refreshed = await attemptTokenRefresh()
+    if (!refreshed) return null
 
-      const data = await res.json();
-      setToken(data.accessToken);
-      if (data.refreshToken) setRefreshToken(data.refreshToken);
-      log('[Auth] Refresh successful');
-      
-      // Get user info with new token
-      const user = await api.get<AuthUser>('auth/me');
-      return user;
-    } catch (refreshError) {
-      console.error('[Auth] Refresh error:', refreshError);
-      setToken(null);
-      return null;
-    }
+    log("[Auth] Refresh successful")
+    return api.get<AuthUser>("auth/me")
+  } catch (refreshError) {
+    console.error("[Auth] Refresh error:", refreshError)
+    setToken(null)
+    setRefreshToken(null)
+    return null
   }
 }

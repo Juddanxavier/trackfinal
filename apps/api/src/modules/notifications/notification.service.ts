@@ -28,7 +28,6 @@ export interface NotificationConfig {
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger('NotificationService');
-  private channels: Map<ChannelType, NotificationChannel> = new Map();
   private config: NotificationConfig;
 
   constructor(
@@ -40,9 +39,9 @@ export class NotificationService {
     private notificationPreferencesService: NotificationPreferencesService,
     private usersService: UsersService,
   ) {
-    const envTrue = (key: string, defaultVal: boolean = true) => {
+    const envTrue = (key: string, defaultVal: boolean = false) => {
       const val = configService.get(key);
-      return val === 'true' || val === true || val === undefined;
+      return val === 'true' || val === true || (val === undefined && defaultVal);
     };
 
     this.config = {
@@ -57,11 +56,6 @@ export class NotificationService {
       notifyOnCancelled: envTrue('NOTIFY_ON_CANCELLED', false),
       notifyOnException: envTrue('NOTIFY_ON_EXCEPTION', false),
     };
-
-    if (this.config.emailEnabled) this.channels.set('email', emailChannel);
-    if (this.config.whatsappEnabled)
-      this.channels.set('whatsapp', whatsAppChannel);
-    if (this.config.inAppEnabled) this.channels.set('in_app', inAppChannel);
 
     this.logger.log(
       `Channels enabled: ${this.getAvailableChannels().join(', ')}`,
@@ -94,13 +88,6 @@ export class NotificationService {
   async updateConfig(newConfig: Partial<NotificationConfig>): Promise<void> {
     this.config = { ...this.config, ...newConfig };
 
-    this.channels.clear();
-    if (this.config.emailEnabled) this.channels.set('email', this.emailChannel);
-    if (this.config.whatsappEnabled)
-      this.channels.set('whatsapp', this.whatsAppChannel);
-    if (this.config.inAppEnabled)
-      this.channels.set('in_app', this.inAppChannel);
-
     this.logger.log(
       `Config updated. Channels: ${this.getAvailableChannels().join(', ')}`,
     );
@@ -113,7 +100,7 @@ export class NotificationService {
     const results: NotificationResult[] = [];
 
     for (const channelName of channels) {
-      const channel = this.channels.get(channelName);
+      const channel = this.getChannel(channelName);
       if (!channel) {
         results.push({
           success: false,
@@ -136,6 +123,7 @@ export class NotificationService {
       const alreadySent =
         payload.shipmentId &&
         (await this.checkRateLimit(
+          payload.organisationId,
           payload.userId,
           payload.shipmentId,
           payload.titleKey,
@@ -180,6 +168,7 @@ export class NotificationService {
   }
 
   private async checkRateLimit(
+    organisationId: string,
     userId: string | undefined,
     shipmentId: string | undefined,
     titleKey: string,
@@ -191,6 +180,7 @@ export class NotificationService {
     threshold.setHours(threshold.getHours() - 24);
 
     const logs = await this.notificationLogsService.getRecentLogs(
+      organisationId,
       shipmentId,
       titleKey,
       channel,
@@ -233,9 +223,9 @@ export class NotificationService {
     }
   }
 
-  async retryFailed(shipmentId: string, channel?: string): Promise<number> {
+  async retryFailed(organisationId: string, shipmentId: string, channel?: string): Promise<number> {
     const failedLogs =
-      await this.notificationLogsService.getFailedLogs(shipmentId);
+      await this.notificationLogsService.getFailedLogs(organisationId, shipmentId);
     let retried = 0;
 
     for (const log of failedLogs) {
@@ -336,11 +326,30 @@ export class NotificationService {
     return this.send(payload, activeChannels);
   }
 
+  private getChannel(channelName: ChannelType): NotificationChannel | undefined {
+    if (!this.config.emailEnabled && channelName === 'email') return undefined;
+    if (!this.config.whatsappEnabled && channelName === 'whatsapp')
+      return undefined;
+    if (!this.config.inAppEnabled && channelName === 'in_app') return undefined;
+    switch (channelName) {
+      case 'email':
+        return this.emailChannel;
+      case 'whatsapp':
+        return this.whatsAppChannel;
+      case 'in_app':
+        return this.inAppChannel;
+    }
+  }
+
   isChannelAvailable(channelName: ChannelType): boolean {
-    return this.channels.has(channelName);
+    return this.getChannel(channelName) !== undefined;
   }
 
   getAvailableChannels(): ChannelType[] {
-    return Array.from(this.channels.keys());
+    const channels: ChannelType[] = [];
+    if (this.config.emailEnabled) channels.push('email');
+    if (this.config.whatsappEnabled) channels.push('whatsapp');
+    if (this.config.inAppEnabled) channels.push('in_app');
+    return channels;
   }
 }

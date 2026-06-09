@@ -22,7 +22,7 @@ export class NotificationPreferencesService {
         whatsappEnabled: true,
         inTransitNotifications: true,
         deliveredNotifications: true,
-      exceptionsNotifications: true,
+        exceptionsNotifications: true,
       };
     }
 

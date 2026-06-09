@@ -1,8 +1,8 @@
-'use client'
+"use client"
 
 import { useState, ReactNode } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import {
   Card,
@@ -18,8 +18,6 @@ import {
   TruckIcon,
   FileChartColumnIcon,
   Settings2Icon,
-  SearchIcon,
-  ArrowRightIcon,
 } from "lucide-react"
 
 const DOC_SECTIONS = [
@@ -91,7 +89,10 @@ const DOC_SECTIONS = [
   },
 ]
 
-const DOC_CONTENT: Record<string, { title: string; category: string; content: string }> = {
+const DOC_CONTENT: Record<
+  string,
+  { title: string; category: string; content: string }
+> = {
   overview: {
     title: "Platform Overview",
     category: "Getting Started",
@@ -532,26 +533,57 @@ function MarkdownContent({ content }: { content: string }) {
 
   for (const line of lines) {
     if (line.startsWith("# ")) {
-      elements.push(<h1 key={line} className="text-3xl font-bold tracking-tight mb-6">{line.slice(2)}</h1>)
+      elements.push(
+        <h1 key={line} className="mb-6 text-3xl font-bold tracking-tight">
+          {line.slice(2)}
+        </h1>
+      )
     } else if (line.startsWith("## ")) {
-      elements.push(<h2 key={line} className="text-xl font-semibold tracking-tight mt-8 mb-4">{line.slice(3)}</h2>)
+      elements.push(
+        <h2
+          key={line}
+          className="mt-8 mb-4 text-xl font-semibold tracking-tight"
+        >
+          {line.slice(3)}
+        </h2>
+      )
     } else if (line.startsWith("### ")) {
-      elements.push(<h3 key={line} className="text-lg font-semibold mt-6 mb-2">{line.slice(4)}</h3>)
+      elements.push(
+        <h3 key={line} className="mt-6 mb-2 text-lg font-semibold">
+          {line.slice(4)}
+        </h3>
+      )
     } else if (line.startsWith("- ")) {
-      elements.push(<li key={line} className="ml-6 list-disc">{line.slice(2)}</li>)
+      elements.push(
+        <li key={line} className="ml-6 list-disc">
+          {line.slice(2)}
+        </li>
+      )
     } else if (/^\d+\. /.test(line)) {
-      elements.push(<li key={line} className="ml-6 list-decimal">{line.replace(/^\d+\. /, "")}</li>)
+      elements.push(
+        <li key={line} className="ml-6 list-decimal">
+          {line.replace(/^\d+\. /, "")}
+        </li>
+      )
     } else if (line.startsWith("| ") && !line.includes("---")) {
-      const cols = line.split("|").filter(c => c.trim())
+      const cols = line.split("|").filter((c) => c.trim())
       if (cols.length > 1) {
         elements.push(
           <tr key={line} className="border-b">
-            {cols.map((c, i) => <td key={i} className="px-3 py-2">{c.trim()}</td>)}
+            {cols.map((c, i) => (
+              <td key={i} className="px-3 py-2">
+                {c.trim()}
+              </td>
+            ))}
           </tr>
         )
       }
     } else if (line.trim()) {
-      elements.push(<p key={line} className="leading-7 mb-2 text-muted-foreground">{line}</p>)
+      elements.push(
+        <p key={line} className="mb-2 leading-7 text-muted-foreground">
+          {line}
+        </p>
+      )
     }
   }
 
@@ -563,8 +595,8 @@ export default function DocsPage() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [selectedArticle, setSelectedArticle] = useState<string | null>(null)
 
-  const allArticles = DOC_SECTIONS.flatMap(section =>
-    section.articles.map(article => ({
+  const allArticles = DOC_SECTIONS.flatMap((section) =>
+    section.articles.map((article) => ({
       ...article,
       sectionTitle: section.title,
       sectionIcon: section.icon,
@@ -573,15 +605,19 @@ export default function DocsPage() {
 
   const filteredArticles = searchQuery
     ? allArticles.filter(
-        a =>
+        (a) =>
           a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          DOC_CONTENT[a.id]?.content.toLowerCase().includes(searchQuery.toLowerCase())
+          DOC_CONTENT[a.id]?.content
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase())
       )
     : allArticles
 
   const handleSelectArticle = (articleId: string) => {
     setSelectedArticle(articleId)
-    const section = DOC_SECTIONS.find(s => s.articles.some(a => a.id === articleId))
+    const section = DOC_SECTIONS.find((s) =>
+      s.articles.some((a) => a.id === articleId)
+    )
     setSelectedSection(section?.id || null)
   }
 
@@ -589,15 +625,17 @@ export default function DocsPage() {
 
   if (currentContent) {
     return (
-      <div className="flex-1 p-8 overflow-y-auto">
-        <div className="max-w-3xl mx-auto">
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="mx-auto max-w-3xl">
           <button
             onClick={() => setSelectedArticle(null)}
-            className="text-sm text-muted-foreground hover:text-foreground mb-6"
+            className="mb-6 text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back to all docs
           </button>
-          <div className="mb-2 text-sm text-muted-foreground">{currentContent.category}</div>
+          <div className="mb-2 text-sm text-muted-foreground">
+            {currentContent.category}
+          </div>
           <MarkdownContent content={currentContent.content} />
         </div>
       </div>
@@ -605,8 +643,8 @@ export default function DocsPage() {
   }
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="flex-1 overflow-y-auto p-8">
+      <div className="mx-auto max-w-6xl space-y-8">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">
             <span className="flex items-center gap-3">
@@ -652,17 +690,19 @@ export default function DocsPage() {
         </div>
 
         <div>
-          <h2 className="text-2xl font-semibold mb-4">All Articles</h2>
+          <h2 className="mb-4 text-2xl font-semibold">All Articles</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredArticles.map((article) => (
               <button
                 key={article.id}
                 onClick={() => handleSelectArticle(article.id)}
-                className="text-left p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                className="rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/50"
               >
-                <div className="flex items-center gap-2 mb-2">
+                <div className="mb-2 flex items-center gap-2">
                   <article.sectionIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{article.sectionTitle}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {article.sectionTitle}
+                  </span>
                 </div>
                 <p className="font-medium">{article.title}</p>
               </button>

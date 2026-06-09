@@ -1,7 +1,13 @@
-'use client'
+"use client"
 
 import { useState } from "react"
-import { FileDownIcon, Loader2Icon, FileTextIcon, BarChart3Icon, RouteIcon } from "lucide-react"
+import {
+  FileDownIcon,
+  Loader2Icon,
+  FileTextIcon,
+  BarChart3Icon,
+  RouteIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -45,11 +51,34 @@ export interface ExportButtonProps {
     postalCode?: string
   }
   stats?: {
-    shipments: { total: number; pending: number; in_transit: number; delivered: number; cancelled: number; deliveryRate: number; avgTransitDays: number }
-    quotes: { total: number; converted: number; conversionRate: number; avgValue: number }
-    invoices: { totalRevenue: number; avgInvoiceAmount: number; invoiceCount: number }
+    shipments: {
+      total: number
+      pending: number
+      in_transit: number
+      delivered: number
+      cancelled: number
+      deliveryRate: number
+      avgTransitDays: number
+    }
+    quotes: {
+      total: number
+      converted: number
+      conversionRate: number
+      avgValue: number
+    }
+    invoices: {
+      totalRevenue: number
+      avgInvoiceAmount: number
+      invoiceCount: number
+    }
   }
-  chartData?: { date: string; shipments: number; quotes: number; delivered: number; revenue: number }[]
+  chartData?: {
+    date: string
+    shipments: number
+    quotes: number
+    delivered: number
+    revenue: number
+  }[]
 }
 
 function currency(n: number) {
@@ -58,32 +87,48 @@ function currency(n: number) {
 
 function buildReportHtml(
   sections: Section[],
-  stats: ExportButtonProps['stats'],
-  chartData: ExportButtonProps['chartData'],
-  org: ExportButtonProps['organisation'],
-  branch: ExportButtonProps['branch'],
+  stats: ExportButtonProps["stats"],
+  chartData: ExportButtonProps["chartData"],
+  org: ExportButtonProps["organisation"],
+  branch: ExportButtonProps["branch"],
   title: string,
-  mode: 'full' | 'routes' | 'carriers' = 'full',
+  mode: "full" | "routes" | "carriers" = "full"
 ): string {
-  const orgName = org?.name?.toUpperCase() || title.split('-')[0].toUpperCase()
-  const orgEmail = org?.email || ''
-  const orgPhone = org?.phone || ''
-  const orgAddr = [org?.address, org?.city, org?.state, org?.postalCode].filter(Boolean).join(', ')
-  const branchName = branch?.name || ''
-  const branchAddr = [branch?.address, branch?.city, branch?.state, branch?.postalCode].filter(Boolean).join(', ')
-  const branchEmail = branch?.email || ''
-  const branchPhone = branch?.phone || ''
+  const orgName = org?.name?.toUpperCase() || title.split("-")[0].toUpperCase()
+  const orgEmail = org?.email || ""
+  const orgPhone = org?.phone || ""
+  const orgAddr = [org?.address, org?.city, org?.state, org?.postalCode]
+    .filter(Boolean)
+    .join(", ")
+  const branchName = branch?.name || ""
+  const branchAddr = [
+    branch?.address,
+    branch?.city,
+    branch?.state,
+    branch?.postalCode,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  const branchEmail = branch?.email || ""
+  const branchPhone = branch?.phone || ""
 
   const now = new Date()
-  const dateLabel = now.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
-  const period = title.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const dateLabel = now.toLocaleDateString("en-IN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+  const period = title
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase())
 
   const totalRevenue = stats?.invoices.totalRevenue ?? 0
-  const filteredSections = mode === 'routes'
-    ? sections.filter(s => s.title === 'Top Routes')
-    : mode === 'carriers'
-    ? sections.filter(s => s.title === 'Carrier Performance')
-    : sections
+  const filteredSections =
+    mode === "routes"
+      ? sections.filter((s) => s.title === "Top Routes")
+      : mode === "carriers"
+        ? sections.filter((s) => s.title === "Carrier Performance")
+        : sections
 
   return `<!DOCTYPE html>
 <html>
@@ -120,11 +165,11 @@ function buildReportHtml(
     <div class="org-details">
       <div class="org-name">${orgName}</div>
       <div class="org-info">
-        ${orgAddr}${orgPhone ? '<br/>' + orgPhone : ''}${orgEmail ? '<br/>' + orgEmail : ''}
-        ${branchName ? '<br/><br/><strong>' + branchName + '</strong>' : ''}
-        ${branchAddr ? '<br/>' + branchAddr : ''}
-        ${branchPhone ? '<br/>' + branchPhone : ''}
-        ${branchEmail ? '<br/>' + branchEmail : ''}
+        ${orgAddr}${orgPhone ? "<br/>" + orgPhone : ""}${orgEmail ? "<br/>" + orgEmail : ""}
+        ${branchName ? "<br/><br/><strong>" + branchName + "</strong>" : ""}
+        ${branchAddr ? "<br/>" + branchAddr : ""}
+        ${branchPhone ? "<br/>" + branchPhone : ""}
+        ${branchEmail ? "<br/>" + branchEmail : ""}
       </div>
     </div>
     <div class="report-meta">
@@ -136,7 +181,9 @@ function buildReportHtml(
 
   <div class="report-period">Summary for the period of ${period}</div>
 
-  ${mode === 'full' ? `<div class="stats-grid">
+  ${
+    mode === "full"
+      ? `<div class="stats-grid">
     <div class="stat-card">
       <div class="stat-label">Total Shipments</div>
       <div class="stat-value">${stats?.shipments.total ?? 0}</div>
@@ -169,38 +216,61 @@ function buildReportHtml(
     </div>
   </div>
 
-  ${chartData && chartData.length > 0 ? `
+  ${
+    chartData && chartData.length > 0
+      ? `
   <h2>Daily Trend</h2>
   <table>
     <thead><tr><th>Date</th><th class="text-right">Shipments</th><th class="text-right">Delivered</th><th class="text-right">Quotes</th><th class="text-right">Revenue (₹)</th></tr></thead>
     <tbody>
-      ${chartData.map(d => `<tr>
+      ${chartData
+        .map(
+          (d) => `<tr>
         <td>${d.date}</td>
         <td class="text-right">${d.shipments}</td>
         <td class="text-right">${d.delivered}</td>
         <td class="text-right">${d.quotes}</td>
-        <td class="text-right">${d.revenue.toLocaleString('en-IN')}</td>
-      </tr>`).join('')}
+        <td class="text-right">${d.revenue.toLocaleString("en-IN")}</td>
+      </tr>`
+        )
+        .join("")}
     </tbody>
   </table>
-  ` : ''}` : ''}
+  `
+      : ""
+  }`
+      : ""
+  }
 
-  ${filteredSections.map(section => `
+  ${filteredSections
+    .map(
+      (section) => `
     <h2>${section.title}</h2>
     <table>
-      <thead><tr>${section.columns.map(c => `<th>${c.header}</th>`).join('')}</tr></thead>
+      <thead><tr>${section.columns.map((c) => `<th>${c.header}</th>`).join("")}</tr></thead>
       <tbody>
-        ${section.data.length === 0
-          ? `<tr><td colspan="${section.columns.length}" class="text-muted" style="text-align:center;padding:16px;">No data</td></tr>`
-          : section.data.map((row: unknown) => `<tr>${section.columns.map(c => {
-              const val = (row as { [key: string]: unknown })[c.key]
-              const display = val === null || val === undefined ? '' : String(val)
-              return `<td>${display}</td>`
-            }).join('')}</tr>`).join('')
+        ${
+          section.data.length === 0
+            ? `<tr><td colspan="${section.columns.length}" class="text-muted" style="text-align:center;padding:16px;">No data</td></tr>`
+            : section.data
+                .map(
+                  (row: unknown) =>
+                    `<tr>${section.columns
+                      .map((c) => {
+                        const val = (row as { [key: string]: unknown })[c.key]
+                        const display =
+                          val === null || val === undefined ? "" : String(val)
+                        return `<td>${display}</td>`
+                      })
+                      .join("")}</tr>`
+                )
+                .join("")
         }
       </tbody>
     </table>
-  `).join('')}
+  `
+    )
+    .join("")}
 
   <script>window.onload = function() { setTimeout(function() { window.print(); }, 250); }</script>
 </body>
@@ -214,48 +284,67 @@ function downloadPdfReport(html: string) {
   printWindow.document.close()
 }
 
-export function ExportButton({ sections, filename = "report", organisation, branch, stats, chartData }: ExportButtonProps) {
+export function ExportButton({
+  sections,
+  filename = "report",
+  organisation,
+  branch,
+  stats,
+  chartData,
+}: ExportButtonProps) {
   const [loading, setLoading] = useState<string | null>(null)
 
-  const handleExport = (mode: 'full' | 'routes' | 'carriers') => {
+  const handleExport = (mode: "full" | "routes" | "carriers") => {
     setLoading(mode)
     try {
-      const html = buildReportHtml(sections, stats, chartData, organisation, branch, filename, mode)
+      const html = buildReportHtml(
+        sections,
+        stats,
+        chartData,
+        organisation,
+        branch,
+        filename,
+        mode
+      )
       downloadPdfReport(html)
     } finally {
       setLoading(null)
     }
   }
 
-  const hasRoutes = sections.some(s => s.title === 'Top Routes' && s.data.length > 0)
-  const hasCarriers = sections.some(s => s.title === 'Carrier Performance' && s.data.length > 0)
+  const hasRoutes = sections.some(
+    (s) => s.title === "Top Routes" && s.data.length > 0
+  )
+  const hasCarriers = sections.some(
+    (s) => s.title === "Carrier Performance" && s.data.length > 0
+  )
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" disabled={loading !== null}>
           {loading ? (
-            <Loader2Icon className="h-4 w-4 animate-spin mr-2" />
+            <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <FileDownIcon className="h-4 w-4 mr-2" />
+            <FileDownIcon className="mr-2 h-4 w-4" />
           )}
           {loading ? "Generating..." : "Export"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem onClick={() => handleExport('full')}>
-          <FileTextIcon className="h-4 w-4 mr-2" />
+        <DropdownMenuItem onClick={() => handleExport("full")}>
+          <FileTextIcon className="mr-2 h-4 w-4" />
           Full Report (PDF)
         </DropdownMenuItem>
         {hasRoutes && (
-          <DropdownMenuItem onClick={() => handleExport('routes')}>
-            <RouteIcon className="h-4 w-4 mr-2" />
+          <DropdownMenuItem onClick={() => handleExport("routes")}>
+            <RouteIcon className="mr-2 h-4 w-4" />
             Top Routes (PDF)
           </DropdownMenuItem>
         )}
         {hasCarriers && (
-          <DropdownMenuItem onClick={() => handleExport('carriers')}>
-            <BarChart3Icon className="h-4 w-4 mr-2" />
+          <DropdownMenuItem onClick={() => handleExport("carriers")}>
+            <BarChart3Icon className="mr-2 h-4 w-4" />
             Carrier Performance (PDF)
           </DropdownMenuItem>
         )}

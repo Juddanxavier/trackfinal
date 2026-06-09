@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import { db } from '../../database';
 import { notifications } from '../../database/schema';
 import { CreateNotificationDto, QueryNotificationsDto } from './dto';
@@ -99,7 +99,7 @@ export class NotificationsService {
 
   async getUnreadCount(organisationId: string, userId: string) {
     const result = await db
-      .select({ count: notifications.id })
+      .select({ value: count() })
       .from(notifications)
       .where(
         and(
@@ -108,7 +108,7 @@ export class NotificationsService {
           eq(notifications.isRead, false),
         ),
       );
-    return result.length;
+    return result[0]?.value ?? 0;
   }
 
   async markAllRead(organisationId: string, userId: string) {

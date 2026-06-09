@@ -11,8 +11,9 @@ import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import { PageTransition } from "@/components/page-transition"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { KeyboardShortcutsProvider } from "@/components/keyboard-shortcuts-provider"
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'})
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
 const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
@@ -24,8 +25,15 @@ export default function ProtectedLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
-      <body className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={cn(
+          "antialiased",
+          fontMono.variable,
+          "font-sans",
+          geist.variable
+        )}
+      >
         <ThemeProvider>
           <TooltipProvider>
             <SidebarProvider defaultOpen={true}>
@@ -33,8 +41,9 @@ export default function ProtectedLayout({
                 <AppLayout>
                   <PageTransition>
                     <ErrorBoundary>
-                      {children}
-                    </ErrorBoundary>
+                    <KeyboardShortcutsProvider />
+                    {children}
+                  </ErrorBoundary>
                   </PageTransition>
                 </AppLayout>
               </AuthProvider>

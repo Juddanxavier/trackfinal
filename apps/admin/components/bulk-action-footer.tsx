@@ -13,7 +13,10 @@ interface BulkActionFooterProps {
   actions: BulkAction[]
 }
 
-export function BulkActionFooter({ selectedCount, actions }: BulkActionFooterProps) {
+export function BulkActionFooter({
+  selectedCount,
+  actions,
+}: BulkActionFooterProps) {
   if (selectedCount === 0) return null
   return (
     <div className="flex items-center gap-2">

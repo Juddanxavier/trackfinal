@@ -8,10 +8,62 @@ import {
 import { db } from '../../database';
 import { shipments, shipmentEvents } from '../../database/schema/shipments';
 import { organisations } from '../../database/schema/organisations';
-import { eq, and, or, desc, sql, isNull, isNotNull, inArray } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  or,
+  desc,
+  sql,
+  isNull,
+  isNotNull,
+  inArray,
+} from 'drizzle-orm';
 import { SeventeenTrackService } from '../tracking/seventeen-track.service';
 import { CarriersService } from '../carriers/carriers.service';
 import { NotificationService } from '../notifications/notification.service';
+
+function detectPhoneCountry(phone: string): string {
+  const clean = phone.replace(/\D/g, '');
+  const patterns: [RegExp, string][] = [
+    [/^1(?!1$)/, 'US'],
+    [/^44/, 'GB'],
+    [/^61/, 'AU'],
+    [/^49/, 'DE'],
+    [/^33/, 'FR'],
+    [/^86/, 'CN'],
+    [/^81/, 'JP'],
+    [/^91/, 'IN'],
+    [/^55/, 'BR'],
+    [/^52/, 'MX'],
+  ];
+  for (const [regex, code] of patterns) {
+    if (regex.test(clean)) return code;
+  }
+  return 'Unknown';
+}
+
+function generateWhiteLabelCode(orgSlug: string): string {
+  const prefix = orgSlug.substring(0, 3).toUpperCase();
+  const digits = '0123456789';
+  let code = prefix;
+  for (let i = 0; i < 11; i++) {
+    code += digits.charAt(Math.floor(Math.random() * digits.length));
+  }
+  return code;
+}
+
+interface CreateShipmentData {
+  organisationId: string;
+  trackingNumber: string;
+  carrierCode: string;
+  recipientName: string;
+  recipientEmail?: string;
+  recipientPhone: string;
+  userId?: string;
+  assignedToId?: string | null;
+  branchId?: string | null;
+  billAmount?: number | null;
+}
 
 @Injectable()
 export class ShipmentsService {
@@ -47,18 +99,99 @@ export class ShipmentsService {
     return null;
   }
 
-  async create(data: {
-    organisationId: string;
-    trackingNumber: string;
-    carrierCode: string;
-    recipientName: string;
-    recipientEmail?: string;
-    recipientPhone: string;
-    userId?: string;
-    assignedToId?: string | null;
-    branchId?: string | null;
-    billAmount?: number | null;
-  }) {
+  private async resolveTrackingFrom17Track(
+    trackingNumber: string,
+    carrierCode: string,
+  ) {
+    this.logger.debug('Fetching tracking from 17TRACK...');
+    let trackingData = await this.seventeenTrackService.getTracking(
+      trackingNumber,
+      carrierCode,
+    );
+
+    if (!trackingData || trackingData.status === 'not_found') {
+      this.logger.debug('No existing tracking, registering...');
+      const registerResult = await this.seventeenTrackService.register(
+        trackingNumber,
+        carrierCode,
+        { tag: trackingNumber },
+      );
+
+      if (registerResult.success) {
+        this.logger.debug('Registered, waiting for tracking data...');
+        const resolvedCarrier = registerResult.carrierCode || carrierCode;
+        trackingData = await this.waitForTrackingData(
+          trackingNumber,
+          resolvedCarrier,
+        );
+        if (trackingData) {
+          this.logger.debug(
+            'Got tracking data after registration:',
+            trackingData.status,
+          );
+        }
+        return { trackingData, carrierCode: resolvedCarrier };
+      } else {
+        this.logger.warn('Registration failed:', registerResult.error);
+      }
+    }
+
+    return { trackingData, carrierCode };
+  }
+
+  private async sendInitialNotifications(
+    shipment: typeof shipments.$inferSelect,
+    status: string,
+    org: any,
+  ) {
+    const initialStatusToNotify =
+      status === 'in_transit' || status === 'delivered';
+    const isSelfAssigned =
+      shipment.userId && shipment.userId === shipment.assignedToId;
+    if (isSelfAssigned || !initialStatusToNotify) return;
+    if (
+      !shipment.recipientEmail &&
+      !shipment.recipientPhone &&
+      !shipment.userId
+    )
+      return;
+
+    const titleKey =
+      status === 'delivered' ? 'shipment.delivered' : 'shipment.in_transit';
+    const trackingDomain =
+      org?.trackingDomain ||
+      org?.websiteUrl ||
+      process.env.DEFAULT_TRACKING_DOMAIN ||
+      'https://www.gajantraders.com';
+    const trackingUrl = `${trackingDomain}/track/${shipment.whiteLabelTrackingCode}`;
+
+    const results = await this.notificationService.sendToAll({
+      organisationId: shipment.organisationId,
+      userId: shipment.userId || undefined,
+      recipientEmail: shipment.recipientEmail || undefined,
+      recipientPhone: shipment.recipientPhone || undefined,
+      titleKey,
+      data: {
+        trackingNumber: shipment.trackingNumber,
+        carrierCode: shipment.carrierCode,
+        status,
+        recipientName: shipment.recipientName,
+        destinationCountry: shipment.destinationCountry,
+        whiteLabelCode: shipment.whiteLabelTrackingCode,
+        trackingUrl,
+        orgName: org?.name,
+      },
+    });
+
+    this.logger.debug(
+      `Notification results:`,
+      results
+        .map((r) => `${r.channel}: ${r.success ? 'sent' : 'failed'}`)
+        .join(', '),
+    );
+  }
+
+  async create(data: CreateShipmentData) {
     this.logger.log('[CREATE] Tracking:', data.trackingNumber);
 
     if (!data.trackingNumber?.trim()) {
@@ -95,27 +228,6 @@ export class ShipmentsService {
       .where(eq(organisations.id, data.organisationId));
     const orgCountry = org?.countryCode || 'Unknown';
     const orgSlug = org?.slug || 'GT';
-
-    const detectPhoneCountry = (phone: string): string => {
-      const clean = phone.replace(/\D/g, '');
-      const patterns: [RegExp, string][] = [
-        [/^1(?!1$)/, 'US'],
-        [/^44/, 'GB'],
-        [/^61/, 'AU'],
-        [/^49/, 'DE'],
-        [/^33/, 'FR'],
-        [/^86/, 'CN'],
-        [/^81/, 'JP'],
-        [/^91/, 'IN'],
-        [/^55/, 'BR'],
-        [/^52/, 'MX'],
-      ];
-      for (const [regex, code] of patterns) {
-        if (regex.test(clean)) return code;
-      }
-      return 'Unknown';
-    };
-
     const notifyPhoneCountry = detectPhoneCountry(data.recipientPhone);
 
     let carrierCode = data.carrierCode || 'unknown';
@@ -127,45 +239,14 @@ export class ShipmentsService {
     let events: any[] = [];
 
     try {
-      this.logger.debug('Fetching tracking from 17TRACK...');
-      let trackingData = await this.seventeenTrackService.getTracking(
+      const trackingResult = await this.resolveTrackingFrom17Track(
         data.trackingNumber,
         data.carrierCode,
       );
+      const trackingData = trackingResult.trackingData;
+      carrierCode = trackingResult.carrierCode;
 
-      if (!trackingData || trackingData.status === 'not_found') {
-        this.logger.debug('No existing tracking, registering...');
-        const registerResult = await this.seventeenTrackService.register(
-          data.trackingNumber,
-          data.carrierCode,
-          { tag: data.trackingNumber },
-        );
-
-        if (registerResult.success) {
-          this.logger.debug('Registered, waiting for tracking data...');
-          carrierCode = registerResult.carrierCode || carrierCode;
-
-          trackingData = await this.waitForTrackingData(
-            data.trackingNumber,
-            carrierCode,
-          );
-
-          if (trackingData) {
-            this.logger.debug(
-              'Got tracking data after registration:',
-              trackingData.status,
-            );
-          }
-        } else {
-          this.logger.warn('Registration failed:', registerResult.error);
-        }
-      }
-
-      if (
-        trackingData &&
-        trackingData.status &&
-        trackingData.status !== 'not_found'
-      ) {
+      if (trackingData?.status && trackingData.status !== 'not_found') {
         this.logger.debug('Using tracking data, status:', trackingData.status);
         carrierCode = trackingData.carrierCode || carrierCode;
         originCountry = trackingData.originCountry || originCountry;
@@ -181,16 +262,6 @@ export class ShipmentsService {
         error.message,
       );
     }
-
-    const generateWhiteLabelCode = (orgSlug: string) => {
-      const prefix = orgSlug.substring(0, 3).toUpperCase();
-      const digits = '0123456789';
-      let code = prefix;
-      for (let i = 0; i < 11; i++) {
-        code += digits.charAt(Math.floor(Math.random() * digits.length));
-      }
-      return code;
-    };
 
     const [shipment] = await db
       .insert(shipments)
@@ -235,50 +306,7 @@ export class ShipmentsService {
     }
 
     this.logger.log(`Shipment created: ${shipment.id}, status: ${status}`);
-
-    const initialStatusToNotify =
-      status === 'in_transit' || status === 'delivered';
-    const isSelfAssigned = shipment.userId && shipment.userId === shipment.assignedToId;
-    if (
-      !isSelfAssigned &&
-      initialStatusToNotify &&
-      (shipment.recipientEmail || shipment.recipientPhone || shipment.userId)
-    ) {
-      const titleKey =
-        status === 'delivered' ? 'shipment.delivered' : 'shipment.in_transit';
-
-      const trackingDomain =
-        org?.trackingDomain ||
-        org?.websiteUrl ||
-        process.env.DEFAULT_TRACKING_DOMAIN ||
-        'https://www.gajantraders.com';
-      const trackingUrl = `${trackingDomain}/track/${shipment.whiteLabelTrackingCode}`;
-
-      const results = await this.notificationService.sendToAll({
-        organisationId: shipment.organisationId,
-        userId: shipment.userId || undefined,
-        recipientEmail: shipment.recipientEmail || undefined,
-        recipientPhone: shipment.recipientPhone || undefined,
-        titleKey,
-        data: {
-          trackingNumber: shipment.trackingNumber,
-          carrierCode: shipment.carrierCode,
-          status,
-          recipientName: shipment.recipientName,
-          destinationCountry: shipment.destinationCountry,
-          whiteLabelCode: shipment.whiteLabelTrackingCode,
-          trackingUrl,
-          orgName: org?.name,
-        },
-      });
-
-      this.logger.debug(
-        `Notification results:`,
-        results
-          .map((r) => `${r.channel}: ${r.success ? 'sent' : 'failed'}`)
-          .join(', '),
-      );
-    }
+    await this.sendInitialNotifications(shipment, status, org);
 
     return shipment;
   }
@@ -417,7 +445,19 @@ export class ShipmentsService {
       .where(eq(shipmentEvents.shipmentId, shipment.id))
       .orderBy(desc(shipmentEvents.eventTime));
 
-    return { ...shipment, carrierName, events };
+    return {
+      trackingNumber: shipment.trackingNumber,
+      carrierCode: shipment.carrierCode,
+      carrierName,
+      status: shipment.status,
+      originCountry: shipment.originCountry,
+      destinationCountry: shipment.destinationCountry,
+      recipientName: shipment.recipientName,
+      createdAt: shipment.createdAt,
+      updatedAt: shipment.updatedAt,
+      deliveredAt: shipment.deliveredAt,
+      events,
+    };
   }
 
   async findByWhiteLabelCode(code: string) {
@@ -495,7 +535,8 @@ export class ShipmentsService {
       return existing;
     }
 
-    const isSelfAssigned = existing.userId && existing.userId === existing.assignedToId;
+    const isSelfAssigned =
+      existing.userId && existing.userId === existing.assignedToId;
     if (isSelfAssigned) {
       this.logger.debug(`Self-assigned shipment, skipping notification`);
     }
@@ -521,7 +562,10 @@ export class ShipmentsService {
       });
     }
 
-    if (!isSelfAssigned && (updated.userId || updated.recipientEmail || updated.recipientPhone)) {
+    if (
+      !isSelfAssigned &&
+      (updated.userId || updated.recipientEmail || updated.recipientPhone)
+    ) {
       const titleKey =
         status === 'delivered'
           ? 'shipment.delivered'
@@ -667,7 +711,7 @@ export class ShipmentsService {
     return { id, deletedAt: null };
   }
 
-  async getStats(organisationId: string) {
+  async getStats(organisationId: string, branchId?: string) {
     if (!organisationId) {
       return {
         total: 0,
@@ -679,18 +723,19 @@ export class ShipmentsService {
       };
     }
 
+    const filters: any[] = [
+      eq(shipments.organisationId, organisationId),
+      isNull(shipments.deletedAt),
+    ];
+    if (branchId) filters.push(eq(shipments.branchId, branchId));
+
     const results = await db
       .select({
         status: shipments.status,
         count: sql<number>`count(*)`,
       })
       .from(shipments)
-      .where(
-        and(
-          eq(shipments.organisationId, organisationId),
-          isNull(shipments.deletedAt),
-        ),
-      )
+      .where(and(...filters))
       .groupBy(shipments.status);
 
     const counts = {
@@ -707,7 +752,7 @@ export class ShipmentsService {
       counts.total += Number(r.count);
     }
 
-    const activity = await this.getActivity(organisationId, 7);
+    const activity = await this.getActivity(organisationId, branchId, 7);
     const totalTrend = activity.map((a) => a.total);
     const pendingTrend = activity.map((a) => a.pending || 0);
     const inTransitTrend = activity.map((a) => a.inTransit || 0);
@@ -722,11 +767,15 @@ export class ShipmentsService {
     };
   }
 
-  async getActivity(organisationId: string, days: number = 30) {
+  async getActivity(organisationId: string, branchId?: string, days: number = 30) {
     if (!organisationId) return [];
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
+
+    const branchFilter = branchId
+        ? sql`AND branch_id = ${branchId}`
+        : sql``;
 
     const result = await db.execute(sql`
       SELECT 
@@ -735,6 +784,7 @@ export class ShipmentsService {
         count(*) as count
       FROM shipments
       WHERE organisation_id = ${organisationId}
+        ${branchFilter}
         AND created_at >= ${startDate}
       GROUP BY date(created_at), status
       ORDER BY date(created_at)
@@ -765,8 +815,15 @@ export class ShipmentsService {
     return Object.entries(byDate).map(([date, data]) => ({ date, ...data }));
   }
 
-  async getDestinations(organisationId: string, limit: number = 6) {
+  async getDestinations(organisationId: string, branchId?: string, limit: number = 6) {
     if (!organisationId) return [];
+
+    const filters: any[] = [
+      eq(shipments.organisationId, organisationId),
+      isNull(shipments.deletedAt),
+      isNotNull(shipments.destinationCountry),
+    ];
+    if (branchId) filters.push(eq(shipments.branchId, branchId));
 
     const result = await db
       .select({
@@ -774,13 +831,7 @@ export class ShipmentsService {
         count: sql<number>`count(*)`,
       })
       .from(shipments)
-      .where(
-        and(
-          eq(shipments.organisationId, organisationId),
-          isNull(shipments.deletedAt),
-          isNotNull(shipments.destinationCountry),
-        ),
-      )
+      .where(and(...filters))
       .groupBy(shipments.destinationCountry)
       .orderBy(sql`count(*) desc`)
       .limit(limit);
@@ -809,13 +860,15 @@ export class ShipmentsService {
         )`.as('latest_status'),
       })
       .from(shipments)
-      .where(and(
-        or(eq(shipments.userId, userId), eq(shipments.assignedToId, userId)),
-        isNull(shipments.deletedAt)
-      ))
+      .where(
+        and(
+          or(eq(shipments.userId, userId), eq(shipments.assignedToId, userId)),
+          isNull(shipments.deletedAt),
+        ),
+      )
       .orderBy(desc(shipments.createdAt));
 
-    const shipmentsWithLocation = results.map(row => ({
+    const shipmentsWithLocation = results.map((row) => ({
       ...row.shipment,
       currentLocation: row.latestLocation,
       currentStatus: row.latestStatus,
@@ -827,8 +880,13 @@ export class ShipmentsService {
     return shipmentsWithLocation;
   }
 
-  async findByUserAndOrganisation(userId: string, organisationId: string | null) {
-    this.logger.log(`[FIND BY USER+ORG] Fetching shipments for user: ${userId}, org: ${organisationId}`);
+  async findByUserAndOrganisation(
+    userId: string,
+    organisationId: string | null,
+  ) {
+    this.logger.log(
+      `[FIND BY USER+ORG] Fetching shipments for user: ${userId}, org: ${organisationId}`,
+    );
 
     if (organisationId) {
       const results = await db
@@ -837,12 +895,14 @@ export class ShipmentsService {
         .where(
           and(
             eq(shipments.organisationId, organisationId),
-            isNull(shipments.deletedAt)
-          )
+            isNull(shipments.deletedAt),
+          ),
         )
         .orderBy(desc(shipments.createdAt));
 
-      this.logger.log(`[FIND BY USER+ORG] Found ${results.length} shipments for org ${organisationId}`);
+      this.logger.log(
+        `[FIND BY USER+ORG] Found ${results.length} shipments for org ${organisationId}`,
+      );
       return results;
     }
 
@@ -850,7 +910,9 @@ export class ShipmentsService {
   }
 
   async findByOrganisation(organisationId: string) {
-    this.logger.log(`[FIND BY ORG] Fetching all shipments for organisation: ${organisationId}`);
+    this.logger.log(
+      `[FIND BY ORG] Fetching all shipments for organisation: ${organisationId}`,
+    );
 
     const results = await db
       .select({
@@ -870,24 +932,32 @@ export class ShipmentsService {
       .where(
         and(
           eq(shipments.organisationId, organisationId),
-          isNull(shipments.deletedAt)
-        )
+          isNull(shipments.deletedAt),
+        ),
       )
       .orderBy(desc(shipments.createdAt));
 
-    const shipmentsWithLocation = results.map(row => ({
+    const shipmentsWithLocation = results.map((row) => ({
       ...row.shipment,
       currentLocation: row.latestLocation,
       currentStatus: row.latestStatus,
     }));
 
-    this.logger.log(`[FIND BY ORG] Found ${shipmentsWithLocation.length} shipments`);
+    this.logger.log(
+      `[FIND BY ORG] Found ${shipmentsWithLocation.length} shipments`,
+    );
     return shipmentsWithLocation;
   }
 
   async update(
     id: string,
-    data: { recipientName?: string; recipientEmail?: string; recipientPhone?: string; branchId?: string; billAmount?: number | null },
+    data: {
+      recipientName?: string;
+      recipientEmail?: string;
+      recipientPhone?: string;
+      branchId?: string;
+      billAmount?: number | null;
+    },
   ) {
     const [existing] = await db
       .select()
@@ -903,7 +973,8 @@ export class ShipmentsService {
       updatedAt: new Date(),
     };
     if (data.billAmount !== undefined) {
-      updateData.billAmount = data.billAmount != null ? String(data.billAmount) : null;
+      updateData.billAmount =
+        data.billAmount != null ? String(data.billAmount) : null;
     }
 
     const [updated] = await db

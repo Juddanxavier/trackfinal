@@ -29,6 +29,7 @@ export function DashboardStatsCards({
         subtitle={`${shipmentStats?.recent || 0} new this week`}
         icon={<Package className="h-4 w-4" />}
         color="blue"
+        variant="gradient"
         animated
         delay={0}
       />
@@ -38,6 +39,7 @@ export function DashboardStatsCards({
         subtitle="Active shipments"
         icon={<Truck className="h-4 w-4" />}
         color="indigo"
+        variant="gradient"
         animated
         delay={0.1}
       />
@@ -47,6 +49,7 @@ export function DashboardStatsCards({
         subtitle={`${quoteStats?.recent || 0} new this week`}
         icon={<FileText className="h-4 w-4" />}
         color="purple"
+        variant="gradient"
         animated
         delay={0.2}
       />
@@ -56,6 +59,7 @@ export function DashboardStatsCards({
         subtitle={`${quoteStats?.rejected || 0} rejected`}
         icon={<CheckCircle className="h-4 w-4" />}
         color="green"
+        variant="gradient"
         animated
         delay={0.3}
       />

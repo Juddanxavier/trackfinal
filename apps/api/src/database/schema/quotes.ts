@@ -7,7 +7,6 @@ import {
   pgEnum,
   index,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 import { branches, organisations, users } from './index';
 
 export const quoteStatusEnum = pgEnum('quote_status', [
@@ -61,22 +60,3 @@ export const quotes = pgTable(
     index('idx_quotes_archived_at').on(table.archivedAt),
   ],
 );
-
-export const quotesRelations = relations(quotes, ({ one }) => ({
-  organisation: one(organisations, {
-    fields: [quotes.organisationId],
-    references: [organisations.id],
-  }),
-  branch: one(branches, {
-    fields: [quotes.branchId],
-    references: [branches.id],
-  }),
-  user: one(users, {
-    fields: [quotes.userId],
-    references: [users.id],
-  }),
-  assignedTo: one(users, {
-    fields: [quotes.assignedToId],
-    references: [users.id],
-  }),
-}));

@@ -43,7 +43,7 @@ export function UserAvatar({ name, email, className }: UserAvatarProps) {
   return (
     <div
       className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white font-bold text-sm",
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white",
         "bg-gradient-to-br",
         gradient,
         "shadow-lg shadow-black/25",

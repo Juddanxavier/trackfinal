@@ -5,13 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import Image from "next/image"
-import bglogin from "@/public/bglogin.png"
 import { Eye, EyeOff, Loader2, CommandIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login as apiLogin, type AuthUser } from "@/lib/api"
+import { AuthSidebar } from "@/components/auth-sidebar"
 import { TwoFactorChallenge } from "@/components/two-factor-challenge"
 import { useRateLimiter } from "@/hooks/use-rate-limiter"
 
@@ -32,12 +31,15 @@ export default function LoginPage() {
       : "/dashboard"
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [twoFactorSession, setTwoFactorSession] = useState<{ sessionToken: string; email: string } | null>(null)
+  const [twoFactorSession, setTwoFactorSession] = useState<{
+    sessionToken: string
+    email: string
+  } | null>(null)
 
   const rateLimiter = useRateLimiter({
     maxAttempts: 5,
-    windowMs: 5 * 60 * 1000, // 5 minutes
-    cooldownMs: 15 * 60 * 1000, // 15 minutes lock
+    windowMs: 5 * 60 * 1000,
+    cooldownMs: 15 * 60 * 1000,
   })
 
   const {
@@ -52,33 +54,40 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     if (!rateLimiter.canAttempt) {
       const minutes = Math.ceil(rateLimiter.remainingTime / 60000)
-      setError("password", { message: `Too many attempts. Please try again in ${minutes} minutes.` })
+      setError("password", {
+        message: `Too many attempts. Please try again in ${minutes} minutes.`,
+      })
       return
     }
 
     setLoading(true)
     try {
       const result = await apiLogin(data.email, data.password)
-      if (typeof result !== 'object' || !('id' in result)) {
+      if (typeof result !== "object" || !("id" in result)) {
         if (result.sessionToken) {
-          setTwoFactorSession({ sessionToken: result.sessionToken, email: data.email })
+          setTwoFactorSession({
+            sessionToken: result.sessionToken,
+            email: data.email,
+          })
         }
         return
       }
       const user = result as AuthUser
-      // Check if user is a customer - customers cannot access admin
       if (user.role === "customer") {
         rateLimiter.recordAttempt(false)
-        setError("password", { message: "Access denied. Customers cannot access the admin portal." })
+        setError("password", {
+          message: "Access denied. Customers cannot access the admin portal.",
+        })
         setLoading(false)
         return
       }
-      
+
       rateLimiter.recordAttempt(true)
       window.location.href = redirect
     } catch (err) {
       rateLimiter.recordAttempt(false)
-      const errorMessage = err instanceof Error ? err.message : "Invalid credentials"
+      const errorMessage =
+        err instanceof Error ? err.message : "Invalid credentials"
       setError("password", { message: errorMessage })
     } finally {
       setLoading(false)
@@ -104,31 +113,19 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-2">
-      <div className="relative hidden h-screen lg:flex">
-        <Image src={bglogin} alt="Background" fill className="object-cover" />
-        <div className="absolute right-0 bottom-0 left-0 p-8">
-          <div className="inline-flex items-center gap-3 rounded-md border border-black/10 bg-black/50 px-6 py-4 shadow-xl shadow-black/20 backdrop-blur-xl">
-            <CommandIcon className="h-6 w-6 text-white" />
-            <h1 className="text-xl font-bold text-white">GT Express</h1>
-          </div>
-          <p className="mt-3 text-base text-white/60">
-            Your complete shipment tracking solution
-          </p>
-        </div>
-      </div>
+      <AuthSidebar />
 
       <div className="flex flex-col items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="flex justify-center gap-2 text-center lg:hidden">
             <CommandIcon className="h-8 w-8 text-primary" />
-
             <h1 className="text-2xl font-bold">GT Express</h1>
           </div>
 
           <div>
             <h2 className="text-2xl font-bold">Welcome back</h2>
             <p className="mt-1 text-muted-foreground">
-              Enter your credentials to continue
+              Sign in to your account to continue
             </p>
           </div>
 
@@ -187,9 +184,17 @@ export default function LoginPage() {
               </a>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !rateLimiter.canAttempt}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !rateLimiter.canAttempt}
+            >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Signing in..." : rateLimiter.isLocked ? `Locked (${Math.ceil(rateLimiter.remainingTime / 60000)}m)` : "Sign in"}
+              {loading
+                ? "Signing in..."
+                : rateLimiter.isLocked
+                  ? `Locked (${Math.ceil(rateLimiter.remainingTime / 60000)}m)`
+                  : "Sign in"}
             </Button>
           </form>
 

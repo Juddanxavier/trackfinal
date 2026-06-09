@@ -9,8 +9,7 @@ import {
   numeric,
   index,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
-import { branches } from './index';
+import { branches } from './branches';
 
 export const shipmentStatusEnum = pgEnum('shipment_status', [
   'pending',
@@ -83,21 +82,6 @@ export const shipmentEvents = pgTable(
     index('idx_shipment_events_event_time').on(table.eventTime),
   ],
 );
-
-export const shipmentsRelations = relations(shipments, ({ one, many }) => ({
-  branch: one(branches, {
-    fields: [shipments.branchId],
-    references: [branches.id],
-  }),
-  events: many(shipmentEvents),
-}));
-
-export const shipmentEventsRelations = relations(shipmentEvents, ({ one }) => ({
-  shipment: one(shipments, {
-    fields: [shipmentEvents.shipmentId],
-    references: [shipments.id],
-  }),
-}));
 
 export type Shipment = typeof shipments.$inferSelect;
 export type NewShipment = typeof shipments.$inferInsert;

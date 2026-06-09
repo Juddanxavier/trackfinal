@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,6 +26,8 @@ import { Role } from '../../common/enums/role.enum';
 @ApiTags('organisations')
 @Controller('organisations')
 export class OrganisationsController {
+  private readonly logger = new Logger(OrganisationsController.name);
+
   constructor(private readonly organisationsService: OrganisationsService) {}
 
   @UseGuards(JwtAuthGuard, CasbinGuard)
@@ -62,12 +65,19 @@ export class OrganisationsController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   findAll(@Request() req: any) {
     const orgId = req.user.organisationId;
-    console.log('[OrganisationsController] findAll orgId:', orgId);
+    const role = req.user.role;
+    this.logger.log('findAll orgId: ' + orgId + ', role: ' + role);
     if (!orgId) {
-      console.log('[OrganisationsController] No orgId, returning empty');
+      if (role === 'admin') {
+        this.logger.log('Admin with no orgId, returning all organisations');
+        return this.organisationsService.findAll();
+      }
+      this.logger.log('No orgId, returning empty');
       return [];
     }
-    return this.organisationsService.findById(orgId).then(o => o ? [o] : []);
+    return this.organisationsService
+      .findById(orgId)
+      .then((o) => (o ? [o] : []));
   }
 
   @UseGuards(JwtAuthGuard)
@@ -151,9 +161,11 @@ export class OrganisationsController {
     if (!req.user.organisationId) {
       return [];
     }
-    return this.organisationsService.getOrgTree().then((tree) =>
-      tree.filter((o: any) => o.id === req.user.organisationId)
-    );
+    return this.organisationsService
+      .getOrgTree()
+      .then((tree) =>
+        tree.filter((o: any) => o.id === req.user.organisationId),
+      );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -164,7 +176,9 @@ export class OrganisationsController {
   @ApiResponse({ status: 200, description: 'List of branches' })
   getBranches(@Param('id') id: string, @Request() req: any) {
     if (req.user.organisationId !== id) {
-      throw new ForbiddenException('You can only access branches for your own organisation');
+      throw new ForbiddenException(
+        'You can only access branches for your own organisation',
+      );
     }
     return this.organisationsService.getBranches(id);
   }
@@ -192,7 +206,9 @@ export class OrganisationsController {
     @Request() req: any,
   ) {
     if (req.user.organisationId !== id) {
-      throw new ForbiddenException('You can only manage branches for your own organisation');
+      throw new ForbiddenException(
+        'You can only manage branches for your own organisation',
+      );
     }
     return this.organisationsService.createBranch({
       ...createDto,
@@ -226,7 +242,9 @@ export class OrganisationsController {
     @Request() req: any,
   ) {
     if (req.user.organisationId !== orgId) {
-      throw new ForbiddenException('You can only manage branches for your own organisation');
+      throw new ForbiddenException(
+        'You can only manage branches for your own organisation',
+      );
     }
     return this.organisationsService.updateBranch(branchId, updateDto);
   }
@@ -239,9 +257,15 @@ export class OrganisationsController {
   @ApiParam({ name: 'orgId', description: 'Organisation UUID' })
   @ApiParam({ name: 'branchId', description: 'Branch UUID' })
   @ApiResponse({ status: 200, description: 'Branch deactivated' })
-  removeBranch(@Param('orgId') orgId: string, @Param('branchId') branchId: string, @Request() req: any) {
+  removeBranch(
+    @Param('orgId') orgId: string,
+    @Param('branchId') branchId: string,
+    @Request() req: any,
+  ) {
     if (req.user.organisationId !== orgId) {
-      throw new ForbiddenException('You can only manage branches for your own organisation');
+      throw new ForbiddenException(
+        'You can only manage branches for your own organisation',
+      );
     }
     return this.organisationsService.removeBranch(branchId);
   }

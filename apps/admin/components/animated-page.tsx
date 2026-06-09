@@ -20,7 +20,15 @@ export function AnimatedPage({ children, className }: AnimatedPageProps) {
   )
 }
 
-export function AnimatedCard({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+export function AnimatedCard({
+  children,
+  className,
+  delay = 0,
+}: {
+  children: React.ReactNode
+  className?: string
+  delay?: number
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -33,7 +41,13 @@ export function AnimatedCard({ children, className, delay = 0 }: { children: Rea
   )
 }
 
-export function AnimatedList({ children, className }: { children: React.ReactNode; className?: string }) {
+export function AnimatedList({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <motion.div
       initial="initial"
@@ -52,7 +66,13 @@ export function AnimatedList({ children, className }: { children: React.ReactNod
   )
 }
 
-export function AnimatedListItem({ children, className }: { children: React.ReactNode; className?: string }) {
+export function AnimatedListItem({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <motion.div
       variants={{

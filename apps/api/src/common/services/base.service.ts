@@ -33,12 +33,20 @@ export abstract class BaseService {
     return orgId;
   }
 
-  async checkPermission(user: UserContext, object: string, action: string): Promise<boolean> {
+  async checkPermission(
+    user: UserContext,
+    object: string,
+    action: string,
+  ): Promise<boolean> {
     const orgId = this.getOrgId(user);
     return this.casbinService.can(user.role, object, action, orgId);
   }
 
-  async requirePermission(user: UserContext, object: string, action: string): Promise<void> {
+  async requirePermission(
+    user: UserContext,
+    object: string,
+    action: string,
+  ): Promise<void> {
     const hasPermission = await this.checkPermission(user, object, action);
     if (!hasPermission) {
       throw new ForbiddenException(`No permission to ${action} ${object}`);

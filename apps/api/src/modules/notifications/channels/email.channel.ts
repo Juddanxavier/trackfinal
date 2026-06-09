@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
@@ -13,6 +13,7 @@ const USE_QUEUE = process.env.NOTIFICATION_USE_QUEUE !== 'false';
 @Injectable()
 export class EmailChannel implements NotificationChannel {
   readonly channelName = 'email';
+  private readonly logger = new Logger(EmailChannel.name);
 
   constructor(
     @InjectQueue('notifications')
@@ -41,8 +42,8 @@ export class EmailChannel implements NotificationChannel {
       : JSON.stringify(payload.data);
 
     if (!USE_QUEUE || !this.notificationQueue) {
-      console.log(
-        '[EmailChannel DEV] Would send email:',
+      this.logger.log(
+        'DEV mode: Would send email:',
         subject,
         'to',
         payload.recipientEmail,

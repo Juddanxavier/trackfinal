@@ -41,7 +41,10 @@ export const users = pgTable(
 
 export const userTwoFactor = pgTable('user_two_factor', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().unique().references(() => users.id),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id),
   secret: text('secret').default(''),
   verified: boolean('verified').notNull().default(false),
   enabled: boolean('enabled').notNull().default(false),

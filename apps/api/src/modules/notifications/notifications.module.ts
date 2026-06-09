@@ -5,7 +5,6 @@ import { NotificationQueueService } from './notification-queue.service';
 import { NotificationLogsService } from './notification-logs.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { NotificationCleanupService } from './notification-cleanup.service';
-import { WhatsAppService } from './whatsapp.service';
 import { NotificationsService } from './notifications.service';
 import { NotificationService } from './notification.service';
 import { EmailModule } from '../email/email.module';
@@ -40,7 +39,9 @@ import { MSG91Service } from './msg91.service';
   controllers: [
     NotificationPreferencesController,
     NotificationsController,
-    TestNotificationsController,
+    ...(process.env.NODE_ENV !== 'production'
+      ? [TestNotificationsController]
+      : []),
   ],
   providers: [
     NotificationProcessor,
@@ -48,7 +49,6 @@ import { MSG91Service } from './msg91.service';
     NotificationLogsService,
     NotificationPreferencesService,
     NotificationCleanupService,
-    WhatsAppService,
     NotificationsService,
     NotificationService,
     EmailChannel,
@@ -62,7 +62,6 @@ import { MSG91Service } from './msg91.service';
     NotificationLogsService,
     NotificationPreferencesService,
     NotificationCleanupService,
-    WhatsAppService,
     NotificationService,
     EmailChannel,
     WhatsAppChannel,

@@ -31,7 +31,13 @@ export class InvoiceEmailProcessor extends WorkerHost {
   }
 
   async process(job: Job<InvoiceEmailJob>): Promise<any> {
-    const { shipmentId, trackingNumber, whiteLabelTrackingCode, to, recipientName } = job.data;
+    const {
+      shipmentId,
+      trackingNumber,
+      whiteLabelTrackingCode,
+      to,
+      recipientName,
+    } = job.data;
 
     this.logger.log(`Generating invoice PDF for ${trackingNumber}`);
 
@@ -52,7 +58,12 @@ export class InvoiceEmailProcessor extends WorkerHost {
           .where(eq(organisations.id, shipment.organisationId));
         if (org) {
           orgName = org.name || orgName;
-          const parts = [org.address, org.city, org.state, org.postalCode].filter(Boolean);
+          const parts = [
+            org.address,
+            org.city,
+            org.state,
+            org.postalCode,
+          ].filter(Boolean);
           orgAddress = parts.join(', ');
           orgEmail = org.email || '';
           orgPhone = org.phone || '';
@@ -67,7 +78,12 @@ export class InvoiceEmailProcessor extends WorkerHost {
         if (branch) {
           branchName = branch.name || '';
           if (branch.address) {
-            const parts = [branch.address, branch.city, branch.state, branch.postalCode].filter(Boolean);
+            const parts = [
+              branch.address,
+              branch.city,
+              branch.state,
+              branch.postalCode,
+            ].filter(Boolean);
             orgAddress = parts.join(', ');
           }
           orgEmail = branch.email || orgEmail;
@@ -122,12 +138,18 @@ export class InvoiceEmailProcessor extends WorkerHost {
       this.logger.log(`Invoice email sent for ${trackingNumber}`);
       return { sent: true, trackingNumber };
     } catch (error) {
-      this.logger.error(`Failed to send invoice email: ${(error as Error).message}`);
+      this.logger.error(
+        `Failed to send invoice email: ${(error as Error).message}`,
+      );
       throw error;
     }
   }
 
-  private buildEmailHtml(name: string, code: string, downloadUrl: string): string {
+  private buildEmailHtml(
+    name: string,
+    code: string,
+    downloadUrl: string,
+  ): string {
     return `
 <!DOCTYPE html>
 <html>

@@ -66,6 +66,7 @@ describe('QuotesService', () => {
 
     emailService = {
       sendEmail: jest.fn().mockResolvedValue(undefined),
+      sendQuoteStatusEmail: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({

@@ -28,9 +28,7 @@ export const webhookEndpoints = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
-  (table) => [
-    index('idx_webhook_endpoints_org').on(table.organisationId),
-  ],
+  (table) => [index('idx_webhook_endpoints_org').on(table.organisationId)],
 );
 
 export const webhookDeliveryLogs = pgTable(

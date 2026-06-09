@@ -34,7 +34,10 @@ export function NavSecondary({
                     <span>{item.title}</span>
                   </Link>
                 ) : (
-                  <button onClick={item.onClick} className="w-full flex items-center gap-2">
+                  <button
+                    onClick={item.onClick}
+                    className="flex w-full items-center gap-2"
+                  >
                     {item.icon}
                     <span>{item.title}</span>
                   </button>

@@ -1,10 +1,9 @@
 ﻿import { Injectable, Optional, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SendNotificationJob } from './notification-processor';
 import { NotificationLogsService } from './notification-logs.service';
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 @Injectable()
 export class NotificationQueueService {
@@ -14,9 +13,12 @@ export class NotificationQueueService {
     @InjectQueue('notifications')
     private notificationQueue: Queue | undefined,
     private notificationLogsService: NotificationLogsService,
+    private configService: ConfigService,
   ) {}
 
   async queueNotification(jobData: SendNotificationJob): Promise<void> {
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+
     if (!isProduction || !this.notificationQueue) {
       this.logger.log(
         `[NotificationQueueService] DEV mode - skipping queue for ${jobData.channel} notification`,

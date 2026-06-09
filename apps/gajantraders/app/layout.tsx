@@ -18,7 +18,8 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: "Gajan Traders — International Courier from India",
-  description: "Ship parcels from India to 200+ countries. Door-to-door pickup, real-time tracking, delivery you can count on.",
+  description:
+    "Ship parcels from India to 200+ countries. Door-to-door pickup, real-time tracking, delivery you can count on.",
 };
 
 export default function RootLayout({

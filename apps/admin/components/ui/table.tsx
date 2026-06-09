@@ -8,40 +8,25 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <table
       data-slot="table"
-      className={cn("w-full caption-bottom text-sm border-none", className)}
+      className={cn("w-full caption-bottom border-none text-sm", className)}
       {...props}
     />
   )
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return (
-    <thead
-      data-slot="table-header"
-      className={cn(className)}
-      {...props}
-    />
-  )
+  return <thead data-slot="table-header" className={cn(className)} {...props} />
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
-  return (
-    <tbody
-      data-slot="table-body"
-      className={cn(className)}
-      {...props}
-    />
-  )
+  return <tbody data-slot="table-body" className={cn(className)} {...props} />
 }
 
 function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn(
-        "border-0 bg-muted/30 font-medium",
-        className
-      )}
+      className={cn("border-0 bg-muted/30 font-medium", className)}
       {...props}
     />
   )
@@ -89,11 +74,12 @@ function SortableTableHead({
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 cursor-pointer hover:bg-muted/50 select-none",
+        "h-10 cursor-pointer px-2 text-left align-middle font-medium whitespace-nowrap text-foreground select-none hover:bg-muted/50 [&:has([role=checkbox])]:pr-0",
         className
       )}
       onClick={() => {
-        const newDirection = sortColumn === children && sortDirection === "asc" ? "desc" : "asc"
+        const newDirection =
+          sortColumn === children && sortDirection === "asc" ? "desc" : "asc"
         onSort(String(children), newDirection)
       }}
       {...props}

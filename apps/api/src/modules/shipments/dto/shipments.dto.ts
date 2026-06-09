@@ -32,7 +32,9 @@ export class CreateShipmentDto {
   @IsOptional()
   recipientCountry?: string;
 
-  @ApiPropertyOptional({ description: 'User ID (optional - the customer who owns this shipment)' })
+  @ApiPropertyOptional({
+    description: 'User ID (optional - the customer who owns this shipment)',
+  })
   @IsString()
   @IsOptional()
   userId?: string;

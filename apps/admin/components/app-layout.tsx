@@ -7,11 +7,17 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset } from "@/components/ui/sidebar"
 
-const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
+const authRoutes = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+]
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex min-h-screen items-center justify-center">
       {children}
     </div>
   )
@@ -37,7 +43,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { user, isLoading } = useAuth()
 
-  const isAuthRoute = authRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"))
+  const isAuthRoute = authRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  )
 
   useEffect(() => {
     if (!isLoading && !user && !isAuthRoute) {

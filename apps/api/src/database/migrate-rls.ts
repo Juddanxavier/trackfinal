@@ -15,10 +15,15 @@ async function migrate() {
 
   for (const table of TABLES) {
     try {
-      await db.execute(sql`ALTER TABLE ${sql.identifier(table as any)} ENABLE ROW LEVEL SECURITY`);
+      await db.execute(
+        sql`ALTER TABLE ${sql.identifier(table as any)} ENABLE ROW LEVEL SECURITY`,
+      );
       console.log(`✅ RLS enabled on ${table}`);
     } catch (err: unknown) {
-      console.error(`❌ Failed to enable RLS on ${table}:`, (err as Error).message);
+      console.error(
+        `❌ Failed to enable RLS on ${table}:`,
+        (err as Error).message,
+      );
       process.exit(1);
     }
   }
@@ -36,7 +41,9 @@ async function migrate() {
   for (const table of orgScopedTables) {
     try {
       // Drop existing policy if any
-      await db.execute(sql`DROP POLICY IF EXISTS org_isolation ON ${sql.identifier(table as any)}`);
+      await db.execute(
+        sql`DROP POLICY IF EXISTS org_isolation ON ${sql.identifier(table as any)}`,
+      );
       await db.execute(sql`
         CREATE POLICY org_isolation ON ${sql.identifier(table as any)}
         FOR ALL
@@ -45,7 +52,10 @@ async function migrate() {
       `);
       console.log(`✅ Org isolation policy created on ${table}`);
     } catch (err: unknown) {
-      console.error(`❌ Failed to create policy on ${table}:`, (err as Error).message);
+      console.error(
+        `❌ Failed to create policy on ${table}:`,
+        (err as Error).message,
+      );
       process.exit(1);
     }
   }
@@ -83,10 +93,16 @@ async function migrate() {
 
   console.log('✅ RLS migration complete');
   console.log('');
-  console.log('⚠️  IMPORTANT: You MUST set app.organisation_id at the start of each request.');
+  console.log(
+    '⚠️  IMPORTANT: You MUST set app.organisation_id at the start of each request.',
+  );
   console.log('   Add this to your NestJS middleware or interceptor:');
-  console.log('   await db.execute(sql`SELECT set_config(\'app.organisation_id\', $1, true)`, [orgId]);');
-  console.log('   The third arg "true" makes it local to the current transaction.');
+  console.log(
+    "   await db.execute(sql`SELECT set_config('app.organisation_id', $1, true)`, [orgId]);",
+  );
+  console.log(
+    '   The third arg "true" makes it local to the current transaction.',
+  );
 }
 
 migrate().catch(console.error);

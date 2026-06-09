@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
@@ -9,6 +11,7 @@ import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { userEditSchema, type UserEditFormData } from "@/lib/validation"
 import {
   Select,
   SelectContent,
@@ -33,9 +36,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { AnimatedPage } from "@/components/animated-page"
 import { StatsCard, StatsCardGrid } from "@/components/stats-card"
-import { DataTable, RowCheckbox, SelectAllCheckbox, type ColumnDef, type SortingState } from "@/components/data-table"
-import { Empty, EmptyDescription } from "@/components/ui/empty"
+import {
+  DataTable,
+  RowCheckbox,
+  SelectAllCheckbox,
+  type ColumnDef,
+  type SortingState,
+} from "@/components/data-table"
+import { EmptyState } from "@/components/empty-state"
 import { toast } from "sonner"
+import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
 import {
   SearchIcon,
   Loader2,
@@ -80,9 +90,12 @@ interface Branch {
 
 function RoleBadge({ role }: { role: string }) {
   const styles: Record<string, string> = {
-    admin: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800",
-    staff: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-    customer: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800",
+    admin:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+    staff:
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    customer:
+      "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800",
   }
   return (
     <Badge variant="outline" className={styles[role] || styles.customer}>
@@ -93,11 +106,17 @@ function RoleBadge({ role }: { role: string }) {
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return isActive ? (
-    <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 dark:bg-green-900/20">
+    <Badge
+      variant="outline"
+      className="border-green-300 bg-green-50 text-green-700 dark:bg-green-900/20"
+    >
       Active
     </Badge>
   ) : (
-    <Badge variant="outline" className="border-gray-300 text-gray-600 bg-gray-50 dark:bg-gray-900/20">
+    <Badge
+      variant="outline"
+      className="border-gray-300 bg-gray-50 text-gray-600 dark:bg-gray-900/20"
+    >
       Inactive
     </Badge>
   )
@@ -105,8 +124,13 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 export default function UsersPage() {
   const router = useRouter()
-  const { user, selectedOrganisation, isLoading: authLoading, organisations } = useAuth()
-  
+  const {
+    user,
+    selectedOrganisation,
+    isLoading: authLoading,
+    organisations,
+  } = useAuth()
+
   const isGlobalAdmin = user?.role === "global_admin"
   const isAdmin = user?.role === "admin" || isGlobalAdmin
 
@@ -128,14 +152,23 @@ export default function UsersPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [userToEdit, setUserToEdit] = useState<User | null>(null)
-  const [editRole, setEditRole] = useState<"admin" | "staff" | "customer">("staff")
-  const [editBranchId, setEditBranchId] = useState("none")
-  const [editBranches, setEditBranches] = useState<Branch[]>([])
-  const [savingEdit, setSavingEdit] = useState(false)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const [editBranches, setEditBranches] = useState<Branch[]>([])
+
+  const editForm = useForm<UserEditFormData>({
+    resolver: zodResolver(userEditSchema),
+  })
+  const {
+    register: editRegister,
+    handleSubmit: editHandleSubmit,
+    control: editControl,
+    reset: editReset,
+    formState: { errors: editErrors },
+  } = editForm
 
   const isMultiOrg = isGlobalAdmin && organisations.length > 1
 
@@ -160,14 +193,16 @@ export default function UsersPage() {
       params.set("limit", limit.toString())
       if (search) params.set("search", search)
       if (roleFilter !== "all") params.set("role", roleFilter)
-      if (statusFilter !== "all") params.set("isActive", statusFilter === "active" ? "true" : "false")
-      
+      if (statusFilter !== "all")
+        params.set("isActive", statusFilter === "active" ? "true" : "false")
+
       // Use branch filter from page
       const branchId = branchFilter !== "all" ? branchFilter : null
       if (branchId) params.set("branchId", branchId)
-      
+
       // Determine organisation
-      const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+      const orgId =
+        isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
       if (orgId) params.set("organisationId", orgId)
       if (isAdmin) params.set("all", "true")
       if (sorting.length > 0) {
@@ -175,16 +210,20 @@ export default function UsersPage() {
         params.set("sortOrder", sorting[0].desc ? "desc" : "asc")
       }
 
-      const res = await api.get<{ data: User[]; total: number; page: number; limit: number; totalPages: number }>(
-        `/users?${params}`, { throwOnError: false }
-      )
+      const res = await api.get<{
+        data: User[]
+        total: number
+        page: number
+        limit: number
+        totalPages: number
+      }>(`/users?${params}`, { throwOnError: false })
       if (res) {
         setUsers(res.data)
         setTotal(res.total)
         setTotalPages(res.totalPages)
       }
     } catch (err) {
-      console.error("Failed to fetch users:", err)
+      toast.error("Failed to fetch users")
     } finally {
       setLoading(false)
     }
@@ -197,10 +236,12 @@ export default function UsersPage() {
       return
     }
     try {
-      const res = await api.get<Branch[]>(`/organisations/${orgId}/branches`, { throwOnError: false })
+      const res = await api.get<Branch[]>(`/organisations/${orgId}/branches`, {
+        throwOnError: false,
+      })
       if (res) setBranches(res)
     } catch (err) {
-      console.error("Failed to fetch branches:", err)
+      toast.error("Failed to fetch branches")
     }
   }
 
@@ -208,15 +249,20 @@ export default function UsersPage() {
     if (authLoading) return
     try {
       const params = new URLSearchParams()
-      const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+      const orgId =
+        isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
       if (orgId) params.set("organisationId", orgId)
       const queryString = params.toString() ? `?${params.toString()}` : ""
-      const res = await api.get<Stats>(`/users/stats${queryString}`, { throwOnError: false })
+      const res = await api.get<Stats>(`/users/stats${queryString}`, {
+        throwOnError: false,
+      })
       if (res) setStats(res)
     } catch (err) {
-      console.error("Failed to fetch stats:", err)
+      toast.error("Failed to fetch stats")
     }
   }
+
+  useRefetchOnFocus(fetchUsers, !loading)
 
   // Fetch branches when org changes
   useEffect(() => {
@@ -233,47 +279,82 @@ export default function UsersPage() {
   // Page/other params changes
   useEffect(() => {
     fetchUsers()
-  }, [page, limit, sorting, selectedOrganisation, orgFilter, user, authLoading, isGlobalAdmin, isAdmin])
+  }, [
+    page,
+    limit,
+    sorting,
+    selectedOrganisation,
+    orgFilter,
+    user,
+    authLoading,
+    isGlobalAdmin,
+    isAdmin,
+  ])
 
   // Fetch stats for admin/staff
   useEffect(() => {
     if (isAdmin || user?.role === "staff") fetchStats()
-  }, [selectedOrganisation, orgFilter, isGlobalAdmin, isAdmin, user, authLoading])
+  }, [
+    selectedOrganisation,
+    orgFilter,
+    isGlobalAdmin,
+    isAdmin,
+    user,
+    authLoading,
+  ])
 
   // Fetch branches for edit dialog
   useEffect(() => {
     if (editDialogOpen && userToEdit) {
-      const orgId = isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
+      const orgId =
+        isGlobalAdmin && orgFilter ? orgFilter : selectedOrganisation
       if (orgId) {
-        api.get<Branch[]>(`/organisations/${orgId}/branches`, { throwOnError: false }).then(res => {
-          if (res) setEditBranches(res)
-        }).catch(console.error)
+        api
+          .get<Branch[]>(`/organisations/${orgId}/branches`, {
+            throwOnError: false,
+          })
+          .then((res) => {
+            if (res) setEditBranches(res)
+          })
+          .catch(() => toast.error("Failed to load branches"))
       }
     }
-  }, [editDialogOpen, userToEdit, selectedOrganisation, orgFilter, isGlobalAdmin])
+  }, [
+    editDialogOpen,
+    userToEdit,
+    selectedOrganisation,
+    orgFilter,
+    isGlobalAdmin,
+  ])
 
   const handleEditClick = (userItem: User) => {
     setUserToEdit(userItem)
-    setEditRole(userItem.role as "admin" | "staff" | "customer")
-    setEditBranchId(userItem.branchId || "none")
+    editReset({
+      name: userItem.name,
+      phoneNumber: userItem.phoneNumber || "",
+      role: userItem.role,
+    })
     setEditDialogOpen(true)
   }
 
-  const handleSaveEdit = async () => {
+  const onEditSubmit = async (data: UserEditFormData) => {
     if (!userToEdit) return
     const prev = [...users]
     setUsers((u) =>
       u.map((x) =>
         x.id === userToEdit.id
-          ? { ...x, role: editRole, branchId: editBranchId === "none" ? null : editBranchId }
+          ? {
+              ...x,
+              role: data.role || x.role,
+              branchId: editForm.getValues("branchId") || x.branchId,
+            }
           : x
       )
     )
-    setSavingEdit(true)
     try {
       await api.patch(`/users/${userToEdit.id}`, {
-        role: editRole,
-        branchId: editBranchId === "none" ? null : editBranchId,
+        role: data.role,
+        branchId: data.branchId === "none" ? null : data.branchId,
       })
       toast.success("User updated successfully")
       setEditDialogOpen(false)
@@ -281,8 +362,6 @@ export default function UsersPage() {
     } catch (err) {
       setUsers(prev)
       toast.error("Failed to update user")
-    } finally {
-      setSavingEdit(false)
     }
   }
 
@@ -343,7 +422,7 @@ export default function UsersPage() {
       header: "User",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
             <span className="text-sm font-medium text-primary">
               {row.original.name?.charAt(0).toUpperCase() || "?"}
             </span>
@@ -416,7 +495,12 @@ export default function UsersPage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontalIcon className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -432,12 +516,16 @@ export default function UsersPage() {
                 </DropdownMenuItem>
               )}
               {u.isActive ? (
-                <DropdownMenuItem onClick={() => optimisticToggleActive(u.id, false)}>
+                <DropdownMenuItem
+                  onClick={() => optimisticToggleActive(u.id, false)}
+                >
                   <UserMinusIcon className="mr-2 h-4 w-4" />
                   Deactivate
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => optimisticToggleActive(u.id, true)}>
+                <DropdownMenuItem
+                  onClick={() => optimisticToggleActive(u.id, true)}
+                >
                   <UserCheckIcon className="mr-2 h-4 w-4" />
                   Activate
                 </DropdownMenuItem>
@@ -445,7 +533,10 @@ export default function UsersPage() {
               {isAdmin && u.id !== user?.id && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleDeleteClick(u)} className="text-destructive">
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteClick(u)}
+                    className="text-destructive"
+                  >
                     <TrashIcon className="mr-2 h-4 w-4" />
                     Delete
                   </DropdownMenuItem>
@@ -460,22 +551,32 @@ export default function UsersPage() {
   ]
 
   return (
-    <AnimatedPage className="p-6 space-y-6">
+    <AnimatedPage className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-            <p className="text-muted-foreground mt-1">Manage users and their access</p>
+            <p className="mt-1 text-muted-foreground">
+              Manage users and their access
+            </p>
           </div>
           {isMultiOrg && (
-            <Select value={orgFilter} onValueChange={(val) => { setOrgFilter(val); setPage(1) }}>
+            <Select
+              value={orgFilter}
+              onValueChange={(val) => {
+                setOrgFilter(val)
+                setPage(1)
+              }}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select organisation" />
               </SelectTrigger>
               <SelectContent>
                 {organisations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -484,13 +585,19 @@ export default function UsersPage() {
         {isAdmin && (
           <p className="text-sm text-muted-foreground">
             Invite users from the{" "}
-            <Button variant="link" className="h-auto p-0 text-primary" onClick={() => router.push('/invitations')}>
+            <Button
+              variant="link"
+              className="h-auto p-0 text-primary"
+              onClick={() => router.push("/invitations")}
+            >
               Invitations page
             </Button>
           </p>
         )}
         {!isAdmin && (
-          <p className="text-sm text-muted-foreground">Contact your admin to invite new users</p>
+          <p className="text-sm text-muted-foreground">
+            Contact your admin to invite new users
+          </p>
         )}
       </div>
 
@@ -529,9 +636,9 @@ export default function UsersPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="relative w-full sm:w-72">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search users..."
             value={search}
@@ -569,7 +676,9 @@ export default function UsersPage() {
               <SelectContent>
                 <SelectItem value="all">All Branches</SelectItem>
                 {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                  <SelectItem key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -600,11 +709,27 @@ export default function UsersPage() {
         data={users}
         loading={loading}
         getRowId={(row) => row.id}
-        emptyState={
-          <Empty>
-            <EmptyDescription>No users found</EmptyDescription>
-          </Empty>
-        }
+        emptyState={<EmptyState entity="users" />}
+        renderMobileCard={(user) => (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                  <span className="text-xs font-medium text-primary">
+                    {user.name?.charAt(0).toUpperCase() || "?"}
+                  </span>
+                </div>
+                <span className="font-medium">{user.name}</span>
+              </div>
+              <RoleBadge role={user.role} />
+            </div>
+            <div className="text-sm text-muted-foreground">{user.email}</div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <StatusBadge isActive={user.isActive} />
+              <span>{new Date(user.createdAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+        )}
         enableRowSelection
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
@@ -619,19 +744,29 @@ export default function UsersPage() {
         onPageChange={setPage}
         onPageSizeChange={setLimit}
         pageSizeOptions={[10, 20, 50, 100]}
-        customFooter={<BulkActionFooter
-          selectedCount={selectedIds.length}
-          actions={[
-            { label: "Activate", variant: "outline", onClick: () => {
-              selectedIds.forEach(id => optimisticToggleActive(id, true))
-              setSelectedIds([])
-            }},
-            { label: "Deactivate", variant: "outline", onClick: () => {
-              selectedIds.forEach(id => optimisticToggleActive(id, false))
-              setSelectedIds([])
-            }},
-          ]}
-        />}
+        customFooter={
+          <BulkActionFooter
+            selectedCount={selectedIds.length}
+            actions={[
+              {
+                label: "Activate",
+                variant: "outline",
+                onClick: () => {
+                  selectedIds.forEach((id) => optimisticToggleActive(id, true))
+                  setSelectedIds([])
+                },
+              },
+              {
+                label: "Deactivate",
+                variant: "outline",
+                onClick: () => {
+                  selectedIds.forEach((id) => optimisticToggleActive(id, false))
+                  setSelectedIds([])
+                },
+              },
+            ]}
+          />
+        }
       />
 
       {/* Edit Dialog */}
@@ -643,51 +778,97 @@ export default function UsersPage() {
               Update role and branch for {userToEdit?.name}.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-role">Role</Label>
-              <Select value={editRole} onValueChange={(val) => setEditRole(val as "admin" | "staff" | "customer")}>
-                <SelectTrigger id="edit-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {isGlobalAdmin && (
-                    <>
-                      <SelectItem value="admin">Admin (Branch Admin)</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                    </>
-                  )}
-                  {!isGlobalAdmin && (
-                    <SelectItem value="staff">Staff</SelectItem>
-                  )}
-                  <SelectItem value="customer">Customer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {editBranches.length > 0 && (
+          <form onSubmit={editHandleSubmit(onEditSubmit)}>
+            <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-branch">Branch</Label>
-                <Select value={editBranchId} onValueChange={setEditBranchId}>
-                  <SelectTrigger id="edit-branch">
-                    <SelectValue placeholder="Select branch (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No branch</SelectItem>
-                    {editBranches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit-role">Role</Label>
+                <Controller
+                  name="role"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={field.onChange}
+                    >
+                      <SelectTrigger id="edit-role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isGlobalAdmin && (
+                          <>
+                            <SelectItem value="admin">
+                              Admin (Branch Admin)
+                            </SelectItem>
+                            <SelectItem value="staff">Staff</SelectItem>
+                          </>
+                        )}
+                        {!isGlobalAdmin && (
+                          <SelectItem value="staff">Staff</SelectItem>
+                        )}
+                        <SelectItem value="customer">Customer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {editErrors.role && (
+                  <p className="text-sm text-red-500">
+                    {editErrors.role.message}
+                  </p>
+                )}
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveEdit} disabled={savingEdit} className="gap-2">
-              {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
+              {editBranches.length > 0 && (
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-branch">Branch</Label>
+                  <Controller
+                    name="branchId"
+                    control={editControl}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || "none"}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger id="edit-branch">
+                          <SelectValue placeholder="Select branch (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No branch</SelectItem>
+                          {editBranches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {editErrors.branchId && (
+                    <p className="text-sm text-red-500">
+                      {editErrors.branchId.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={editForm.formState.isSubmitting}
+                className="gap-2"
+              >
+                {editForm.formState.isSubmitting && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -697,12 +878,23 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete {userToDelete?.name}? This action cannot be undone.
+              Are you sure you want to delete {userToDelete?.name}? This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting} className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="gap-2"
+            >
               {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
               Delete User
             </Button>

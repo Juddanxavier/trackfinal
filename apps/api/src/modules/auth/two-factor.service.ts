@@ -18,7 +18,9 @@ export class TwoFactorService {
 
   constructor(private emailService: EmailService) {}
 
-  async getStatus(userId: string): Promise<{ enabled: boolean; verified: boolean }> {
+  async getStatus(
+    userId: string,
+  ): Promise<{ enabled: boolean; verified: boolean }> {
     const [row] = await db
       .select()
       .from(userTwoFactor)
@@ -32,7 +34,9 @@ export class TwoFactorService {
   async setup(userId: string, email: string): Promise<{ message: string }> {
     const code = this.generateCode();
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-    const expiresAt = new Date(Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000,
+    );
 
     const [existing] = await db
       .select()
@@ -64,18 +68,25 @@ export class TwoFactorService {
     return { message: 'Verification code sent to your email' };
   }
 
-  async verify(userId: string, code: string): Promise<{ backupCodes: string[] }> {
+  async verify(
+    userId: string,
+    code: string,
+  ): Promise<{ backupCodes: string[] }> {
     const [row] = await db
       .select()
       .from(userTwoFactor)
       .where(eq(userTwoFactor.userId, userId));
 
     if (!row || !row.pendingCodeHash || !row.pendingCodeExpiresAt) {
-      throw new BadRequestException('No verification code pending. Start setup again.');
+      throw new BadRequestException(
+        'No verification code pending. Start setup again.',
+      );
     }
 
     if (new Date() > row.pendingCodeExpiresAt) {
-      throw new BadRequestException('Verification code expired. Start setup again.');
+      throw new BadRequestException(
+        'Verification code expired. Start setup again.',
+      );
     }
 
     const inputHash = crypto.createHash('sha256').update(code).digest('hex');
@@ -107,7 +118,9 @@ export class TwoFactorService {
   async sendLoginCode(userId: string, email: string): Promise<void> {
     const code = this.generateCode();
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-    const expiresAt = new Date(Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000,
+    );
 
     await db
       .update(userTwoFactor)
@@ -132,7 +145,11 @@ export class TwoFactorService {
 
     if (!row) return false;
 
-    if (row.pendingCodeHash && row.pendingCodeExpiresAt && new Date() <= row.pendingCodeExpiresAt) {
+    if (
+      row.pendingCodeHash &&
+      row.pendingCodeExpiresAt &&
+      new Date() <= row.pendingCodeExpiresAt
+    ) {
       const inputHash = crypto.createHash('sha256').update(code).digest('hex');
       if (inputHash === row.pendingCodeHash) {
         await db
@@ -186,7 +203,9 @@ export class TwoFactorService {
     this.logger.log(`2FA disabled for user ${userId}`);
   }
 
-  async regenerateBackupCodes(userId: string): Promise<{ backupCodes: string[] }> {
+  async regenerateBackupCodes(
+    userId: string,
+  ): Promise<{ backupCodes: string[] }> {
     const [row] = await db
       .select()
       .from(userTwoFactor)

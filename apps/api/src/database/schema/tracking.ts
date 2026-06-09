@@ -8,7 +8,6 @@ import {
   integer,
   boolean,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 
 export const trackingJobStatusEnum = pgEnum('tracking_job_status', [
   'pending',
@@ -70,20 +69,6 @@ export const trackingSettings = pgTable('tracking_settings', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
-
-export const trackingJobsRelations = relations(trackingJobs, ({ many }) => ({
-  events: many(trackingJobEvents),
-}));
-
-export const trackingJobEventsRelations = relations(
-  trackingJobEvents,
-  ({ one }) => ({
-    job: one(trackingJobs, {
-      fields: [trackingJobEvents.jobId],
-      references: [trackingJobs.id],
-    }),
-  }),
-);
 
 export const trackingTransLog = pgTable('tracking_trans_log', {
   id: uuid('id').primaryKey().defaultRandom(),
