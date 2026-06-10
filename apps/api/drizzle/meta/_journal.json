@@ -78,6 +78,13 @@
       "when": 1745367000000,
       "tag": "0010_branches_table",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1745367100000,
+      "tag": "0011_shipments_missing_columns",
+      "breakpoints": true
     }
   ]
 }
