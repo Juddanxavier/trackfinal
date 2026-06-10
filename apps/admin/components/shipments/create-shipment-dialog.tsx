@@ -264,7 +264,7 @@ export function CreateShipmentDialog({
           />
         </div>
         <form onSubmit={csHandleSubmit(onCreateSubmit)}>
-          <div className="grid gap-4">
+          <div className="grid gap-4 pb-4">
             {createStep === 1 && (
               <>
                 <div className="grid gap-2">

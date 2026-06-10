@@ -336,6 +336,70 @@ interface DataTablePaginationProps {
   showPagination: boolean
 }
 
+function PaginationContent({
+  currentPage,
+  totalPages,
+  total,
+  pageSize,
+  pageSizeOptions,
+  manualPagination,
+  enableRowSelection,
+  selectedCount,
+  onPageChange,
+  onPageSizeChange,
+  showPagination,
+}: Omit<DataTablePaginationProps, "columnsLength" | "hasFooterGroups" | "footerGroups" | "customFooter">) {
+  if (!showPagination) return null
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <p className="text-sm text-muted-foreground">
+          {enableRowSelection && selectedCount > 0
+            ? `${selectedCount} of ${total} selected`
+            : total === 0
+              ? "No results"
+              : `Page ${currentPage} of ${totalPages} · ${total} total`}
+        </p>
+        {pageSizeOptions.length > 1 && manualPagination && (
+          <select
+            className="rounded border bg-transparent px-1 py-0.5 text-sm text-muted-foreground"
+            value={pageSize}
+            onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size} per page
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange?.(currentPage - 1)}
+        >
+          Previous
+        </Button>
+        <span className="px-2 text-sm text-muted-foreground">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange?.(currentPage + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function DataTablePagination({
   currentPage,
   totalPages,
@@ -380,68 +444,19 @@ function DataTablePagination({
       {showPagination && (
         <TableRow>
           <TableCell colSpan={columnsLength} className="px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <p className="text-sm text-muted-foreground">
-                  {enableRowSelection && selectedCount > 0
-                    ? `${selectedCount} of ${total} selected`
-                    : total === 0
-                      ? "No results"
-                      : `Page ${currentPage} of ${totalPages} · ${total} total`}
-                </p>
-                {pageSizeOptions.length > 1 && manualPagination && (
-                  <select
-                    className="rounded border bg-transparent px-1 py-0.5 text-sm text-muted-foreground"
-                    value={pageSize}
-                    onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-                  >
-                    {pageSizeOptions.map((size) => (
-                      <option key={size} value={size}>
-                        {size} per page
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onPageChange?.(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                >
-                  <ChevronLeftIcon className="h-4 w-4" />
-                </Button>
-                {getPageNumbers(currentPage, totalPages).map((p, i) =>
-                  p === "..." ? (
-                    <span
-                      key={`ellipsis-${i}`}
-                      className="px-1 text-sm text-muted-foreground"
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <Button
-                      key={`page-${p}`}
-                      variant={currentPage === p ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => onPageChange?.(p)}
-                      className="min-w-[2.25rem]"
-                    >
-                      {p}
-                    </Button>
-                  )
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onPageChange?.(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                >
-                  <ChevronRightIcon className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <PaginationContent
+              currentPage={currentPage}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              pageSizeOptions={pageSizeOptions}
+              manualPagination={manualPagination}
+              enableRowSelection={enableRowSelection}
+              selectedCount={selectedCount}
+              onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
+              showPagination={showPagination}
+            />
           </TableCell>
         </TableRow>
       )}
@@ -622,23 +637,21 @@ export function DataTable<TData>({
               </div>
             )}
           </div>
-          <DataTablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            total={total}
-            pageSize={pageSize}
-            pageSizeOptions={pageSizeOptions}
-            manualPagination={manualPagination}
-            enableRowSelection={enableRowSelection}
-            selectedCount={effectiveSelectedIds.length}
-            onPageChange={onPageChange}
-            onPageSizeChange={onPageSizeChange}
-            columnsLength={columns.length}
-            hasFooterGroups={hasFooterGroups}
-            footerGroups={table.getFooterGroups()}
-            customFooter={customFooter}
-            showPagination={data.length > 0}
-          />
+          <div className="p-4 border-t border-border">
+            <PaginationContent
+              currentPage={currentPage}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              pageSizeOptions={pageSizeOptions}
+              manualPagination={manualPagination}
+              enableRowSelection={enableRowSelection}
+              selectedCount={effectiveSelectedIds.length}
+              onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
+              showPagination={data.length > 0}
+            />
+          </div>
         </div>
       )}
 
