@@ -34,6 +34,8 @@ Thumbs.db
 
 # Playwright
 .playwright-mcp/
+playwright-report/
+test-results/
 
 # Coverage
 coverage/

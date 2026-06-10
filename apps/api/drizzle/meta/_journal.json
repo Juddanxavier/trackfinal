@@ -36,6 +36,34 @@
       "when": 1745366400000,
       "tag": "0004_security_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1745366500000,
+      "tag": "0005_seed_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1745366600000,
+      "tag": "0006_casbin_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1745366700000,
+      "tag": "0007_org_branch_hierarchy",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1745366800000,
+      "tag": "0008_invitation_branch_id",
+      "breakpoints": true
     }
   ]
 }
