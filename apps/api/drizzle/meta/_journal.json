@@ -71,6 +71,13 @@
       "when": 1745366900000,
       "tag": "0009_user_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1745367000000,
+      "tag": "0010_branches_table",
+      "breakpoints": true
     }
   ]
 }
