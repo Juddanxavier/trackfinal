@@ -72,7 +72,7 @@ export function SiteHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { theme, resolvedTheme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
 
   useEffect(() => {
@@ -92,9 +92,7 @@ export function SiteHeader() {
     "Dashboard"
 
   const toggleTheme = () => {
-    if (theme === "dark") setTheme("light")
-    else if (theme === "light") setTheme("system")
-    else setTheme("dark")
+    setTheme(theme === "dark" ? "light" : "dark")
   }
 
   return (
