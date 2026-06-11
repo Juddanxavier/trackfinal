@@ -104,6 +104,8 @@ export default function ProfilePage() {
 
   const roleLabel = (role: string) => {
     switch (role) {
+      case "superadmin":
+        return "Super Admin"
       case "admin":
         return "Admin"
       case "staff":
