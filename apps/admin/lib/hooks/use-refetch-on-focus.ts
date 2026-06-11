@@ -2,17 +2,20 @@
 
 import { useEffect, useRef } from "react"
 
+const MIN_REFETCH_INTERVAL = 30_000
+
 export function useRefetchOnFocus(refetch: () => void, enabled = true) {
-  const refetched = useRef(false)
+  const lastRefetch = useRef(0)
 
   useEffect(() => {
     if (!enabled) return
 
     const handleFocus = () => {
-      if (refetched.current) {
+      const now = Date.now()
+      if (now - lastRefetch.current > MIN_REFETCH_INTERVAL) {
+        lastRefetch.current = now
         refetch()
       }
-      refetched.current = true
     }
 
     window.addEventListener("focus", handleFocus)
