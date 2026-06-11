@@ -14,6 +14,7 @@ import {
   getCurrentUser,
   fetchCsrfToken,
 } from "@/lib/api"
+import { isAdminRole } from "@/lib/utils"
 
 export type { AuthUser as User }
 
@@ -95,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         let orgs: Organisation[] = []
 
-        if (userData.role === "admin") {
+        if (isAdminRole(userData.role)) {
           // Admin sees only their own org (API filters based on role)
           const response: any = await api.get<Organisation[]>(
             "/organisations",

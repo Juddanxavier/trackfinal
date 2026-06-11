@@ -16,6 +16,7 @@ import type {
 } from './reports.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require } from '../../common/casbin';
+import { isAdminRole } from '../../common/enums/role.enum';
 
 interface AuthUser {
   role: string;
@@ -107,7 +108,7 @@ export class ReportsController {
   ): string | undefined {
     const userOrgId = req.user.organisationId;
 
-    if (req.user.role === 'admin' && organisationId) {
+    if (isAdminRole(req.user.role) && organisationId) {
       return organisationId;
     }
     return userOrgId;
@@ -121,7 +122,7 @@ export class ReportsController {
       return req.user.branchId;
     }
 
-    if (req.user.role === 'admin' && branchId) {
+    if (isAdminRole(req.user.role) && branchId) {
       return branchId;
     }
 

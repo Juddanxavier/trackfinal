@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth-context"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset } from "@/components/ui/sidebar"
+import { isAdminRole } from "@/lib/utils"
 
 const authRoutes = [
   "/login",
@@ -25,7 +26,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const isAdmin = user?.role === "admin"
+  const isAdmin = isAdminRole(user?.role)
 
   return (
     <>

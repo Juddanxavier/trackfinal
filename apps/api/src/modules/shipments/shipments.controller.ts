@@ -28,6 +28,7 @@ import { CasbinGuard, Require } from '../../common/casbin';
 import { Role } from '../../common/enums/role.enum';
 import { Public } from '../../common/decorators/public.decorator';
 import { CarriersService } from '../carriers/carriers.service';
+import { isAdminRole } from '../../common/enums/role.enum';
 import { UsersService } from '../users/services';
 
 @ApiTags('Shipments')
@@ -65,7 +66,7 @@ export class ShipmentsController {
     }
 
     let branchId: string | null;
-    if (req.user.role === 'admin') {
+    if (isAdminRole(req.user.role)) {
       if (!dto.branchId) {
         throw new BadRequestException(
           'Branch is required for admin-created shipments',
@@ -141,7 +142,7 @@ export class ShipmentsController {
     const organisationId = req.user.organisationId;
 
     // ADMIN and STAFF see all organisation shipments
-    if ((role === 'admin' || role === 'staff') && organisationId) {
+    if ((isAdminRole(role) || role === 'staff') && organisationId) {
       return this.shipmentsService.findByOrganisation(organisationId);
     }
 
@@ -375,7 +376,7 @@ export class ShipmentsController {
 
     // Only admin can update bill amount; strip it for staff
     const updateData: any = { ...dto };
-    if (req.user.role !== 'admin') {
+    if (!isAdminRole(req.user.role)) {
       delete updateData.billAmount;
     }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
+import { isAdminRole } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Pagination } from "@/components/ui/pagination"
@@ -97,7 +98,7 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<"quotes" | "shipments">("quotes")
 
   const userId = params.id as string
-  const canEdit = user?.role === "admin" || user?.id === userId
+  const canEdit = isAdminRole(user?.role) || user?.id === userId
 
   const quotesTotalPages = Math.ceil(quotesTotal / ITEMS_PER_PAGE)
   const shipmentsTotalPages = Math.ceil(shipmentsTotal / ITEMS_PER_PAGE)

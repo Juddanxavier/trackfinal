@@ -60,6 +60,9 @@ export class CasbinService implements OnModuleInit {
   private async loadPolicies() {
     this.enforcer.clearPolicy();
 
+    // superadmin: unrestricted access across all orgs
+    await this.enforcer.addPolicy('superadmin', '*', '*', '*', 'allow');
+
     // admin: only their own organisation (uses their orgId at runtime)
     await this.enforcer.addPolicy('admin', '*', '*', '*', 'allow');
 
@@ -404,6 +407,8 @@ export class CasbinService implements OnModuleInit {
     await this.enforcer.clearPolicy();
 
     const allPolicies = [
+      ['superadmin', '*', '*', '*', 'allow'],
+      ['superadmin', '', '*', '*', 'allow'],
       ['admin', '*', '*', '*', 'allow'],
       ['admin', '', '*', '*', 'allow'],
       ['staff', '*', 'shipments', '*', 'allow'],

@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { Logger } from '@nestjs/common';
 import { UsersService } from '../users/services';
+import { isAdminRole } from '../../common/enums/role.enum';
 
 @WebSocketGateway({
   cors: {
@@ -114,7 +115,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { error: 'Not authenticated' };
     }
 
-    if (user.organisationId !== organisationId && user.role !== 'admin') {
+    if (user.organisationId !== organisationId && !isAdminRole(user.role)) {
       client.emit('error', { message: 'Cannot join this organisation' });
       return { error: 'Cannot join this organisation' };
     }
@@ -144,7 +145,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { error: 'Not authenticated' };
     }
 
-    if (user.id !== userId && user.role !== 'admin') {
+    if (user.id !== userId && !isAdminRole(user.role)) {
       client.emit('error', { message: 'Cannot join this user room' });
       return { error: 'Cannot join this user room' };
     }

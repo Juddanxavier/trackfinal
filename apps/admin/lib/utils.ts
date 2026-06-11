@@ -14,3 +14,9 @@ export {
   isToday,
   isYesterday,
 } from "@repo/utils/date"
+
+const ADMIN_ROLES = new Set(["admin", "superadmin"])
+
+export function isAdminRole(role?: string | null): boolean {
+  return !!role && ADMIN_ROLES.has(role)
+}

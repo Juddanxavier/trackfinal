@@ -53,6 +53,7 @@ import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { EmptyState } from "@/components/empty-state"
 import { toast } from "sonner"
 import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
+import { isAdminRole } from "@/lib/utils"
 
 interface Invitation {
   id: string
@@ -106,7 +107,7 @@ export default function InvitationsPage() {
     useState<Invitation | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const isAdmin = user?.role === "admin"
+  const isAdmin = isAdminRole(user?.role)
 
   useEffect(() => {
     fetchInvitations()

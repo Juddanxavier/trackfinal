@@ -11,7 +11,7 @@ import {
 import { organisations } from './organisations';
 import { branches } from './branches';
 
-export const roleEnum = pgEnum('role', ['admin', 'staff', 'customer']);
+export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'staff', 'customer']);
 
 export const users = pgTable(
   'users',

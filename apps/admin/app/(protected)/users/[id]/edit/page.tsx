@@ -11,6 +11,7 @@ import {
   fieldErrors,
   type ProfileFormData,
 } from "@/lib/validation"
+import { isAdminRole } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -64,7 +65,7 @@ export default function EditUserPage() {
 
   const userId = params.id as string
   const isOwnProfile = currentUser?.id === userId
-  const isAdmin = currentUser?.role === "admin"
+  const isAdmin = isAdminRole(currentUser?.role)
   const canEdit = isAdmin || isOwnProfile
   const canChangeRole = isAdmin && !isOwnProfile
 

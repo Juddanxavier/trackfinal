@@ -41,7 +41,7 @@ import {
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require, CasbinService } from '../../common/casbin';
-import { Role } from '../../common/enums/role.enum';
+import { Role, isAdminRole } from '../../common/enums/role.enum';
 import { ThrottlerGuard, Throttle, ThrottlerModule } from '@nestjs/throttler';
 import { EmailService } from './email.service';
 import { VerificationsService } from './verifications.service';
@@ -453,7 +453,7 @@ export class AuthController {
     },
     @Request() req: any,
   ) {
-    if (req.user.role !== Role.ADMIN) {
+    if (!isAdminRole(req.user.role)) {
       throw new HttpException(
         'Only admins can create invitations',
         HttpStatus.FORBIDDEN,

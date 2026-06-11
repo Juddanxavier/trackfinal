@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api } from "@/lib/api"
+import { isAdminRole } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { Button } from "@/components/ui/button"
@@ -132,7 +133,7 @@ export default function UsersPage() {
   } = useAuth()
 
   const isGlobalAdmin = user?.role === "global_admin"
-  const isAdmin = user?.role === "admin" || isGlobalAdmin
+  const isAdmin = isAdminRole(user?.role) || isGlobalAdmin
 
   const [users, setUsers] = useState<User[]>([])
   const [stats, setStats] = useState<Stats | null>(null)

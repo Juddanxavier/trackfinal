@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { CasbinService } from './casbin.service';
+import { Role, isAdminRole } from '../enums/role.enum';
 
 @Injectable()
 export class CasbinGuard implements CanActivate {
@@ -35,8 +36,12 @@ export class CasbinGuard implements CanActivate {
       throw new UnauthorizedException('Authentication required');
     }
 
+    if (user.role === Role.SUPERADMIN) {
+      return true;
+    }
+
     if (!user.organisationId) {
-      if (user.role !== 'admin') {
+      if (!isAdminRole(user.role || '')) {
         throw new ForbiddenException('No organisation associated with user');
       }
     }

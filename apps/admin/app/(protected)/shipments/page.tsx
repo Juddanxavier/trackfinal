@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
+import { isAdminRole } from "@/lib/utils"
 import {
   MoreHorizontalIcon,
   PlusIcon,
@@ -643,7 +644,7 @@ export default function ShipmentsPage() {
             />
           </div>
           <div className="flex gap-2">
-            {user?.role === "admin" && branches.length > 0 && (
+            {isAdminRole(user?.role) && branches.length > 0 && (
               <Select value={branchId} onValueChange={setBranchId}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="All Branches" />

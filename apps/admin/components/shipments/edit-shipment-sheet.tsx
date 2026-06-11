@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { api } from "@/lib/api"
+import { isAdminRole } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -162,7 +163,7 @@ export function EditShipmentSheet({
                 </p>
               )}
             </div>
-            {user?.role === "admin" && branches.length > 0 && (
+            {isAdminRole(user?.role) && branches.length > 0 && (
               <div className="grid gap-2">
                 <Label>Branch *</Label>
                 <Controller
@@ -190,7 +191,7 @@ export function EditShipmentSheet({
                 )}
               </div>
             )}
-            {user?.role === "admin" && (
+            {isAdminRole(user?.role) && (
               <div className="grid gap-2">
                 <Label htmlFor="billAmount">Bill Amount</Label>
                 <Input

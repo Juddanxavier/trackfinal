@@ -21,7 +21,7 @@ import {
 import { OrganisationsService } from '../users/services';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require } from '../../common/casbin';
-import { Role } from '../../common/enums/role.enum';
+import { Role, isAdminRole } from '../../common/enums/role.enum';
 
 @ApiTags('organisations')
 @Controller('organisations')
@@ -36,7 +36,7 @@ export class OrganisationsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new organisation' })
   @ApiResponse({ status: 201, description: 'Organisation created' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Superadmin only' })
   create(
     @Body()
     createDto: {
@@ -54,6 +54,9 @@ export class OrganisationsController {
     },
     @Request() req: any,
   ) {
+    if (req.user.role !== Role.SUPERADMIN) {
+      throw new ForbiddenException('Only superadmins can create organisations');
+    }
     return this.organisationsService.create(createDto);
   }
 
@@ -68,8 +71,8 @@ export class OrganisationsController {
     const role = req.user.role;
     this.logger.log('findAll orgId: ' + orgId + ', role: ' + role);
     if (!orgId) {
-      if (role === 'admin') {
-        this.logger.log('Admin with no orgId, returning all organisations');
+      if (isAdminRole(role)) {
+        this.logger.log(`Admin role (${role}) with no orgId, returning all organisations`);
         return this.organisationsService.findAll();
       }
       this.logger.log('No orgId, returning empty');
