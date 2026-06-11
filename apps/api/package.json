@@ -18,6 +18,7 @@
     "test:e2e": "jest --config ./tests/jest-e2e.json",
     "seed": "ts-node src/database/seed-orgs.ts",
     "create-org": "tsx src/database/create-org.ts",
+    "create-superadmin": "tsx src/database/create-superadmin.ts",
     "db:migrate": "drizzle-kit push",
     "db:push": "drizzle-kit push",
     "format": "prettier --write \"**/*.ts\"",
