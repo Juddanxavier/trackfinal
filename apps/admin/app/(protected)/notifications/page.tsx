@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { EmptyState } from "@/components/empty-state"
+import { AnimatedPage } from "@/components/animated-page"
 import {
   DataTable,
   RowCheckbox,
@@ -244,7 +245,7 @@ export default function NotificationsPage() {
   ]
 
   return (
-    <div className="space-y-6 p-6">
+    <AnimatedPage className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
@@ -361,6 +362,6 @@ export default function NotificationsPage() {
           />
         }
       />
-    </div>
+    </AnimatedPage>
   )
 }

@@ -17,6 +17,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./tests/jest-e2e.json",
     "seed": "ts-node src/database/seed-orgs.ts",
+    "create-org": "tsx src/database/create-org.ts",
     "db:migrate": "drizzle-kit push",
     "db:push": "drizzle-kit push",
     "format": "prettier --write \"**/*.ts\"",

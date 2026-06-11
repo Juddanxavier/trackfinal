@@ -278,7 +278,7 @@ export function StatsCardGrid({
   }
 
   return (
-    <div className={cn("grid grid-cols-2 gap-4", gridCols[columns], className)}>
+    <div className={cn("grid grid-cols-2 gap-6", gridCols[columns], className)}>
       {children}
     </div>
   )

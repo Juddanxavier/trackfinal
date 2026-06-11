@@ -16,7 +16,7 @@ import {
   UserPlusIcon,
   FileSearchIcon,
   SearchXIcon,
-  BarChart3Icon,
+  Building2Icon,
   BellIcon,
 } from "lucide-react"
 
@@ -48,7 +48,7 @@ const entityConfig = {
       "Notifications will appear here when something needs your attention.",
   },
   organisations: {
-    icon: BarChart3Icon,
+    icon: Building2Icon,
     title: "No organisations",
     description: "Organisations you manage will appear here.",
   },
@@ -84,8 +84,8 @@ export function EmptyState({
   return (
     <Empty>
       <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Icon className="size-4" />
+        <EmptyMedia>
+          <Icon className="size-5" />
         </EmptyMedia>
         <EmptyTitle>{title || copy.title}</EmptyTitle>
       </EmptyHeader>

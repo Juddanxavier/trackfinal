@@ -134,7 +134,7 @@ export type VerifyTotpFormData = z.infer<typeof verifyTotpSchema>
 export const inviteUserSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
   role: z.string().min(1, "Role is required"),
-  branchId: z.string().optional(),
+  branchId: z.string().min(1, "Branch is required"),
 })
 export type InviteUserFormData = z.infer<typeof inviteUserSchema>
 

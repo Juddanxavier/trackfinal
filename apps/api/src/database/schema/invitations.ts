@@ -10,7 +10,7 @@ export const invitationStatuses = pgTable('invitation_statuses', {
     .notNull()
     .references(() => organisations.id),
   branchId: uuid('branch_id').references(() => branches.id),
-  role: text('role').notNull(), // 'staff' | 'customer'
+  role: text('role').notNull(), // 'admin' | 'staff'
   token: text('token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdBy: uuid('created_by')

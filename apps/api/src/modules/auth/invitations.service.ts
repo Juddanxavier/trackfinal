@@ -11,7 +11,7 @@ import type { QueryResult } from 'pg';
 export interface CreateInvitationDto {
   email: string;
   role: 'admin' | 'staff';
-  branchId?: string | null;
+  branchId: string;
 }
 
 @Injectable()
@@ -58,7 +58,7 @@ export class InvitationsService {
       .values({
         email: dto.email,
         organisationId,
-        branchId: dto.branchId || null,
+        branchId: dto.branchId,
         role: dto.role,
         token,
         expiresAt,

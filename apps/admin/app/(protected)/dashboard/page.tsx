@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api, ApiError } from "@/lib/api"
 import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
+import { AnimatedPage } from "@/components/animated-page"
 import {
   Card,
   CardContent,
@@ -233,7 +234,7 @@ export default function DashboardPage() {
   const firstName = user?.name?.split(" ")[0] ?? "there"
 
   return (
-    <div className="space-y-6 p-6">
+    <AnimatedPage className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -582,6 +583,6 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </AnimatedPage>
   )
 }

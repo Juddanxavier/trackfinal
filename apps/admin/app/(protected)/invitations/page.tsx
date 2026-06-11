@@ -91,7 +91,7 @@ export default function InvitationsPage() {
 
   const inviteForm = useForm<InviteUserFormData>({
     resolver: zodResolver(inviteUserSchema),
-    defaultValues: { email: "", role: "staff", branchId: "" },
+    defaultValues: { email: "", role: "staff", branchId: branches[0]?.id || "" },
   })
   const {
     register: inviteRegister,
@@ -114,11 +114,16 @@ export default function InvitationsPage() {
 
   useEffect(() => {
     if (!inviteDialogOpen || !user?.organisationId) return
-    inviteReset({ email: "", role: "staff", branchId: "" })
     api
       .get<Branch[]>(`/organisations/${user.organisationId}/branches`)
-      .then((res) => setBranches(res || []))
-      .catch(() => setBranches([]))
+      .then((res) => {
+        setBranches(res || [])
+        inviteReset({ email: "", role: "staff", branchId: res?.[0]?.id || "" })
+      })
+      .catch(() => {
+        setBranches([])
+        inviteReset({ email: "", role: "staff", branchId: "" })
+      })
   }, [inviteDialogOpen])
 
   const fetchInvitations = async () => {
@@ -181,7 +186,7 @@ export default function InvitationsPage() {
       await api.post("/auth/invitations", {
         email: data.email,
         role: data.role,
-        branchId: data.branchId || null,
+        branchId: data.branchId,
       })
       toast.success("Invitation sent")
       setInviteDialogOpen(false)
@@ -410,27 +415,19 @@ export default function InvitationsPage() {
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label>Branch (Optional)</Label>
+                  <Label>Branch</Label>
                   <Controller
                     name="branchId"
                     control={inviteControl}
                     render={({ field }) => (
                       <Select
-                        value={field.value || "none"}
-                        onValueChange={(v) =>
-                          field.onChange(v === "none" ? "" : v)
-                        }
+                        value={field.value}
+                        onValueChange={field.onChange}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="All branches" />
+                          <SelectValue placeholder="Select a branch" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">
-                            <div className="flex items-center gap-2">
-                              <GitBranchIcon className="h-4 w-4" />
-                              All Branches
-                            </div>
-                          </SelectItem>
                           {branches.map((b) => (
                             <SelectItem key={b.id} value={b.id}>
                               {b.name}
@@ -440,6 +437,11 @@ export default function InvitationsPage() {
                       </Select>
                     )}
                   />
+                  {inviteErrors.branchId && (
+                    <p className="text-sm text-red-500">
+                      {inviteErrors.branchId.message}
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label>Email Address</Label>

@@ -29,6 +29,7 @@ import { eq, isNull } from 'drizzle-orm';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Role } from '../../common/enums/role.enum';
 import { slugify } from '../../common/utils/slugify';
+import { CasbinService } from '../../common/casbin';
 import {
   comparePassword,
   hashPassword,
@@ -51,6 +52,7 @@ export class AuthService {
     @Inject(forwardRef(() => InvitationsService))
     private invitationsService: InvitationsService,
     private twoFactorService: TwoFactorService,
+    private casbinService: CasbinService,
   ) {}
 
   private async passwordFailDelay(): Promise<void> {
@@ -490,6 +492,14 @@ export class AuthService {
 
     await this.invitationsService.accept(invitation.id, user.id);
 
+    if (invitation.role === 'staff' && invitation.branchId) {
+      await this.casbinService.setUserBranchPermissions(
+        user.id,
+        invitation.branchId,
+        'staff',
+      );
+    }
+
     const organisation = await this.organisationsService.findById(
       invitation.organisationId,
     );
@@ -514,7 +524,7 @@ export class AuthService {
   async createInvitation(
     organisationId: string,
     createdBy: string,
-    dto: { email: string; role: 'admin' | 'staff'; branchId?: string | null },
+    dto: { email: string; role: 'admin' | 'staff'; branchId: string },
     inviterName: string,
     organisationName: string,
   ) {

@@ -449,7 +449,7 @@ export class AuthController {
       email: string;
       role: 'admin' | 'staff';
       organisationId?: string;
-      branchId?: string | null;
+      branchId: string;
     },
     @Request() req: any,
   ) {
@@ -457,6 +457,13 @@ export class AuthController {
       throw new HttpException(
         'Only admins can create invitations',
         HttpStatus.FORBIDDEN,
+      );
+    }
+
+    if (dto.role === 'staff' && !dto.branchId) {
+      throw new HttpException(
+        'Branch is required for staff invitations',
+        HttpStatus.BAD_REQUEST,
       );
     }
 
