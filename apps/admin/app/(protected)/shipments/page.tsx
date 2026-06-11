@@ -503,7 +503,7 @@ export default function ShipmentsPage() {
       header: "Bill",
       cell: ({ row }) => {
         const amount = row.original.billAmount
-        return amount != null ? `$${Number(amount).toFixed(2)}` : "-"
+        return amount != null ? `₹${Number(amount).toFixed(2)}` : "-"
       },
       enableSorting: true,
     },
