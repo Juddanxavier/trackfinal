@@ -84,6 +84,7 @@ export function CreateShipmentDialog({
   const [createStep, setCreateStep] = useState(1)
   const [detecting, setDetecting] = useState(false)
   const [carrierOpen, setCarrierOpen] = useState(false)
+  const [carrierSearch, setCarrierSearch] = useState("")
   const carrierRef = React.useRef<HTMLDivElement>(null)
   const [assignToSelf, setAssignToSelf] = useState(false)
 
@@ -106,8 +107,21 @@ export function CreateShipmentDialog({
     watch: csWatch,
     setValue: csSetValue,
     reset: csReset,
+    trigger: csTrigger,
     formState: { errors: csErrors, isSubmitting: csIsSubmitting },
   } = createForm
+
+  const stepFields: Record<number, (keyof CreateShipmentFormData)[]> = {
+    1: ["trackingNumber", "carrierCode"],
+    2: ["recipientName", "recipientPhone", "recipientEmail"],
+    3: ["userId", "branchId", "billAmount"],
+  }
+
+  const handleNext = async (step: number) => {
+    const fields = stepFields[step]
+    const valid = await csTrigger(fields)
+    if (valid) setCreateStep(step + 1)
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -127,6 +141,7 @@ export function CreateShipmentDialog({
       csReset()
       setCreateStep(1)
       setAssignToSelf(false)
+      setCarrierSearch("")
     }
   }, [open, csReset])
 
@@ -167,6 +182,8 @@ export function CreateShipmentDialog({
       )) as any
       if (res?.detected && res?.carrierCode) {
         csSetValue("carrierCode", res.carrierCode || "")
+        const match = carriers.find((c) => c.key === res.carrierCode)
+        if (match) setCarrierSearch(match.name_en)
       }
     } catch (err) {
       console.error("Failed to detect carrier:", err)
@@ -297,11 +314,11 @@ export function CreateShipmentDialog({
                     <Input
                       id="carrier"
                       placeholder="Search carrier..."
-                      value={
-                        carriers.find((c) => c.key === csWatch("carrierCode"))
-                          ?.name_en || ""
-                      }
-                      onChange={(e) => handleCarrierSearch(e.target.value)}
+                      value={carrierSearch}
+                      onChange={(e) => {
+                        setCarrierSearch(e.target.value)
+                        handleCarrierSearch(e.target.value)
+                      }}
                       onFocus={() => setCarrierOpen(true)}
                     />
                     {carrierOpen && (
@@ -311,18 +328,25 @@ export function CreateShipmentDialog({
                             No carriers
                           </div>
                         ) : (
-                          carriers.map((carrier) => (
-                            <div
-                              key={carrier.key}
-                              className="cursor-pointer px-3 py-2 hover:bg-accent"
-                              onClick={() => {
-                                csSetValue("carrierCode", carrier.key)
-                                setCarrierOpen(false)
-                              }}
-                            >
-                              {carrier.name_en}
-                            </div>
-                          ))
+                          carriers
+                            .filter((c) =>
+                              c.name_en
+                                .toLowerCase()
+                                .includes(carrierSearch.toLowerCase()),
+                            )
+                            .map((carrier) => (
+                              <div
+                                key={carrier.key}
+                                className="cursor-pointer px-3 py-2 hover:bg-accent"
+                                onClick={() => {
+                                  csSetValue("carrierCode", carrier.key)
+                                  setCarrierSearch(carrier.name_en)
+                                  setCarrierOpen(false)
+                                }}
+                              >
+                                {carrier.name_en}
+                              </div>
+                            ))
                         )}
                       </div>
                     )}
@@ -457,7 +481,7 @@ export function CreateShipmentDialog({
                 >
                   Cancel
                 </Button>
-                <Button type="button" onClick={() => setCreateStep(2)}>
+                <Button type="button" onClick={() => handleNext(1)}>
                   Next
                 </Button>
               </>
@@ -471,7 +495,7 @@ export function CreateShipmentDialog({
                 >
                   Back
                 </Button>
-                <Button type="button" onClick={() => setCreateStep(3)}>
+                <Button type="button" onClick={() => handleNext(2)}>
                   Next
                 </Button>
               </>

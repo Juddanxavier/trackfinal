@@ -38,7 +38,7 @@ import { EmptyState } from "@/components/empty-state"
 import { ExportButton } from "@/components/export-button"
 import { toast } from "sonner"
 import { AnimatedPage } from "@/components/animated-page"
-import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
+import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -181,7 +181,7 @@ export default function QuotesPage() {
     }
   }
 
-  useRefetchOnFocus(fetchQuotes, !loading)
+  useSocketRefresh("quotes", fetchQuotes, !loading)
 
   useEffect(() => {
     setPage(1)

@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { ExportButton } from "@/components/export-button"
-import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
+import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
 import { useUndoAction } from "@/lib/hooks/use-undo-action"
 import { AnimatedPage } from "@/components/animated-page"
 import { CreateShipmentDialog } from "@/components/shipments/create-shipment-dialog"
@@ -232,7 +232,7 @@ export default function ShipmentsPage() {
     }
   }
 
-  useRefetchOnFocus(fetchShipments, !loading)
+  useSocketRefresh("shipments", fetchShipments, !loading)
 
   const handleDeleteShipment = async () => {
     if (!deleteDialog.shipment) return

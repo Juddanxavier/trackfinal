@@ -45,7 +45,7 @@ import {
 } from "@/components/data-table"
 import { EmptyState } from "@/components/empty-state"
 import { toast } from "sonner"
-import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
+import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
 import {
   SearchIcon,
   Loader2,
@@ -262,7 +262,7 @@ export default function UsersPage() {
     }
   }
 
-  useRefetchOnFocus(fetchUsers, !loading)
+  useSocketRefresh("users", fetchUsers, !loading)
 
   // Fetch branches when org changes
   useEffect(() => {

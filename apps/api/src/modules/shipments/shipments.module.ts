@@ -6,6 +6,7 @@ import { CarriersModule } from '../carriers/carriers.module';
 import { UsersModule } from '../users/users.module';
 import { TrackingModule } from '../tracking/tracking.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     UsersModule,
     forwardRef(() => TrackingModule),
     NotificationsModule,
+    EventsModule,
   ],
   controllers: [ShipmentsController],
   providers: [ShipmentsService, ShipmentCleanupService],

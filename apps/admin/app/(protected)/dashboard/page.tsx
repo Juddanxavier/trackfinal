@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-context"
 import { api, ApiError } from "@/lib/api"
-import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
+import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
 import {
   Card,
   CardContent,
@@ -178,7 +178,7 @@ export default function DashboardPage() {
     fetchData()
   }, [fetchData])
 
-  useRefetchOnFocus(fetchData, !loading)
+  useSocketRefresh("dashboard", fetchData, !loading)
 
   if (loading) {
     return (

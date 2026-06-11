@@ -21,6 +21,7 @@ import {
 import { SeventeenTrackService } from '../tracking/seventeen-track.service';
 import { CarriersService } from '../carriers/carriers.service';
 import { NotificationService } from '../notifications/notification.service';
+import { EventsGateway } from '../events/events.gateway';
 
 function detectPhoneCountry(phone: string): string {
   const clean = phone.replace(/\D/g, '');
@@ -73,7 +74,20 @@ export class ShipmentsService {
     private readonly seventeenTrackService: SeventeenTrackService,
     private readonly carriersService: CarriersService,
     private readonly notificationService: NotificationService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
+
+  private invalidate(organisationId: string) {
+    try {
+      this.eventsGateway.emitToOrganisation(
+        organisationId,
+        'invalidate:shipments',
+        { timestamp: Date.now() },
+      );
+    } catch {
+      // Socket connection not available
+    }
+  }
 
   private async waitForTrackingData(
     trackingNumber: string,
@@ -307,6 +321,7 @@ export class ShipmentsService {
 
     this.logger.log(`Shipment created: ${shipment.id}, status: ${status}`);
     await this.sendInitialNotifications(shipment, status, org);
+    this.invalidate(data.organisationId);
 
     return shipment;
   }
@@ -608,6 +623,7 @@ export class ShipmentsService {
       );
     }
 
+    this.invalidate(updated.organisationId);
     return updated;
   }
 
@@ -638,6 +654,7 @@ export class ShipmentsService {
       .set({ archivedAt: new Date() })
       .where(eq(shipments.id, id));
 
+    this.invalidate(existing.organisationId);
     return { id, archivedAt: new Date() };
   }
 
@@ -660,6 +677,7 @@ export class ShipmentsService {
       .set({ archivedAt: null })
       .where(eq(shipments.id, id));
 
+    this.invalidate(existing.organisationId);
     return { id, archivedAt: null };
   }
 
@@ -686,6 +704,7 @@ export class ShipmentsService {
       .set({ deletedAt: new Date() })
       .where(eq(shipments.id, id));
 
+    this.invalidate(existing.organisationId);
     return { id, deletedAt: new Date() };
   }
 
@@ -708,6 +727,7 @@ export class ShipmentsService {
       .set({ deletedAt: null })
       .where(eq(shipments.id, id));
 
+    this.invalidate(existing.organisationId);
     return { id, deletedAt: null };
   }
 
@@ -983,6 +1003,7 @@ export class ShipmentsService {
       .where(eq(shipments.id, id))
       .returning();
 
+    this.invalidate(updated.organisationId);
     return updated;
   }
 }

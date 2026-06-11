@@ -52,7 +52,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { BulkActionFooter } from "@/components/bulk-action-footer"
 import { EmptyState } from "@/components/empty-state"
 import { toast } from "sonner"
-import { useRefetchOnFocus } from "@/lib/hooks/use-refetch-on-focus"
+import { useSocketRefresh } from "@/lib/hooks/use-socket-refresh"
 
 interface Invitation {
   id: string
@@ -152,7 +152,7 @@ export default function InvitationsPage() {
     }
   }
 
-  useRefetchOnFocus(fetchInvitations, !loading)
+  useSocketRefresh("invitations", fetchInvitations, !loading)
 
   const onInviteSubmit = async (data: InviteUserFormData) => {
     const emailExists = invitations.some(
