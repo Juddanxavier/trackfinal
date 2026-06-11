@@ -83,6 +83,7 @@ export function CreateShipmentDialog({
 }: CreateShipmentDialogProps) {
   const [createStep, setCreateStep] = useState(1)
   const [detecting, setDetecting] = useState(false)
+  const [detectionFailed, setDetectionFailed] = useState(false)
   const [carrierOpen, setCarrierOpen] = useState(false)
   const [carrierSearch, setCarrierSearch] = useState("")
   const carrierRef = React.useRef<HTMLDivElement>(null)
@@ -142,6 +143,7 @@ export function CreateShipmentDialog({
       setCreateStep(1)
       setAssignToSelf(false)
       setCarrierSearch("")
+      setDetectionFailed(false)
     }
   }, [open, csReset])
 
@@ -175,6 +177,7 @@ export function CreateShipmentDialog({
   const detectCarrier = async (trackingNumber: string) => {
     if (!trackingNumber) return
     setDetecting(true)
+    setDetectionFailed(false)
     try {
       const res = (await api.get(
         `/carriers/detect?trackingNumber=${encodeURIComponent(trackingNumber)}`,
@@ -184,9 +187,13 @@ export function CreateShipmentDialog({
         csSetValue("carrierCode", res.carrierCode || "")
         const match = carriers.find((c) => c.key === res.carrierCode)
         if (match) setCarrierSearch(match.name_en)
+        setDetectionFailed(false)
+      } else {
+        setDetectionFailed(true)
       }
     } catch (err) {
       console.error("Failed to detect carrier:", err)
+      setDetectionFailed(true)
     } finally {
       setDetecting(false)
     }
@@ -311,16 +318,20 @@ export function CreateShipmentDialog({
                 <div className="grid gap-2">
                   <Label htmlFor="carrier">Carrier</Label>
                   <div className="relative" ref={carrierRef}>
-                    <Input
-                      id="carrier"
-                      placeholder="Search carrier..."
-                      value={carrierSearch}
-                      onChange={(e) => {
-                        setCarrierSearch(e.target.value)
-                        handleCarrierSearch(e.target.value)
-                      }}
-                      onFocus={() => setCarrierOpen(true)}
-                    />
+                      <Input
+                        id="carrier"
+                        placeholder="Search carrier..."
+                        value={carrierSearch}
+                        onChange={(e) => {
+                          setDetectionFailed(false)
+                          setCarrierSearch(e.target.value)
+                          handleCarrierSearch(e.target.value)
+                        }}
+                        onFocus={() => {
+                          setDetectionFailed(false)
+                          setCarrierOpen(true)
+                        }}
+                      />
                     {carrierOpen && (
                       <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover shadow-lg">
                         {carriers.length === 0 ? (
@@ -351,6 +362,11 @@ export function CreateShipmentDialog({
                       </div>
                     )}
                   </div>
+                  {detectionFailed && (
+                    <p className="text-sm text-amber-600">
+                      Carrier not detected. Please select manually.
+                    </p>
+                  )}
                 </div>
               </>
             )}
