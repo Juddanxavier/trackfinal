@@ -134,8 +134,11 @@ export type VerifyTotpFormData = z.infer<typeof verifyTotpSchema>
 export const inviteUserSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
   role: z.string().min(1, "Role is required"),
-  branchId: z.string().min(1, "Branch is required"),
+  branchId: z.string().optional(),
   organisationId: z.string().optional(),
+}).refine((data) => data.role !== "staff" || data.branchId, {
+  message: "Branch is required for staff invitations",
+  path: ["branchId"],
 })
 export type InviteUserFormData = z.infer<typeof inviteUserSchema>
 

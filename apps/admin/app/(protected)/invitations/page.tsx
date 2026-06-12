@@ -101,6 +101,7 @@ export default function InvitationsPage() {
     handleSubmit: inviteHandleSubmit,
     control: inviteControl,
     reset: inviteReset,
+    watch: inviteWatch,
     formState: { errors: inviteErrors },
   } = inviteForm
 
@@ -473,6 +474,7 @@ export default function InvitationsPage() {
                     </p>
                   )}
                 </div>
+                {inviteWatch("role") === "staff" && (
                 <div className="grid gap-2">
                   <Label>Branch</Label>
                   <Controller
@@ -502,6 +504,7 @@ export default function InvitationsPage() {
                     </p>
                   )}
                 </div>
+                )}
                 <div className="grid gap-2">
                   <Label>Email Address</Label>
                   <Input
