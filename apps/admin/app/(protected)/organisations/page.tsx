@@ -74,7 +74,7 @@ interface Branch {
 }
 
 export default function OrganisationsPage() {
-  const { can: checkPermission } = useAuth()
+  const { can: checkPermission, user } = useAuth()
   const [organisations, setOrganisations] = useState<Organisation[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null)
@@ -325,6 +325,12 @@ export default function OrganisationsPage() {
         </div>
         {isAdmin && (
           <div className="flex gap-2">
+            {user?.role === "superadmin" && (
+              <Button onClick={() => setShowCreateOrg(true)}>
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Create Organisation
+              </Button>
+            )}
             {organisations.length > 0 && (
               <Button onClick={() => openCreateBranch()}>
                 <GitBranchIcon className="mr-2 h-4 w-4" />

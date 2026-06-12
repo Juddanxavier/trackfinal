@@ -467,7 +467,13 @@ export class AuthController {
       );
     }
 
-    const targetOrganisationId = req.user.organisationId;
+    const targetOrganisationId = req.user.organisationId || dto.organisationId;
+    if (!targetOrganisationId) {
+      throw new HttpException(
+        'Organisation ID is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const inviter = await this.usersService.findById(req.user.id);
     const organisation =
       await this.organisationsService.findById(targetOrganisationId);
@@ -498,7 +504,7 @@ export class AuthController {
     const pageNum = page ? parseInt(page) : 1;
     const limitNum = limit ? parseInt(limit) : 10;
 
-    const targetOrgId = req.user.organisationId;
+    let targetOrgId = req.user.organisationId || organisationId;
     if (!targetOrgId) {
       return { data: [], total: 0, page: 1, totalPages: 0 };
     }

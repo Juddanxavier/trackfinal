@@ -38,6 +38,7 @@ import {
   ShieldIcon,
   UsersIcon,
   GitBranchIcon,
+  Building2Icon,
 } from "lucide-react"
 import { AnimatedPage } from "@/components/animated-page"
 import { StatsCard, StatsCardGrid } from "@/components/stats-card"
@@ -89,6 +90,7 @@ export default function InvitationsPage() {
 
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [branches, setBranches] = useState<Branch[]>([])
+  const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([])
 
   const inviteForm = useForm<InviteUserFormData>({
     resolver: zodResolver(inviteUserSchema),
@@ -108,15 +110,33 @@ export default function InvitationsPage() {
   const [deleting, setDeleting] = useState(false)
 
   const isAdmin = isAdminRole(user?.role)
+  const isSuperAdmin = user?.role === "superadmin"
 
   useEffect(() => {
     fetchInvitations()
   }, [page, search, statusFilter, roleFilter, sorting, limit])
 
+  const [selectedInviteOrg, setSelectedInviteOrg] = useState<string>("")
+
   useEffect(() => {
-    if (!inviteDialogOpen || !user?.organisationId) return
+    if (!inviteDialogOpen) return
+
+    if (isSuperAdmin) {
+      api.get<{ id: string; name: string }[]>("/organisations").then((res) => {
+        const orgs = Array.isArray(res) ? res : []
+        setOrgs(orgs)
+        if (orgs.length > 0) {
+          inviteReset({ email: "", role: "staff", branchId: "" })
+        }
+      })
+      return
+    }
+
+    const orgId = user?.organisationId
+    if (!orgId) return
+
     api
-      .get<Branch[]>(`/organisations/${user.organisationId}/branches`)
+      .get<Branch[]>(`/organisations/${orgId}/branches`)
       .then((res) => {
         setBranches(res || [])
         inviteReset({ email: "", role: "staff", branchId: res?.[0]?.id || "" })
@@ -126,6 +146,14 @@ export default function InvitationsPage() {
         inviteReset({ email: "", role: "staff", branchId: "" })
       })
   }, [inviteDialogOpen])
+
+  useEffect(() => {
+    if (!isSuperAdmin || !selectedInviteOrg) return
+    api
+      .get<Branch[]>(`/organisations/${selectedInviteOrg}/branches`)
+      .then((res) => setBranches(res || []))
+      .catch(() => setBranches([]))
+  }, [selectedInviteOrg])
 
   const fetchInvitations = async () => {
     setLoading(true)
@@ -139,6 +167,9 @@ export default function InvitationsPage() {
       if (sorting.length > 0) {
         params.set("sortBy", sorting[0].id)
         params.set("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
+      if (user?.role === "superadmin" && user?.organisationId) {
+        params.set("organisationId", user.organisationId)
       }
 
       const res: any = await api.get(`/auth/invitations?${params}`, {
@@ -188,6 +219,7 @@ export default function InvitationsPage() {
         email: data.email,
         role: data.role,
         branchId: data.branchId,
+        organisationId: isSuperAdmin ? selectedInviteOrg : undefined,
       })
       toast.success("Invitation sent")
       setInviteDialogOpen(false)
@@ -379,6 +411,32 @@ export default function InvitationsPage() {
             </DialogHeader>
             <form onSubmit={inviteHandleSubmit(onInviteSubmit)}>
               <div className="grid gap-4 py-4">
+                {isSuperAdmin && (
+                  <div className="grid gap-2">
+                    <Label>Organisation</Label>
+                    <Select
+                      value={selectedInviteOrg}
+                      onValueChange={(val) => {
+                        setSelectedInviteOrg(val)
+                        inviteReset({ email: "", role: "staff", branchId: "" })
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an organisation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgs.map((o) => (
+                          <SelectItem key={o.id} value={o.id}>
+                            <div className="flex items-center gap-2">
+                              <Building2Icon className="h-4 w-4" />
+                              {o.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label>Role</Label>
                   <Controller

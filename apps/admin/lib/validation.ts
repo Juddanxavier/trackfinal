@@ -135,6 +135,7 @@ export const inviteUserSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
   role: z.string().min(1, "Role is required"),
   branchId: z.string().min(1, "Branch is required"),
+  organisationId: z.string().optional(),
 })
 export type InviteUserFormData = z.infer<typeof inviteUserSchema>
 
