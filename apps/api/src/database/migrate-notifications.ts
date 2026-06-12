@@ -23,6 +23,7 @@ async function migrateNotifications() {
         whatsapp_enabled BOOLEAN DEFAULT true,
         in_transit_notifications BOOLEAN DEFAULT true,
         delivered_notifications BOOLEAN DEFAULT true,
+        exceptions_notifications BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(organisation_id, user_id)

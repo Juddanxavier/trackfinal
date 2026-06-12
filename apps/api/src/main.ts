@@ -210,6 +210,46 @@ async function migrateTrackingTables() {
     logger.log(
       '[Org Migration] website_url and tracking_domain columns ready',
     );
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email_enabled BOOLEAN DEFAULT true,
+        whatsapp_enabled BOOLEAN DEFAULT true,
+        in_transit_notifications BOOLEAN DEFAULT true,
+        delivered_notifications BOOLEAN DEFAULT true,
+        exceptions_notifications BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(organisation_id, user_id)
+      )
+    `);
+    logger.log('[Tracking Migration] notification_preferences table ready');
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS notification_logs (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE,
+        channel TEXT NOT NULL,
+        title_key TEXT NOT NULL,
+        data JSONB DEFAULT '{}',
+        status TEXT NOT NULL,
+        error_message TEXT,
+        sent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_notification_logs_user_id ON notification_logs(user_id)`,
+    );
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_notification_logs_shipment_id ON notification_logs(shipment_id)`,
+    );
+    logger.log('[Tracking Migration] notification_logs table ready');
   } catch (err) {
     logger.error('[Tracking Migration] FAILED:', err.message);
   }
