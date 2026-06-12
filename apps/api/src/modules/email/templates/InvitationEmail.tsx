@@ -19,127 +19,208 @@ export function InvitationEmail({
 }: InvitationEmailProps) {
   const url = `${APP_URL}/register?token=${token}&email=${encodeURIComponent(email)}`;
   const expiresDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const features = [
-    'Personalized dashboard',
-    'Shipment tracking and management',
-    'Quote requests and orders',
-    'Real-time notifications',
-  ];
 
   return (
     <EmailLayout
       preview={`You're invited to join ${organisationName}`}
-      title="You're Invited"
+      title="You're Invited!"
       subtitle={
         <>
-          <span style={{ color: '#f472b6' }}>{inviterName}</span> invited you to
-          join <strong>{organisationName}</strong>
+          <strong>{inviterName}</strong> has invited you to join their
+          organization on GT Express.
         </>
       }
-      accentColor="#6366f1"
       cta={{ text: 'Accept Invitation', url }}
       footerNote={
         <>
           Or copy this link:{' '}
-          <Link href={url} style={{ color: '#94a3b8' }}>
+          <Link href={url} style={{ color: '#9ca3af' }}>
             {url}
           </Link>
         </>
       }
     >
-      <div style={orgBox}>
-        <Text style={orgLabel}>Organisation</Text>
-        <Text style={orgName}>{organisationName}</Text>
+      <div style={orgCard}>
+        <div style={orgIcon}>
+          <span style={orgIconText}>{organisationName.charAt(0)}</span>
+        </div>
+        <div style={orgInfo}>
+          <Text style={orgLabel}>Organization</Text>
+          <Text style={orgName}>{organisationName}</Text>
+        </div>
       </div>
 
-      <Hr style={hr} />
+      <div style={detailsCard}>
+        <table style={detailTable}>
+          <tbody>
+            <tr>
+              <td style={detailIconCell}>
+                <div style={detailIcon}>
+                  <span style={detailIconText}>1</span>
+                </div>
+              </td>
+              <td style={detailContentCell}>
+                <Text style={detailTitle}>Click the button above</Text>
+                <Text style={detailDesc}>
+                  It will redirect you to create your account
+                </Text>
+              </td>
+            </tr>
+            <tr>
+              <td style={detailIconCell}>
+                <div style={detailIcon}>
+                  <span style={detailIconText}>2</span>
+                </div>
+              </td>
+              <td style={detailContentCell}>
+                <Text style={detailTitle}>Set up your profile</Text>
+                <Text style={detailDesc}>
+                  Add your details and preferences
+                </Text>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ ...detailIconCell, borderBottom: 'none' }}>
+                <div style={detailIcon}>
+                  <span style={detailIconText}>3</span>
+                </div>
+              </td>
+              <td style={{ ...detailContentCell, borderBottom: 'none' }}>
+                <Text style={detailTitle}>Get started</Text>
+                <Text style={detailDesc}>
+                  Access shipments, quotes, and more
+                </Text>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <Text style={sectionTitle}>What you'll get</Text>
-
-      {features.map((item) => (
-        <div key={item} style={featureItem}>
-          <span style={featureDot} />
-          <span style={featureLabel}>{item}</span>
-        </div>
-      ))}
-
-      <div style={expiryBox}>
+      <div style={expiryBadge}>
         <Text style={expiryText}>
-          This invitation expires on{' '}
-          {expiresDate.toLocaleDateString('en-US', { dateStyle: 'long' })}
+          Invitation expires{' '}
+          {expiresDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}
         </Text>
       </div>
     </EmailLayout>
   );
 }
 
-const orgBox = {
+const orgCard = {
   backgroundColor: '#f8fafc',
-  borderRadius: '8px',
-  padding: '14px',
-  textAlign: 'center' as const,
-  marginBottom: '20px',
+  borderRadius: '10px',
+  padding: '16px',
+  marginBottom: '16px',
   border: '1px solid #e2e8f0',
 };
 
+const orgIcon = {
+  display: 'inline-block',
+  width: '40px',
+  height: '40px',
+  backgroundColor: '#2563eb',
+  borderRadius: '10px',
+  textAlign: 'center' as const,
+  verticalAlign: 'middle' as const,
+  marginRight: '12px',
+};
+
+const orgIconText = {
+  fontSize: '16px',
+  fontWeight: 700,
+  color: '#ffffff',
+  lineHeight: '40px',
+};
+
+const orgInfo = {
+  display: 'inline-block',
+  verticalAlign: 'middle' as const,
+};
+
 const orgLabel = {
-  margin: '0 0 2px',
-  fontSize: '10px',
+  margin: 0,
+  fontSize: '11px',
   textTransform: 'uppercase' as const,
-  color: '#64748b',
-  letterSpacing: '0.5px',
+  color: '#6b7280',
+  letterSpacing: '0.4px',
 };
 
 const orgName = {
-  margin: 0,
-  fontSize: '14px',
-  color: '#1e293b',
+  margin: '2px 0 0',
+  fontSize: '15px',
   fontWeight: 600,
+  color: '#111827',
 };
 
-const hr = {
-  borderColor: '#e2e8f0',
-  margin: '20px 0',
+const detailsCard = {
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  border: '1px solid #e5e7eb',
+  marginBottom: '16px',
 };
 
-const sectionTitle = {
-  margin: '0 0 12px',
-  fontSize: '14px',
-  color: '#475569',
-  fontWeight: 500,
+const detailTable = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
 };
 
-const featureItem = {
-  padding: '6px 0',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
+const detailIconCell = {
+  width: '40px',
+  padding: '12px 4px 12px 16px',
+  verticalAlign: 'top' as const,
+  borderBottom: '1px solid #f3f4f6',
 };
 
-const featureDot = {
-  width: '6px',
-  height: '6px',
-  backgroundColor: '#6366f1',
-  borderRadius: '50%',
-  display: 'inline-block',
-  flexShrink: 0,
-};
-
-const featureLabel = {
-  fontSize: '13px',
-  color: '#475569',
-};
-
-const expiryBox = {
-  backgroundColor: '#fef3c7',
-  border: '1px solid #fcd34d',
+const detailIcon = {
+  width: '24px',
+  height: '24px',
+  backgroundColor: '#eff6ff',
   borderRadius: '6px',
+  textAlign: 'center' as const,
+};
+
+const detailIconText = {
+  fontSize: '11px',
+  fontWeight: 700,
+  color: '#2563eb',
+  lineHeight: '24px',
+};
+
+const detailContentCell = {
+  padding: '12px 16px 12px 0',
+  verticalAlign: 'top' as const,
+  borderBottom: '1px solid #f3f4f6',
+};
+
+const detailTitle = {
+  margin: 0,
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#111827',
+};
+
+const detailDesc = {
+  margin: '2px 0 0',
+  fontSize: '12px',
+  color: '#9ca3af',
+};
+
+const expiryBadge = {
+  backgroundColor: '#fffbeb',
+  borderRadius: '8px',
   padding: '10px 14px',
-  marginTop: '20px',
+  border: '1px solid #fef3c7',
 };
 
 const expiryText = {
   margin: 0,
-  fontSize: '13px',
+  fontSize: '12px',
   color: '#92400e',
+  textAlign: 'center' as const,
+  fontWeight: 500,
 };

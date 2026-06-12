@@ -12,52 +12,84 @@ interface VerifyEmailProps {
 export function VerifyEmail({ token }: VerifyEmailProps) {
   const url = `${APP_URL}/verify-email?token=${token}`;
   const expiresDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const steps = [
-    'Click the button to verify your email address',
-    'Set up your profile and preferences',
-    'Access your personalized dashboard',
-    'Start tracking shipments and managing quotes',
-  ];
 
   return (
     <EmailLayout
       preview="Verify your email address"
       title="Verify Your Email"
-      subtitle="Thanks for signing up. Please verify your email to activate your account."
+      subtitle="Please confirm your email address to activate your account and get started."
       cta={{ text: 'Verify Email', url }}
       footerNote={
         <>
           Or copy this link:{' '}
-          <Link href={url} style={{ color: '#94a3b8' }}>
+          <Link href={url} style={{ color: '#9ca3af' }}>
             {url}
           </Link>
         </>
       }
     >
-      <div style={warning}>
-        <Text style={warningText}>
-          This verification link expires in 24 hours. If you didn't create an
-          account, ignore this email.
+      <div style={stepsCard}>
+        <table style={stepTable}>
+          <tbody>
+            <tr>
+              <td style={stepIconCell}>
+                <div style={stepIconActive}>
+                  <span style={stepIconText}>1</span>
+                </div>
+              </td>
+              <td style={stepContentCell}>
+                <Text style={stepTitleActive}>Verify your email</Text>
+                <Text style={stepDescActive}>
+                  Click the button to confirm your address
+                </Text>
+              </td>
+            </tr>
+            <tr>
+              <td style={stepLineCell}>
+                <div style={stepLine} />
+              </td>
+              <td style={stepContentCell}>
+                <Text style={stepTitle}>Set up your profile</Text>
+                <Text style={stepDesc}>Add your name and preferences</Text>
+              </td>
+            </tr>
+            <tr>
+              <td style={stepIconCell}>
+                <div style={stepIcon}>
+                  <span style={stepIconText}>3</span>
+                </div>
+              </td>
+              <td style={stepContentCell}>
+                <Text style={stepTitle}>Access dashboard</Text>
+                <Text style={stepDesc}>
+                  Start managing shipments and quotes
+                </Text>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <Hr style={divider} />
+
+      <div style={infoBox}>
+        <Text style={infoLabel}>Why verify?</Text>
+        <Text style={infoText}>
+          Email verification helps keep your account secure and ensures you
+          receive important notifications about your shipments and account
+          activity.
         </Text>
       </div>
 
-      <Hr style={hr} />
-
-      <Text style={sectionTitle}>What happens next</Text>
-
-      {steps.map((item, i) => (
-        <div key={item} style={stepItem}>
-          <span style={stepNumber}>{i + 1}</span>
-          <span style={stepLabel}>{item}</span>
-        </div>
-      ))}
-
       <div style={expiryBox}>
-        <Text style={expiryLabel}>Expires</Text>
-        <Text style={expiryDate}>
-          {expiresDate.toLocaleString('en-US', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
+        <Text style={expiryText}>
+          This link expires{' '}
+          {expiresDate.toLocaleTimeString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
           })}
         </Text>
       </div>
@@ -65,81 +97,133 @@ export function VerifyEmail({ token }: VerifyEmailProps) {
   );
 }
 
-const warning = {
-  backgroundColor: '#eef2ff',
-  borderLeft: '4px solid #6366f1',
-  borderRadius: '6px',
-  padding: '10px 14px',
+const stepsCard = {
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  border: '1px solid #e5e7eb',
   marginBottom: '20px',
 };
 
-const warningText = {
-  margin: 0,
-  fontSize: '13px',
-  color: '#1e40af',
-  lineHeight: '1.4',
+const stepTable = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
 };
 
-const hr = {
-  borderColor: '#e2e8f0',
+const stepIconCell = {
+  width: '40px',
+  padding: '14px 4px 14px 16px',
+  verticalAlign: 'middle' as const,
+  borderBottom: 'none',
+};
+
+const stepIconActive = {
+  width: '26px',
+  height: '26px',
+  backgroundColor: '#2563eb',
+  borderRadius: '7px',
+  textAlign: 'center' as const,
+};
+
+const stepIcon = {
+  width: '26px',
+  height: '26px',
+  backgroundColor: '#f3f4f6',
+  borderRadius: '7px',
+  textAlign: 'center' as const,
+};
+
+const stepIconText = {
+  fontSize: '12px',
+  fontWeight: 700,
+  color: '#ffffff',
+  lineHeight: '26px',
+};
+
+const stepContentCell = {
+  padding: '14px 16px',
+  verticalAlign: 'middle' as const,
+};
+
+const stepTitleActive = {
+  margin: 0,
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#2563eb',
+};
+
+const stepDescActive = {
+  margin: '2px 0 0',
+  fontSize: '12px',
+  color: '#6b7280',
+};
+
+const stepLineCell = {
+  width: '40px',
+  padding: '0 4px 0 16px',
+  verticalAlign: 'middle' as const,
+  textAlign: 'center' as const,
+};
+
+const stepLine = {
+  width: '2px',
+  height: '24px',
+  backgroundColor: '#e5e7eb',
+  margin: '0 auto',
+};
+
+const stepTitle = {
+  margin: 0,
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#9ca3af',
+};
+
+const stepDesc = {
+  margin: '2px 0 0',
+  fontSize: '12px',
+  color: '#d1d5db',
+};
+
+const divider = {
+  borderColor: '#e5e7eb',
   margin: '20px 0',
 };
 
-const sectionTitle = {
-  margin: '0 0 12px',
-  fontSize: '14px',
-  color: '#475569',
-  fontWeight: 500,
+const infoBox = {
+  backgroundColor: '#eff6ff',
+  borderRadius: '8px',
+  padding: '14px 16px',
+  border: '1px solid #bfdbfe',
 };
 
-const stepItem = {
-  padding: '6px 0',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-};
-
-const stepNumber = {
-  width: '20px',
-  height: '20px',
-  backgroundColor: '#eef2ff',
-  borderRadius: '50%',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+const infoLabel = {
+  margin: '0 0 4px',
   fontSize: '11px',
-  color: '#6366f1',
+  textTransform: 'uppercase' as const,
+  color: '#1e40af',
   fontWeight: 600,
-  flexShrink: 0,
-  textAlign: 'center' as const,
-  lineHeight: '20px',
+  letterSpacing: '0.3px',
 };
 
-const stepLabel = {
+const infoText = {
+  margin: 0,
   fontSize: '13px',
-  color: '#475569',
+  color: '#1e3a5f',
+  lineHeight: '1.5',
 };
 
 const expiryBox = {
-  backgroundColor: '#fef3c7',
-  border: '1px solid #fcd34d',
-  borderRadius: '6px',
+  backgroundColor: '#fffbeb',
+  borderRadius: '8px',
   padding: '10px 14px',
-  textAlign: 'center' as const,
-  marginTop: '20px',
+  marginTop: '12px',
+  border: '1px solid #fef3c7',
 };
 
-const expiryLabel = {
-  margin: '0 0 2px',
-  fontSize: '10px',
-  textTransform: 'uppercase' as const,
-  color: '#92400e',
-  letterSpacing: '0.5px',
-};
-
-const expiryDate = {
+const expiryText = {
   margin: 0,
-  fontSize: '13px',
+  fontSize: '12px',
   color: '#92400e',
+  textAlign: 'center' as const,
   fontWeight: 500,
 };

@@ -9,8 +9,6 @@ import {
   Text,
   Link,
   Button,
-  Font,
-  Hr,
 } from '@react-email/components';
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@gtexpress.com';
@@ -18,8 +16,7 @@ const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@gtexpress.com';
 interface EmailLayoutProps {
   preview?: string;
   title: string;
-  subtitle: React.ReactNode;
-  accentColor?: string;
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
   cta?: { text: string; url: string };
   footerNote?: React.ReactNode;
@@ -28,8 +25,7 @@ interface EmailLayoutProps {
 export function EmailLayout({
   preview,
   title,
-  subtitle: subtitleText,
-  accentColor = '#6366f1',
+  subtitle,
   children,
   cta,
   footerNote,
@@ -38,58 +34,61 @@ export function EmailLayout({
 
   return (
     <Html>
-      <Head>
-        <Font
-          fontFamily="Inter"
-          fallbackFontFamily={
-            ['system-ui', '-apple-system', 'sans-serif'] as any
-          }
-          webFont={{
-            url: 'https://fonts.gstatic.com/s/inter/v12/UcC73FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7W0Q5nw.woff2',
-            format: 'woff2',
-          }}
-        />
-      </Head>
+      <Head />
       <Preview>{preview || title}</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Section style={logoSection}>
-            <Text style={logoText}>GT Express</Text>
+          <Section style={headerOuter}>
+            <div style={accent} />
+            <div style={logoRow}>
+              <div style={logoMark}>
+                <span style={logoMarkText}>GT</span>
+              </div>
+              <span style={logoWordmark}>GT Express</span>
+            </div>
           </Section>
 
-          <div style={card}>
-            <div style={{ ...accentBar, backgroundColor: accentColor }} />
+          <Section style={card}>
+            <div style={cardInner}>
+              <h1 style={h1}>{title}</h1>
+              {subtitle && <p style={subtitleStyle}>{subtitle}</p>}
 
-            <h1 style={h1}>{title}</h1>
+              <Section style={bodySection}>{children}</Section>
 
-            <p style={subtitle}>{subtitleText}</p>
+              {cta && (
+                <Section style={ctaSection}>
+                  <Button style={ctaButton} href={cta.url}>
+                    {cta.text}
+                  </Button>
+                </Section>
+              )}
 
-            <Section style={bodySection}>{children}</Section>
+              {footerNote && <Text style={footerNoteStyle}>{footerNote}</Text>}
+            </div>
+          </Section>
 
-            {cta && (
-              <Section style={ctaSection}>
-                <Button
-                  style={{ ...ctaButton, backgroundColor: accentColor }}
-                  href={cta.url}
-                >
-                  {cta.text}
-                </Button>
-              </Section>
-            )}
-
-            {footerNote && <Text style={footerNoteStyle}>{footerNote}</Text>}
-          </div>
-
-          <Section style={footerSection}>
-            <Hr style={footerHr} />
-            <Text style={footerText}>
+          <Section style={footer}>
+            <Section style={footerDivider}>
+              <table style={footerDividerTable}>
+                <tbody>
+                  <tr>
+                    <td style={footerDividerCell} />
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+            <Text style={footerSupport}>
               Need help?{' '}
               <Link href={`mailto:${SUPPORT_EMAIL}`} style={footerLink}>
                 {SUPPORT_EMAIL}
               </Link>
             </Text>
-            <Text style={copyright}>
+            <Text style={footerCopyright}>
               &copy; {year} GT Express. All rights reserved.
+            </Text>
+            <Text style={footerDisclaimer}>
+              This is an automated message from GT Express. Please do not reply
+              directly to this email.
             </Text>
           </Section>
         </Container>
@@ -99,114 +98,165 @@ export function EmailLayout({
 }
 
 const main = {
-  backgroundColor: '#f1f5f9',
-  fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+  backgroundColor: '#eef1f5',
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   margin: 0,
   padding: 0,
 };
 
 const container = {
-  maxWidth: '600px',
+  maxWidth: '560px',
   margin: '0 auto',
-  padding: '24px 16px',
+  padding: '40px 16px',
 };
 
-const logoSection = {
-  padding: '0 0 20px',
+const headerOuter = {
+  marginBottom: '0',
 };
 
-const logoText = {
-  margin: 0,
-  fontSize: '15px',
-  fontWeight: 600,
-  color: '#64748b',
-  letterSpacing: '-0.2px',
+const accent = {
+  height: '6px',
+  backgroundColor: '#2563eb',
+  borderRadius: '3px 3px 0 0',
+};
+
+const logoRow = {
+  backgroundColor: '#ffffff',
+  padding: '28px 36px 0',
+  textAlign: 'left' as const,
+  borderLeft: '1px solid #e5e7eb',
+  borderRight: '1px solid #e5e7eb',
+};
+
+const logoMark = {
+  display: 'inline-block',
+  width: '32px',
+  height: '32px',
+  backgroundColor: '#2563eb',
+  borderRadius: '8px',
+  textAlign: 'center' as const,
+  verticalAlign: 'middle' as const,
+  marginRight: '10px',
+};
+
+const logoMarkText = {
+  fontSize: '14px',
+  fontWeight: 700,
+  color: '#ffffff',
+  lineHeight: '32px',
+};
+
+const logoWordmark = {
+  fontSize: '18px',
+  fontWeight: 700,
+  color: '#111827',
+  letterSpacing: '-0.3px',
+  verticalAlign: 'middle' as const,
+  lineHeight: '32px',
 };
 
 const card = {
   backgroundColor: '#ffffff',
-  borderRadius: '16px',
-  overflow: 'hidden',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-  padding: '0 0 8px',
+  borderLeft: '1px solid #e5e7eb',
+  borderRight: '1px solid #e5e7eb',
+  borderBottom: '1px solid #e5e7eb',
+  borderRadius: '0 0 12px 12px',
 };
 
-const accentBar = {
-  height: '4px',
+const cardInner = {
+  padding: '28px 36px 32px',
 };
 
 const h1 = {
-  margin: '28px 0 0',
-  padding: '0 32px',
+  margin: 0,
   fontSize: '22px',
   fontWeight: 700,
-  color: '#0f172a',
-  letterSpacing: '-0.4px',
-  textAlign: 'center' as const,
+  color: '#111827',
+  letterSpacing: '-0.3px',
   lineHeight: '1.3',
 };
 
-const subtitle = {
-  margin: '6px 0 0',
-  padding: '0 32px',
+const subtitleStyle = {
+  margin: '10px 0 0',
   fontSize: '14px',
-  color: '#64748b',
+  color: '#6b7280',
   fontWeight: 400,
-  lineHeight: '1.5',
-  textAlign: 'center' as const,
+  lineHeight: '1.6',
 };
 
 const bodySection = {
-  padding: '24px 32px 0',
+  padding: '0',
+  marginTop: '20px',
 };
 
 const ctaSection = {
   textAlign: 'center' as const,
-  padding: '20px 32px 0',
+  padding: '24px 0 0',
 };
 
 const ctaButton = {
   color: '#ffffff',
-  fontSize: '14px',
+  fontSize: '15px',
   fontWeight: 600,
   textDecoration: 'none',
-  padding: '13px 32px',
-  borderRadius: '10px',
+  padding: '14px 36px',
+  borderRadius: '8px',
   display: 'inline-block',
+  backgroundColor: '#2563eb',
+  letterSpacing: '0.2px',
 };
 
 const footerNoteStyle = {
-  margin: '16px 32px 0',
-  padding: '0 0 24px',
+  margin: '16px 0 0',
+  padding: 0,
   fontSize: '12px',
-  color: '#94a3b8',
+  color: '#9ca3af',
   textAlign: 'center' as const,
   lineHeight: '1.5',
+  wordBreak: 'break-all' as const,
 };
 
-const footerSection = {
+const footer = {
   padding: '20px 0 0',
   textAlign: 'center' as const,
 };
 
-const footerHr = {
-  borderColor: '#e2e8f0',
-  margin: '0 0 16px',
+const footerDivider = {
+  padding: '0 0 16px',
 };
 
-const footerText = {
-  margin: 0,
-  fontSize: '12px',
-  color: '#94a3b8',
+const footerDividerTable = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
+};
+
+const footerDividerCell = {
+  height: '1px',
+  backgroundColor: '#e5e7eb',
+};
+
+const footerSupport = {
+  margin: '0 0 4px',
+  fontSize: '13px',
+  color: '#9ca3af',
 };
 
 const footerLink = {
-  color: '#6366f1',
+  color: '#2563eb',
   textDecoration: 'none',
+  fontWeight: 500,
 };
 
-const copyright = {
-  margin: '2px 0 0',
+const footerCopyright = {
+  margin: '0 0 4px',
+  fontSize: '12px',
+  color: '#d1d5db',
+};
+
+const footerDisclaimer = {
+  margin: '0',
   fontSize: '11px',
-  color: '#cbd5e1',
+  color: '#d1d5db',
+  fontStyle: 'italic',
 };

@@ -3,63 +3,46 @@ import { Text, Hr } from '@react-email/components';
 import { EmailLayout } from './components/Layout';
 
 interface StatusConfig {
-  accentColor: string;
-  statusLabel: string;
-  headerText: string;
-  headerSubtext: string;
-  priceBoxBg: string;
-  priceBoxBorder: string;
-  priceBoxColor: string;
-  priceBoxLabel: string;
-  badge: { bg: string; color: string };
-  description: string;
+  label: string;
+  icon: string;
+  bg: string;
+  border: string;
+  iconBg: string;
 }
 
-function getStatusConfig(
-  status: 'quoted' | 'accepted' | 'rejected',
-): StatusConfig {
+function getConfig(status: string): StatusConfig {
   switch (status) {
     case 'quoted':
       return {
-        accentColor: '#6366f1',
-        statusLabel: 'Price Quoted',
-        headerText: 'Quote Price Updated',
-        headerSubtext: 'Your quote has been reviewed and is ready',
-        priceBoxBg: '#eef2ff',
-        priceBoxBorder: '#c7d2fe',
-        priceBoxColor: '#4338ca',
-        priceBoxLabel: 'Your Quoted Price',
-        badge: { bg: '#eef2ff', color: '#4338ca' },
-        description:
-          'Thank you for your interest in our logistics services. Our team is ready to assist you with any questions about this quote. This price is valid for a limited time.',
+        label: 'Price Quoted',
+        icon: '\u20B9',
+        bg: '#eff6ff',
+        border: '#bfdbfe',
+        iconBg: '#2563eb',
       };
     case 'accepted':
       return {
-        accentColor: '#10b981',
-        statusLabel: 'Accepted',
-        headerText: 'Quote Accepted',
-        headerSubtext: 'Great news. Your quote has been accepted',
-        priceBoxBg: '#d1fae5',
-        priceBoxBorder: '#a7f3d0',
-        priceBoxColor: '#065f46',
-        priceBoxLabel: 'Agreed Price',
-        badge: { bg: '#d1fae5', color: '#065f46' },
-        description:
-          'Our logistics team will contact you shortly to coordinate shipment details and scheduling. Please ensure your contact details are up to date.',
+        label: 'Accepted',
+        icon: '\u2713',
+        bg: '#f0fdf4',
+        border: '#bbf7d0',
+        iconBg: '#16a34a',
       };
     case 'rejected':
       return {
-        accentColor: '#ef4444',
-        statusLabel: 'Update',
-        headerText: 'Quote Update',
-        headerSubtext: 'Regarding your quote request',
-        priceBoxBg: '#fee2e2',
-        priceBoxBorder: '#fecaca',
-        priceBoxColor: '#991b1b',
-        priceBoxLabel: 'Quote Amount',
-        badge: { bg: '#fee2e2', color: '#991b1b' },
-        description:
-          'We encourage you to submit a new quote request with updated details. Our team may reach out with alternative solutions that might better suit your needs.',
+        label: 'Declined',
+        icon: '\u2717',
+        bg: '#fef2f2',
+        border: '#fecaca',
+        iconBg: '#dc2626',
+      };
+    default:
+      return {
+        label: status,
+        icon: '\u2022',
+        bg: '#f3f4f6',
+        border: '#e5e7eb',
+        iconBg: '#6b7280',
       };
   }
 }
@@ -82,153 +65,262 @@ export function QuoteStatusEmail({
   remarks,
 }: QuoteStatusEmailProps) {
   const shortId = quoteId.slice(0, 8).toUpperCase();
+  const cfg = getConfig(status);
   const priceDisplay = price
-    ? `₹${parseFloat(price).toLocaleString('en-IN')}`
+    ? `\u20B9${parseFloat(price).toLocaleString('en-IN')}`
     : null;
-  const cfg = getStatusConfig(status);
-  const details = [
-    { label: 'Quote ID', value: shortId },
-    { label: 'Origin', value: originCountry },
-    { label: 'Destination', value: destinationCountry },
-  ];
+
+  const headerText =
+    status === 'quoted'
+      ? 'Quote Ready'
+      : status === 'accepted'
+        ? 'Quote Accepted'
+        : 'Quote Update';
+
+  const subtitleText =
+    status === 'quoted'
+      ? 'Your quote request has been reviewed and a price is ready.'
+      : status === 'accepted'
+        ? 'Your quote has been accepted. We\u2019ll be in touch shortly.'
+        : 'There\u2019s an update regarding your quote request.';
 
   return (
     <EmailLayout
-      preview={cfg.headerText}
-      title={cfg.headerText}
-      subtitle={cfg.headerSubtext}
-      accentColor={cfg.accentColor}
+      preview={`${cfg.label} - ${shortId}`}
+      title={headerText}
+      subtitle={subtitleText}
     >
+      <div style={{ ...statusCard, backgroundColor: cfg.bg, borderColor: cfg.border }}>
+        <div style={statusIconWrap}>
+          <span style={{ ...statusIcon, backgroundColor: cfg.iconBg }}>
+            {cfg.icon}
+          </span>
+        </div>
+        <Text style={statusLabel}>{cfg.label}</Text>
+      </div>
+
       {priceDisplay && (
-        <div
-          style={{
-            ...priceBox,
-            backgroundColor: cfg.priceBoxBg,
-            borderColor: cfg.priceBoxBorder,
-          }}
-        >
-          <Text style={priceLabel}>{cfg.priceBoxLabel}</Text>
-          <Text style={{ ...priceValue, color: cfg.priceBoxColor }}>
-            {priceDisplay}
+        <div style={priceCard}>
+          <Text style={priceLabel}>Quoted Price</Text>
+          <Text style={priceValue}>{priceDisplay}</Text>
+          <Text style={priceNote}>
+            Valid for 14 days from the date of this quote
           </Text>
         </div>
       )}
 
       {remarks && (
-        <div style={remarksBox}>
-          <Text style={remarksLabel}>Remarks</Text>
+        <div style={remarksCard}>
+          <Text style={remarksTitle}>Remarks</Text>
           <Text style={remarksText}>{remarks}</Text>
         </div>
       )}
 
+      <Hr style={divider} />
+
+      <Text style={sectionTitle}>Quote Details</Text>
+
       <div style={detailsCard}>
-        {details.map((row) => (
-          <div key={row.label} style={detailRow}>
-            <Text style={detailLabel}>{row.label}</Text>
-            <Text style={detailValue}>{row.value}</Text>
-          </div>
-        ))}
-        <div style={detailRow}>
-          <Text style={detailLabel}>Status</Text>
-          <span
-            style={{
-              ...statusBadge,
-              backgroundColor: cfg.badge.bg,
-              color: cfg.badge.color,
-            }}
-          >
-            {cfg.statusLabel}
-          </span>
-        </div>
+        <table style={detailTable}>
+          <tbody>
+            {[
+              { label: 'Quote ID', value: shortId },
+              { label: 'Origin', value: originCountry },
+              { label: 'Destination', value: destinationCountry },
+            ].map((row) => (
+              <tr key={row.label}>
+                <td style={detailLabelCell}>{row.label}</td>
+                <td style={detailValueCell}>{row.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <Text style={description}>{cfg.description}</Text>
+      {status === 'accepted' && (
+        <div style={nextStepsCard}>
+          <Text style={nextStepsTitle}>What happens next</Text>
+          <Text style={nextStepsText}>
+            Our logistics team will contact you within 24 hours to coordinate
+            shipment details, scheduling, and documentation requirements.
+          </Text>
+        </div>
+      )}
+
+      {status === 'rejected' && (
+        <div style={appealCard}>
+          <Text style={appealText}>
+            You can submit a new quote request with updated details at any time.
+          </Text>
+        </div>
+      )}
     </EmailLayout>
   );
 }
 
-const priceBox = {
-  borderRadius: '8px',
+const statusCard = {
+  borderRadius: '10px',
   padding: '20px',
   textAlign: 'center' as const,
-  marginBottom: '20px',
   border: '1px solid',
+  marginBottom: '16px',
+};
+
+const statusIconWrap = {
+  marginBottom: '10px',
+};
+
+const statusIcon = {
+  display: 'inline-block',
+  width: '36px',
+  height: '36px',
+  borderRadius: '50%',
+  fontSize: '16px',
+  fontWeight: 700,
+  color: '#ffffff',
+  textAlign: 'center' as const,
+  lineHeight: '36px',
+};
+
+const statusLabel = {
+  margin: 0,
+  fontSize: '16px',
+  fontWeight: 700,
+  color: '#111827',
+};
+
+const priceCard = {
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  padding: '20px',
+  textAlign: 'center' as const,
+  border: '1px solid #e2e8f0',
+  marginBottom: '12px',
 };
 
 const priceLabel = {
-  margin: '0 0 4px',
-  fontSize: '10px',
+  margin: '0 0 6px',
+  fontSize: '11px',
   textTransform: 'uppercase' as const,
-  color: '#64748b',
-  letterSpacing: '0.5px',
+  color: '#6b7280',
+  letterSpacing: '0.4px',
 };
 
 const priceValue = {
-  margin: 0,
-  fontSize: '24px',
+  margin: '0 0 6px',
+  fontSize: '28px',
   fontWeight: 700,
+  color: '#111827',
+  letterSpacing: '-0.5px',
 };
 
-const remarksBox = {
-  backgroundColor: '#fef3c7',
-  borderLeft: '4px solid #f59e0b',
-  borderRadius: '6px',
-  padding: '10px 14px',
-  marginBottom: '20px',
+const priceNote = {
+  margin: 0,
+  fontSize: '11px',
+  color: '#9ca3af',
+  fontStyle: 'italic',
 };
 
-const remarksLabel = {
+const remarksCard = {
+  backgroundColor: '#fffbeb',
+  borderRadius: '8px',
+  padding: '14px 16px',
+  border: '1px solid #fef3c7',
+  marginBottom: '12px',
+};
+
+const remarksTitle = {
   margin: '0 0 4px',
-  fontSize: '10px',
+  fontSize: '11px',
   textTransform: 'uppercase' as const,
   color: '#92400e',
-  letterSpacing: '0.5px',
+  fontWeight: 600,
+  letterSpacing: '0.3px',
 };
 
 const remarksText = {
   margin: 0,
   fontSize: '13px',
   color: '#78350f',
+  lineHeight: '1.5',
 };
 
-const detailsCard = {
-  backgroundColor: '#f8fafc',
-  borderRadius: '8px',
-  padding: '16px',
-  marginBottom: '20px',
-  border: '1px solid #e2e8f0',
+const divider = {
+  borderColor: '#e5e7eb',
+  margin: '20px 0',
 };
 
-const detailRow = {
-  padding: '6px 0',
-  borderBottom: '1px solid #e2e8f0',
-};
-
-const detailLabel = {
-  margin: '0 0 2px',
-  fontSize: '10px',
+const sectionTitle = {
+  margin: '0 0 10px',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#374151',
   textTransform: 'uppercase' as const,
-  color: '#64748b',
   letterSpacing: '0.5px',
 };
 
-const detailValue = {
-  margin: 0,
-  fontSize: '14px',
-  color: '#1e293b',
+const detailsCard = {
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  border: '1px solid #e5e7eb',
 };
 
-const statusBadge = {
-  display: 'inline-block' as const,
-  padding: '2px 10px',
-  borderRadius: '12px',
-  fontSize: '12px',
+const detailTable = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
+};
+
+const detailLabelCell = {
+  padding: '10px 16px',
+  fontSize: '11px',
+  textTransform: 'uppercase' as const,
+  color: '#6b7280',
+  letterSpacing: '0.3px',
+  borderBottom: '1px solid #f3f4f6',
+  width: '40%',
+};
+
+const detailValueCell = {
+  padding: '10px 16px',
+  fontSize: '13px',
+  color: '#111827',
   fontWeight: 500,
+  borderBottom: '1px solid #f3f4f6',
 };
 
-const description = {
+const nextStepsCard = {
+  backgroundColor: '#f0fdf4',
+  borderRadius: '8px',
+  padding: '14px 16px',
+  border: '1px solid #bbf7d0',
+  marginTop: '16px',
+};
+
+const nextStepsTitle = {
+  margin: '0 0 4px',
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#166534',
+};
+
+const nextStepsText = {
+  margin: 0,
+  fontSize: '12px',
+  color: '#15803d',
+  lineHeight: '1.5',
+};
+
+const appealCard = {
+  backgroundColor: '#f9fafb',
+  borderRadius: '8px',
+  padding: '14px 16px',
+  border: '1px solid #e5e7eb',
+  marginTop: '16px',
+  textAlign: 'center' as const,
+};
+
+const appealText = {
   margin: 0,
   fontSize: '13px',
-  color: '#64748b',
-  lineHeight: '1.5',
+  color: '#6b7280',
 };

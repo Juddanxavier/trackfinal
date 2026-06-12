@@ -4,49 +4,37 @@ import { EmailLayout } from './components/Layout';
 
 const APP_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-const STATUS_CONFIG: Record<
+const exceptions = [
+  'shipment.created',
+  'shipment.pending',
+  'shipment.in_transit',
+  'shipment.out_for_delivery',
+  'shipment.delivered',
+  'shipment.exception',
+  'shipment.customs',
+];
+
+type TitleKey = (typeof exceptions)[number] | `quote.${string}`;
+
+const SHIPMENT_BADGES: Record<
   string,
-  { title: string; color: string; description: string }
+  { label: string; bg: string; color: string }
 > = {
-  'shipment.created': {
-    title: 'Shipment Created',
-    color: '#6366f1',
-    description: 'Your shipment has been created and is being processed.',
-  },
-  'shipment.in_transit': {
-    title: 'Shipment In Transit',
-    color: '#2563eb',
-    description: 'Your shipment is now on the move.',
-  },
+  'shipment.created': { label: 'Created', bg: '#eff6ff', color: '#2563eb' },
+  'shipment.in_transit': { label: 'In Transit', bg: '#fefce8', color: '#ca8a04' },
   'shipment.out_for_delivery': {
-    title: 'Out For Delivery',
-    color: '#d97706',
-    description: 'Your shipment is out for delivery today.',
-  },
-  'shipment.delivered': {
-    title: 'Shipment Delivered',
-    color: '#059669',
-    description: 'Your shipment has been delivered successfully.',
-  },
-  'shipment.exception': {
-    title: 'Delivery Exception',
-    color: '#dc2626',
-    description: "There's an issue with your shipment that needs attention.",
-  },
-  'shipment.pending': {
-    title: 'Pending',
+    label: 'Out for Delivery',
+    bg: '#fefce8',
     color: '#ca8a04',
-    description: 'Your shipment is pending further processing.',
   },
-  'shipment.customs': {
-    title: 'Customs Clearance',
-    color: '#7c3aed',
-    description: 'Your shipment is going through customs clearance.',
-  },
+  'shipment.delivered': { label: 'Delivered', bg: '#f0fdf4', color: '#16a34a' },
+  'shipment.exception': { label: 'Exception', bg: '#fef2f2', color: '#dc2626' },
+  'shipment.pending': { label: 'Pending', bg: '#f3f4f6', color: '#6b7280' },
+  'shipment.customs': { label: 'Customs', bg: '#eff6ff', color: '#2563eb' },
 };
 
 interface ShipmentNotificationProps {
-  titleKey: string;
+  titleKey: TitleKey;
   orgName?: string;
   whiteLabelCode?: string;
   destinationCountry?: string;
@@ -73,135 +61,149 @@ export function ShipmentNotification({
   status,
 }: ShipmentNotificationProps) {
   const isQuote = titleKey.startsWith('quote.');
-  const cfg = isQuote
-    ? {
-        title:
-          titleKey === 'quote.assigned'
-            ? 'Quote Assigned'
-            : 'Quote Status Updated',
-        color: '#6366f1',
-        description: '',
-      }
-    : STATUS_CONFIG[titleKey] || {
-        title: 'Update',
-        color: '#6366f1',
-        description: '',
-      };
+  const badge = isQuote
+    ? { label: status || 'Updated', bg: '#eff6ff', color: '#2563eb' }
+    : SHIPMENT_BADGES[titleKey] || { label: 'Updated', bg: '#eff6ff', color: '#2563eb' };
+
+  const headerText = isQuote
+    ? 'Quote Update'
+    : titleKey === 'shipment.exception'
+      ? 'Delivery Exception'
+      : titleKey === 'shipment.delivered'
+        ? 'Delivered'
+        : titleKey === 'shipment.out_for_delivery'
+          ? 'Out for Delivery'
+          : titleKey === 'shipment.customs'
+            ? 'Customs Clearance'
+            : titleKey === 'shipment.in_transit'
+              ? 'In Transit'
+              : 'Shipment Update';
 
   return (
     <EmailLayout
-      preview={`${cfg.title} - ${orgName}`}
-      title={cfg.title}
+      preview={`${headerText} - ${whiteLabelCode || orgName || ''}`}
+      title={headerText}
       subtitle={orgName}
-      accentColor={cfg.color}
     >
-      {!isQuote && trackingUrl && (
-        <div style={trackingBox}>
-          <Text style={trackingCode}>{whiteLabelCode || '\u2014'}</Text>
+      {!isQuote && (
+        <div style={trackingCard}>
+          <div style={trackingHeader}>
+            <div style={trackingBadge}>
+              <span style={{ ...trackingBadgeText, color: badge.color, backgroundColor: badge.bg }}>
+                {badge.label}
+              </span>
+            </div>
+          </div>
+          <div style={trackingCodeRow}>
+            <Text style={trackingCodeLabel}>Tracking Number</Text>
+            <Text style={trackingCodeValue}>
+              {whiteLabelCode || '\u2014'}
+            </Text>
+          </div>
           {trackingUrl && (
             <Link href={trackingUrl} style={trackingLink}>
-              Track Shipment
+              Track this shipment &rarr;
             </Link>
           )}
         </div>
       )}
 
-      {cfg.description && <Text style={description}>{cfg.description}</Text>}
+      <Hr style={divider} />
 
-      {!isQuote && (
-        <>
-          <Hr style={hr} />
-          <div style={detailsGrid}>
-            {whiteLabelCode && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Tracking</Text>
-                <Text style={detailValue}>{whiteLabelCode}</Text>
-              </div>
-            )}
-            {destinationCountry && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Destination</Text>
-                <Text style={detailValue}>{destinationCountry}</Text>
-              </div>
-            )}
-            {location && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Location</Text>
-                <Text style={detailValue}>{location}</Text>
-              </div>
-            )}
-            {exceptionReason && (
-              <div style={detailItem}>
-                <Text style={{ ...detailLabel, color: '#dc2626' }}>Reason</Text>
-                <Text style={{ ...detailValue, color: '#dc2626' }}>
-                  {exceptionReason}
-                </Text>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+      <div style={detailsGrid}>
+        {!isQuote && (
+          <table style={detailTable}>
+            <tbody>
+              {location && (
+                <tr>
+                  <td style={detailLabelCell}>Current Location</td>
+                  <td style={detailValueCell}>{location}</td>
+                </tr>
+              )}
+              {destinationCountry && (
+                <tr>
+                  <td style={detailLabelCell}>Destination</td>
+                  <td style={detailValueCell}>{destinationCountry}</td>
+                </tr>
+              )}
+              {exceptionReason && (
+                <tr>
+                  <td style={{ ...detailLabelCell, color: '#dc2626' }}>
+                    Reason
+                  </td>
+                  <td style={{ ...detailValueCell, color: '#dc2626' }}>
+                    {exceptionReason}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
 
-      {isQuote && (
-        <>
-          <Hr style={hr} />
-          <div style={detailsGrid}>
-            {quoteId && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Quote ID</Text>
-                <Text style={detailValue}>
-                  {quoteId.slice(0, 8).toUpperCase()}
-                </Text>
-              </div>
-            )}
-            {originCountry && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Origin</Text>
-                <Text style={detailValue}>{originCountry}</Text>
-              </div>
-            )}
-            {destinationCountry && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Destination</Text>
-                <Text style={detailValue}>{destinationCountry}</Text>
-              </div>
-            )}
-            {weight && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Weight</Text>
-                <Text style={detailValue}>{weight} kg</Text>
-              </div>
-            )}
-            {status && (
-              <div style={detailItem}>
-                <Text style={detailLabel}>Status</Text>
-                <span
-                  style={{
-                    ...pill,
-                    backgroundColor: '#eef2ff',
-                    color: '#4338ca',
-                  }}
-                >
-                  {status}
-                </span>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        {isQuote && (
+          <table style={detailTable}>
+            <tbody>
+              {quoteId && (
+                <tr>
+                  <td style={detailLabelCell}>Quote ID</td>
+                  <td style={detailValueCell}>
+                    {quoteId.slice(0, 8).toUpperCase()}
+                  </td>
+                </tr>
+              )}
+              {originCountry && (
+                <tr>
+                  <td style={detailLabelCell}>Origin</td>
+                  <td style={detailValueCell}>{originCountry}</td>
+                </tr>
+              )}
+              {destinationCountry && (
+                <tr>
+                  <td style={detailLabelCell}>Destination</td>
+                  <td style={detailValueCell}>{destinationCountry}</td>
+                </tr>
+              )}
+              {weight && (
+                <tr>
+                  <td style={detailLabelCell}>Weight</td>
+                  <td style={detailValueCell}>{weight} kg</td>
+                </tr>
+              )}
+              {status && (
+                <tr>
+                  <td style={detailLabelCell}>Status</td>
+                  <td style={detailValueCell}>
+                    <span
+                      style={{
+                        ...statusPill,
+                        backgroundColor: badge.bg,
+                        color: badge.color,
+                      }}
+                    >
+                      {badge.label}
+                    </span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {exceptionReason && (
-        <div style={supportBox}>
-          <Text style={supportText}>
-            Please contact support if you need assistance with this exception.
+        <div style={exceptionBox}>
+          <Text style={exceptionTitle}>Action Required</Text>
+          <Text style={exceptionText}>
+            There's an issue with this shipment that needs attention. Please
+            contact support for assistance.
           </Text>
         </div>
       )}
 
       {trackingUrl && (
-        <div style={ctaLine}>
-          <Link href={trackingUrl} style={ctaLink}>
-            View Full Details
+        <div style={secondaryCta}>
+          <Link href={trackingUrl} style={secondaryCtaLink}>
+            View Full Details &rarr;
           </Link>
         </div>
       )}
@@ -209,70 +211,95 @@ export function ShipmentNotification({
   );
 }
 
-const trackingBox = {
+const trackingCard = {
   backgroundColor: '#f8fafc',
+  borderRadius: '10px',
+  padding: '20px',
   border: '1px solid #e2e8f0',
-  borderRadius: '8px',
-  padding: '16px',
+  marginBottom: '20px',
   textAlign: 'center' as const,
-  marginBottom: '16px',
 };
 
-const trackingCode = {
-  margin: '0 0 6px',
-  fontSize: '18px',
+const trackingHeader = {
+  marginBottom: '14px',
+};
+
+const trackingBadge = {
+  textAlign: 'center' as const,
+};
+
+const trackingBadgeText = {
+  display: 'inline-block' as const,
+  padding: '4px 12px',
+  borderRadius: '12px',
+  fontSize: '12px',
+  fontWeight: 600,
+};
+
+const trackingCodeRow = {
+  marginBottom: '14px',
+};
+
+const trackingCodeLabel = {
+  margin: '0 0 4px',
+  fontSize: '11px',
+  textTransform: 'uppercase' as const,
+  color: '#6b7280',
+  letterSpacing: '0.4px',
+};
+
+const trackingCodeValue = {
+  margin: 0,
+  fontSize: '20px',
   fontWeight: 700,
-  color: '#1e293b',
-  letterSpacing: '1px',
-  fontFamily: 'SF Mono, Monaco, monospace',
+  color: '#111827',
+  letterSpacing: '1.5px',
+  fontFamily: 'SF Mono, Monaco, Consolas, monospace',
 };
 
 const trackingLink = {
-  fontSize: '13px',
-  color: '#6366f1',
-  textDecoration: 'none',
-  fontWeight: 500,
-};
-
-const description = {
-  margin: '0 0 16px',
   fontSize: '14px',
-  color: '#475569',
-  lineHeight: '1.5',
+  color: '#2563eb',
+  textDecoration: 'none',
+  fontWeight: 600,
 };
 
-const hr = {
-  borderColor: '#e2e8f0',
-  margin: '16px 0',
+const divider = {
+  borderColor: '#e5e7eb',
+  margin: '20px 0',
 };
 
 const detailsGrid = {
-  backgroundColor: '#f8fafc',
-  borderRadius: '8px',
-  padding: '12px 16px',
-  border: '1px solid #e2e8f0',
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  border: '1px solid #e5e7eb',
+  marginBottom: '16px',
 };
 
-const detailItem = {
-  padding: '6px 0',
-  borderBottom: '1px solid #e2e8f0',
+const detailTable = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
 };
 
-const detailLabel = {
-  margin: '0 0 1px',
-  fontSize: '10px',
+const detailLabelCell = {
+  padding: '10px 16px',
+  fontSize: '11px',
   textTransform: 'uppercase' as const,
-  color: '#64748b',
-  letterSpacing: '0.5px',
+  color: '#6b7280',
+  letterSpacing: '0.3px',
+  borderBottom: '1px solid #f3f4f6',
+  width: '40%',
 };
 
-const detailValue = {
-  margin: 0,
+const detailValueCell = {
+  padding: '10px 16px',
   fontSize: '13px',
-  color: '#1e293b',
+  color: '#111827',
+  fontWeight: 500,
+  borderBottom: '1px solid #f3f4f6',
 };
 
-const pill = {
+const statusPill = {
   display: 'inline-block' as const,
   padding: '2px 10px',
   borderRadius: '12px',
@@ -280,28 +307,36 @@ const pill = {
   fontWeight: 500,
 };
 
-const supportBox = {
+const exceptionBox = {
   backgroundColor: '#fef2f2',
-  borderLeft: '4px solid #dc2626',
-  borderRadius: '6px',
-  padding: '10px 14px',
-  marginTop: '16px',
+  borderRadius: '8px',
+  padding: '14px 16px',
+  border: '1px solid #fecaca',
+  marginTop: '12px',
 };
 
-const supportText = {
-  margin: 0,
+const exceptionTitle = {
+  margin: '0 0 4px',
   fontSize: '13px',
+  fontWeight: 600,
   color: '#991b1b',
 };
 
-const ctaLine = {
-  textAlign: 'center' as const,
-  marginTop: '20px',
+const exceptionText = {
+  margin: 0,
+  fontSize: '12px',
+  color: '#7f1d1d',
+  lineHeight: '1.5',
 };
 
-const ctaLink = {
-  fontSize: '14px',
-  color: '#6366f1',
+const secondaryCta = {
+  textAlign: 'center' as const,
+  marginTop: '16px',
+};
+
+const secondaryCtaLink = {
+  fontSize: '13px',
+  color: '#2563eb',
   textDecoration: 'none',
-  fontWeight: 600,
+  fontWeight: 500,
 };
