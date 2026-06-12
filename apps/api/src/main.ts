@@ -184,6 +184,23 @@ async function migrateTrackingTables() {
     `);
     logger.log('[Tracking Migration] tracking_settings table ready');
 
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS shipment_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        shipment_id UUID NOT NULL,
+        status TEXT NOT NULL,
+        status_raw TEXT,
+        description TEXT,
+        location TEXT,
+        event_time TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_shipment_events_shipment ON shipment_events(shipment_id)`,
+    );
+    logger.log('[Tracking Migration] shipment_events table ready');
+
     await db.execute(
       `ALTER TABLE organisations ADD COLUMN IF NOT EXISTS website_url TEXT`,
     );
