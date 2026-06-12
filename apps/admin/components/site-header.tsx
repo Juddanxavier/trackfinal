@@ -72,7 +72,7 @@ export function SiteHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
 
   useEffect(() => {
