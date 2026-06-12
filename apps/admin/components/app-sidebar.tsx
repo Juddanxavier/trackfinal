@@ -4,7 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 
 import { NavSection } from "@/components/nav-section"
-import { NavUser } from "@/components/nav-user"
+
 import { useAuth } from "@/components/auth-context"
 import {
   Sidebar,
@@ -169,15 +169,8 @@ export function AppSidebar({ isAdmin = false, ...props }: AppSidebarProps) {
             />
           ))}
         </SidebarContent>
-        <SidebarFooter>
-          <NavUser
-            user={{
-              name: authUser?.name || "User",
-              email: authUser?.email || "",
-              avatar: authUser?.avatar || undefined,
-            }}
-            onLogout={logout}
-          />
+        <SidebarFooter className="p-4">
+          <p className="text-xs text-muted-foreground text-center">v0.0.1</p>
         </SidebarFooter>
       </Sidebar>
     </>
