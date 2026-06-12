@@ -66,7 +66,7 @@ export class ShipmentsController {
     }
 
     let branchId: string | null;
-    if (isAdminRole(req.user.role)) {
+    if (req.user.role === Role.ADMIN) {
       if (!dto.branchId) {
         throw new BadRequestException(
           'Branch is required for admin-created shipments',
@@ -74,7 +74,7 @@ export class ShipmentsController {
       }
       branchId = dto.branchId;
     } else {
-      branchId = req.user.branchId || null;
+      branchId = dto.branchId || req.user.branchId || null;
     }
 
     return this.shipmentsService.create({
