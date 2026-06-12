@@ -70,11 +70,17 @@ export class OrganisationsController {
     const orgId = req.user.organisationId;
     const role = req.user.role;
     this.logger.log('findAll orgId: ' + orgId + ', role: ' + role);
-    if (!orgId) {
-      if (isAdminRole(role)) {
+
+    if (isAdminRole(role)) {
+      if (!orgId) {
         this.logger.log(`Admin role (${role}) with no orgId, returning all organisations`);
-        return this.organisationsService.findAll();
+      } else {
+        this.logger.log(`Admin role (${role}) with orgId, returning all organisations (superadmin bypass)`);
       }
+      return this.organisationsService.findAll();
+    }
+
+    if (!orgId) {
       this.logger.log('No orgId, returning empty');
       return [];
     }
