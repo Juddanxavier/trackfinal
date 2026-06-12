@@ -111,20 +111,23 @@ export class UsersController {
   ): Promise<PaginatedResult<any>> {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
+    const isSuperAdmin = userRole === Role.SUPERADMIN;
     const isAdmin = userRole === Role.ADMIN;
     const isStaff = userRole === Role.STAFF;
 
     const branchId = isStaff ? req.user.branchId : query.branchId;
 
     let excludeRoles: Role[] | undefined;
-    if (isAdmin) {
+    if (isSuperAdmin) {
+      excludeRoles = undefined;
+    } else if (isAdmin) {
       excludeRoles = [Role.ADMIN];
     } else {
       excludeRoles = [Role.ADMIN, Role.STAFF];
     }
 
     const result = await this.usersService.findWithPagination({
-      organisationId: userOrgId,
+      organisationId: isSuperAdmin ? undefined : userOrgId,
       branchId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 10,

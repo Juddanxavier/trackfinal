@@ -132,7 +132,7 @@ export default function UsersPage() {
     organisations,
   } = useAuth()
 
-  const isGlobalAdmin = user?.role === "global_admin"
+  const isGlobalAdmin = user?.role === "superadmin"
   const isAdmin = isAdminRole(user?.role) || isGlobalAdmin
 
   const [users, setUsers] = useState<User[]>([])
