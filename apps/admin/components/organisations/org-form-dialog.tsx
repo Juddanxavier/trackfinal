@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { api } from "@/lib/api"
@@ -83,6 +83,12 @@ export function OrgFormDialog({
   } = useForm<OrgFormData>({
     resolver: zodResolver(orgSchema as any),
   })
+
+  useEffect(() => {
+    if (open) {
+      reset(initial ? defaultForm(initial) : defaultForm())
+    }
+  }, [open, initial, reset])
 
   const onSubmit = async (data: OrgFormData) => {
     try {
