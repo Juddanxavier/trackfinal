@@ -94,7 +94,7 @@ const statusVariants: Record<ShipmentStatus, string> = {
 }
 
 export default function ShipmentsPage() {
-  const { selectedOrganisation, isLoading: authLoading, user } = useAuth()
+  const { selectedOrganisation, isLoading: authLoading, user, organisations } = useAuth()
   const router = useRouter()
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -628,6 +628,7 @@ export default function ShipmentsPage() {
         user={user}
         orgCountry={orgCountry}
         branches={branches}
+        organisations={organisations}
       />
 
       {stats && <ShipmentStatsCards stats={stats} />}

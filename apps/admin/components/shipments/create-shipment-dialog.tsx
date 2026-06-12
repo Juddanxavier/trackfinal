@@ -47,6 +47,10 @@ interface Branch {
   id: string
   name: string
 }
+interface Org {
+  id: string
+  name: string
+}
 
 interface CreateShipmentDialogProps {
   open: boolean
@@ -63,6 +67,7 @@ interface CreateShipmentDialogProps {
   } | null
   orgCountry: string
   branches: Branch[]
+  organisations: Org[]
 }
 
 function formatPhone(phone: string, countryCode: string): string {
@@ -80,8 +85,38 @@ export function CreateShipmentDialog({
   carriers,
   user,
   orgCountry,
-  branches,
+  branches: parentBranches,
+  organisations,
 }: CreateShipmentDialogProps) {
+  const isSuperAdmin = user?.role === "superadmin"
+  const [dialogOrg, setDialogOrg] = useState(selectedOrganisation)
+  const [dialogBranches, setDialogBranches] = useState<Branch[]>(parentBranches)
+  const [loadingBranches, setLoadingBranches] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setDialogOrg(selectedOrganisation)
+      setDialogBranches(parentBranches)
+    }
+  }, [open, selectedOrganisation, parentBranches])
+
+  useEffect(() => {
+    if (dialogOrg && dialogOrg !== selectedOrganisation) {
+      setLoadingBranches(true)
+      api
+        .get<Branch[]>(`/organisations/${dialogOrg}/branches`, {
+          throwOnError: false,
+        })
+        .then((res) => {
+          if (Array.isArray(res)) setDialogBranches(res)
+        })
+        .catch(() => {})
+        .finally(() => setLoadingBranches(false))
+    } else {
+      setDialogBranches(parentBranches)
+    }
+  }, [dialogOrg, selectedOrganisation, parentBranches])
+
   const [createStep, setCreateStep] = useState(1)
   const [detecting, setDetecting] = useState(false)
   const [detectionFailed, setDetectionFailed] = useState(false)
@@ -210,7 +245,7 @@ export function CreateShipmentDialog({
         recipientEmail: data.recipientEmail || undefined,
         recipientPhone: phone,
         userId: data.userId || undefined,
-        organisationId: selectedOrganisation,
+        organisationId: dialogOrg,
         branchId: data.branchId || undefined,
         billAmount: data.billAmount ? parseFloat(data.billAmount) : undefined,
       }
@@ -292,6 +327,26 @@ export function CreateShipmentDialog({
           <div className="grid gap-4 pb-4">
             {createStep === 1 && (
               <>
+                {isSuperAdmin && organisations.length > 0 && (
+                  <div className="grid gap-2">
+                    <Label>Organisation</Label>
+                    <Select
+                      value={dialogOrg || ""}
+                      onValueChange={(val) => setDialogOrg(val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select organisation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organisations.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="trackingNumber">Tracking Number</Label>
                   <div className="flex gap-2">
@@ -453,7 +508,7 @@ export function CreateShipmentDialog({
             )}
             {createStep === 3 && (
               <>
-                {isAdminRole(user?.role) && branches.length > 0 && (
+                {isAdminRole(user?.role) && dialogBranches.length > 0 && (
                   <div className="grid gap-2">
                     <Label>Branch</Label>
                     <Select
@@ -463,10 +518,10 @@ export function CreateShipmentDialog({
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
+                        <SelectValue placeholder={loadingBranches ? "Loading..." : "Select branch"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {branches.map((b) => (
+                        {dialogBranches.map((b) => (
                           <SelectItem key={b.id} value={b.id}>
                             {b.name}
                           </SelectItem>
