@@ -103,7 +103,7 @@ export class OrganisationsController {
   @ApiResponse({ status: 200, description: 'Organisation found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   findOne(@Param('id') id: string, @Request() req: any) {
-    if (req.user.organisationId !== id) {
+    if (req.user.organisationId !== id && !isAdminRole(req.user.role)) {
       return null;
     }
     return this.organisationsService.findById(id);
@@ -135,7 +135,7 @@ export class OrganisationsController {
     },
     @Request() req: any,
   ) {
-    if (req.user.organisationId !== id) {
+    if (req.user.organisationId !== id && !isAdminRole(req.user.role)) {
       throw new ForbiddenException('You can only manage your own organisation');
     }
     return this.organisationsService.update(id, updateDto);
@@ -149,7 +149,7 @@ export class OrganisationsController {
   @ApiParam({ name: 'id', description: 'Organisation UUID' })
   @ApiResponse({ status: 200, description: 'Organisation deactivated' })
   remove(@Param('id') id: string, @Request() req: any) {
-    if (req.user.organisationId !== id) {
+    if (req.user.organisationId !== id && !isAdminRole(req.user.role)) {
       throw new ForbiddenException('You can only manage your own organisation');
     }
     return this.organisationsService.remove(id);
@@ -161,7 +161,7 @@ export class OrganisationsController {
   @ApiOperation({ summary: 'Get organisation hierarchy tree' })
   @ApiResponse({ status: 200, description: 'Organisation tree with branches' })
   getOrgTree(@Request() req: any) {
-    if (!req.user.organisationId) {
+    if (!req.user.organisationId && !isAdminRole(req.user.role)) {
       return [];
     }
     return this.organisationsService
@@ -178,7 +178,7 @@ export class OrganisationsController {
   @ApiParam({ name: 'id', description: 'Organisation UUID' })
   @ApiResponse({ status: 200, description: 'List of branches' })
   getBranches(@Param('id') id: string, @Request() req: any) {
-    if (req.user.organisationId !== id) {
+    if (req.user.organisationId !== id && !isAdminRole(req.user.role)) {
       throw new ForbiddenException(
         'You can only access branches for your own organisation',
       );
@@ -208,7 +208,7 @@ export class OrganisationsController {
     },
     @Request() req: any,
   ) {
-    if (req.user.organisationId !== id) {
+    if (req.user.organisationId !== id && !isAdminRole(req.user.role)) {
       throw new ForbiddenException(
         'You can only manage branches for your own organisation',
       );
