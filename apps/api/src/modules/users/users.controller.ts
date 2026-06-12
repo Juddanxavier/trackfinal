@@ -127,7 +127,7 @@ export class UsersController {
     }
 
     const result = await this.usersService.findWithPagination({
-      organisationId: isSuperAdmin ? undefined : userOrgId,
+      organisationId: isSuperAdmin ? (query.organisationId || undefined) : userOrgId,
       branchId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 10,

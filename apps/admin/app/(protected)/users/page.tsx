@@ -555,33 +555,11 @@ export default function UsersPage() {
     <AnimatedPage className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-            <p className="mt-1 text-muted-foreground">
-              Manage users and their access
-            </p>
-          </div>
-          {isMultiOrg && (
-            <Select
-              value={orgFilter}
-              onValueChange={(val) => {
-                setOrgFilter(val)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select organisation" />
-              </SelectTrigger>
-              <SelectContent>
-                {organisations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="mt-1 text-muted-foreground">
+            Manage users and their access
+          </p>
         </div>
         {isAdmin && (
           <p className="text-sm text-muted-foreground">
@@ -648,6 +626,26 @@ export default function UsersPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          {isMultiOrg && (
+            <Select
+              value={orgFilter}
+              onValueChange={(val) => {
+                setOrgFilter(val)
+                setPage(1)
+              }}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All organisations" />
+              </SelectTrigger>
+              <SelectContent>
+                {organisations.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Status" />
