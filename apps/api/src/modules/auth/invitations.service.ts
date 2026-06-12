@@ -58,7 +58,7 @@ export class InvitationsService {
       .values({
         email: dto.email,
         organisationId,
-        branchId: dto.branchId,
+        branchId: dto.branchId || null,
         role: dto.role,
         token,
         expiresAt,
