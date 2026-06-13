@@ -73,9 +73,13 @@ export class OrganisationsController {
 
     if (isAdminRole(role)) {
       if (!orgId) {
-        this.logger.log(`Admin role (${role}) with no orgId, returning all organisations`);
+        this.logger.log(
+          `Admin role (${role}) with no orgId, returning all organisations`,
+        );
       } else {
-        this.logger.log(`Admin role (${role}) with orgId, returning all organisations (superadmin bypass)`);
+        this.logger.log(
+          `Admin role (${role}) with orgId, returning all organisations (superadmin bypass)`,
+        );
       }
       return this.organisationsService.findAll();
     }
@@ -166,15 +170,15 @@ export class OrganisationsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get organisation hierarchy tree' })
   @ApiResponse({ status: 200, description: 'Organisation tree with branches' })
-  getOrgTree(@Request() req: any) {
-    if (!req.user.organisationId && !isAdminRole(req.user.role)) {
+  async getOrgTree(@Request() req: any) {
+    if (isAdminRole(req.user.role)) {
+      return this.organisationsService.getOrgTree();
+    }
+    if (!req.user.organisationId) {
       return [];
     }
-    return this.organisationsService
-      .getOrgTree()
-      .then((tree) =>
-        tree.filter((o: any) => o.id === req.user.organisationId),
-      );
+    const tree = await this.organisationsService.getOrgTree();
+    return tree.filter((o: any) => o.id === req.user.organisationId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -250,7 +254,7 @@ export class OrganisationsController {
     },
     @Request() req: any,
   ) {
-    if (req.user.organisationId !== orgId) {
+    if (req.user.organisationId !== orgId && !isAdminRole(req.user.role)) {
       throw new ForbiddenException(
         'You can only manage branches for your own organisation',
       );
@@ -271,7 +275,7 @@ export class OrganisationsController {
     @Param('branchId') branchId: string,
     @Request() req: any,
   ) {
-    if (req.user.organisationId !== orgId) {
+    if (req.user.organisationId !== orgId && !isAdminRole(req.user.role)) {
       throw new ForbiddenException(
         'You can only manage branches for your own organisation',
       );

@@ -45,20 +45,30 @@ export class NotificationsController {
   @ApiResponse({ status: 403, description: 'Forbidden - admin/staff only' })
   async create(@Request() req: any, @Body() dto: CreateNotificationDto) {
     const targetUserId = dto.userId || req.user.id;
+    let targetUserOrgId: string | null = null;
 
     if (dto.userId && dto.userId !== req.user.id) {
       const targetUser = await this.usersService.findById(dto.userId);
       if (!targetUser) {
         throw new ForbiddenException('Target user not found');
       }
-      if (targetUser.organisationId !== req.user.organisationId) {
+      if (
+        req.user.organisationId &&
+        targetUser.organisationId !== req.user.organisationId
+      ) {
         throw new ForbiddenException(
           'Cannot send notifications to users outside your organisation',
         );
       }
+      targetUserOrgId = targetUser.organisationId;
     }
 
-    return this.notificationsService.create(req.user.organisationId, {
+    const organisationId = req.user.organisationId || targetUserOrgId;
+    if (!organisationId) {
+      throw new ForbiddenException('Organisation context required');
+    }
+
+    return this.notificationsService.create(organisationId, {
       ...dto,
       userId: targetUserId,
     });

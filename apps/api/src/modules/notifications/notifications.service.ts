@@ -45,14 +45,15 @@ export class NotificationsService {
   }
 
   async findAll(
-    organisationId: string,
+    organisationId: string | undefined,
     userId: string,
     query: QueryNotificationsDto,
   ) {
-    const conditions = [
-      eq(notifications.organisationId, organisationId),
-      eq(notifications.userId, userId),
-    ];
+    const conditions: any[] = [eq(notifications.userId, userId)];
+
+    if (organisationId) {
+      conditions.unshift(eq(notifications.organisationId, organisationId));
+    }
 
     if (query.isRead !== undefined) {
       conditions.push(eq(notifications.isRead, query.isRead));
@@ -67,73 +68,96 @@ export class NotificationsService {
       .offset(query.offset || 0);
   }
 
-  async markRead(id: string, organisationId: string, userId: string) {
+  async markRead(
+    id: string,
+    organisationId: string | undefined,
+    userId: string,
+  ) {
+    const conditions: any[] = [
+      eq(notifications.id, id),
+      eq(notifications.userId, userId),
+    ];
+
+    if (organisationId) {
+      conditions.push(eq(notifications.organisationId, organisationId));
+    }
+
     const [updated] = await db
       .update(notifications)
       .set({ isRead: true })
-      .where(
-        and(
-          eq(notifications.id, id),
-          eq(notifications.organisationId, organisationId),
-          eq(notifications.userId, userId),
-        ),
-      )
+      .where(and(...conditions))
       .returning();
     return updated;
   }
 
-  async markUnread(id: string, organisationId: string, userId: string) {
+  async markUnread(
+    id: string,
+    organisationId: string | undefined,
+    userId: string,
+  ) {
+    const conditions: any[] = [
+      eq(notifications.id, id),
+      eq(notifications.userId, userId),
+    ];
+
+    if (organisationId) {
+      conditions.push(eq(notifications.organisationId, organisationId));
+    }
+
     const [updated] = await db
       .update(notifications)
       .set({ isRead: false })
-      .where(
-        and(
-          eq(notifications.id, id),
-          eq(notifications.organisationId, organisationId),
-          eq(notifications.userId, userId),
-        ),
-      )
+      .where(and(...conditions))
       .returning();
     return updated;
   }
 
-  async getUnreadCount(organisationId: string, userId: string) {
+  async getUnreadCount(organisationId: string | undefined, userId: string) {
+    const conditions: any[] = [
+      eq(notifications.userId, userId),
+      eq(notifications.isRead, false),
+    ];
+
+    if (organisationId) {
+      conditions.unshift(eq(notifications.organisationId, organisationId));
+    }
+
     const result = await db
       .select({ value: count() })
       .from(notifications)
-      .where(
-        and(
-          eq(notifications.organisationId, organisationId),
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, false),
-        ),
-      );
+      .where(and(...conditions));
     return result[0]?.value ?? 0;
   }
 
-  async markAllRead(organisationId: string, userId: string) {
+  async markAllRead(organisationId: string | undefined, userId: string) {
+    const conditions: any[] = [
+      eq(notifications.userId, userId),
+      eq(notifications.isRead, false),
+    ];
+
+    if (organisationId) {
+      conditions.unshift(eq(notifications.organisationId, organisationId));
+    }
+
     await db
       .update(notifications)
       .set({ isRead: true })
-      .where(
-        and(
-          eq(notifications.organisationId, organisationId),
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, false),
-        ),
-      );
+      .where(and(...conditions));
   }
 
-  async delete(id: string, organisationId: string, userId: string) {
+  async delete(id: string, organisationId: string | undefined, userId: string) {
+    const conditions: any[] = [
+      eq(notifications.id, id),
+      eq(notifications.userId, userId),
+    ];
+
+    if (organisationId) {
+      conditions.push(eq(notifications.organisationId, organisationId));
+    }
+
     const [removed] = await db
       .delete(notifications)
-      .where(
-        and(
-          eq(notifications.id, id),
-          eq(notifications.organisationId, organisationId),
-          eq(notifications.userId, userId),
-        ),
-      )
+      .where(and(...conditions))
       .returning();
     return removed;
   }

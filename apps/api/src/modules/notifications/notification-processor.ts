@@ -121,11 +121,24 @@ export class NotificationProcessor extends WorkerHost {
     }
 
     if (success) {
-      await this.logs.logSuccess(orgId, userId, shipId, 'email', titleKey, data);
+      await this.logs.logSuccess(
+        orgId,
+        userId,
+        shipId,
+        'email',
+        titleKey,
+        data,
+      );
       return { sent: true, channel: 'email' };
     }
     await this.logs.logFailure(
-      orgId, userId, shipId, 'email', titleKey, data, errorMsg || 'Unknown',
+      orgId,
+      userId,
+      shipId,
+      'email',
+      titleKey,
+      data,
+      errorMsg || 'Unknown',
     );
     return { sent: false, channel: 'email', error: errorMsg };
   }

@@ -215,12 +215,12 @@ export class QuotesService {
       .where(and(...filters));
   }
 
-  async findPendingByOrganisation(organisationId: string, branchId?: string) {
+  async findPendingByOrganisation(organisationId?: string, branchId?: string) {
     const filters: any[] = [
-      eq(quotes.organisationId, organisationId),
       eq(quotes.status, 'pending'),
       isNull(quotes.deletedAt),
     ];
+    if (organisationId) filters.unshift(eq(quotes.organisationId, organisationId));
     if (branchId) filters.push(eq(quotes.branchId, branchId));
     return db
       .select()

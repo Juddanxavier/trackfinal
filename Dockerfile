@@ -23,6 +23,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
+COPY apps/gajantraders/package.json apps/gajantraders/
 
 RUN --mount=type=cache,id=pnpm,target=/root/.pnpm-store \
     pnpm install
@@ -31,7 +32,7 @@ COPY . .
 
 RUN npm install -g turbo
 
-RUN NODE_ENV=production pnpm turbo run build --filter=@track/api --filter=@track/admin
+RUN NODE_ENV=production pnpm turbo run build --filter=@track/api --filter=@track/admin --filter=gajantraders
 
 # ===========================
 # API Runner (NestJS)
@@ -98,3 +99,30 @@ COPY --from=builder /app/apps/admin/public ./apps/admin/public
 EXPOSE 3000
 
 CMD ["node", "apps/admin/server.js"]
+
+# ===========================
+# Gajantraders Runner (Next.js)
+# ===========================
+FROM node:20-alpine AS gajantraders-runner
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+ENV NODE_ENV=production
+ENV PORT=3001
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/ ./packages/
+COPY apps/gajantraders/package.json apps/gajantraders/
+COPY apps/gajantraders/next.config.ts apps/gajantraders/
+
+RUN pnpm install --prod
+
+COPY --from=builder /app/apps/gajantraders/.next/standalone ./
+COPY --from=builder /app/apps/gajantraders/.next/static ./apps/gajantraders/.next/static
+COPY --from=builder /app/apps/gajantraders/public ./apps/gajantraders/public
+
+EXPOSE 3001
+
+CMD ["node", "apps/gajantraders/server.js"]

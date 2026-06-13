@@ -467,7 +467,10 @@ export class AuthController {
       );
     }
 
-    const targetOrganisationId = req.user.organisationId || dto.organisationId;
+    const targetOrganisationId =
+      req.user.role === Role.SUPERADMIN
+        ? dto.organisationId
+        : req.user.organisationId || dto.organisationId;
     if (!targetOrganisationId) {
       throw new HttpException(
         'Organisation ID is required',
@@ -504,8 +507,13 @@ export class AuthController {
     const pageNum = page ? parseInt(page) : 1;
     const limitNum = limit ? parseInt(limit) : 10;
 
-    let targetOrgId = req.user.organisationId || organisationId;
-    if (!targetOrgId) {
+    let targetOrgId: string | undefined;
+    if (req.user.role === Role.SUPERADMIN) {
+      targetOrgId = organisationId || undefined;
+    } else {
+      targetOrgId = req.user.organisationId || organisationId;
+    }
+    if (!targetOrgId && req.user.role !== Role.SUPERADMIN) {
       return { data: [], total: 0, page: 1, totalPages: 0 };
     }
 

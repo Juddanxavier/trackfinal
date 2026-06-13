@@ -1,6 +1,6 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { CasbinService } from '../casbin/casbin.service';
-import { Role } from '../enums/role.enum';
+import { Role, isAdminRole } from '../enums/role.enum';
 
 export interface UserContext {
   id: string;
@@ -18,11 +18,11 @@ export abstract class BaseService {
     this.logger = new Logger(this.constructor.name);
   }
 
-  protected getOrgId(user: UserContext): string {
-    if (!user.organisationId) {
+  protected getOrgId(user: UserContext): string | undefined {
+    if (!user.organisationId && !isAdminRole(user.role)) {
       throw new ForbiddenException('Organisation ID is required');
     }
-    return user.organisationId;
+    return user.organisationId || undefined;
   }
 
   protected requireOrgId(user: UserContext): string {
@@ -39,7 +39,7 @@ export abstract class BaseService {
     action: string,
   ): Promise<boolean> {
     const orgId = this.getOrgId(user);
-    return this.casbinService.can(user.role, object, action, orgId);
+    return this.casbinService.can(user.role, object, action, orgId || '');
   }
 
   async requirePermission(
@@ -54,6 +54,6 @@ export abstract class BaseService {
   }
 
   protected isAdmin(user: UserContext): boolean {
-    return user.role === Role.ADMIN;
+    return isAdminRole(user.role);
   }
 }

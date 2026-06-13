@@ -27,7 +27,7 @@ import {
 } from '../users/services';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require } from '../../common/casbin';
-import { Role } from '../../common/enums/role.enum';
+import { Role, isAdminRole } from '../../common/enums/role.enum';
 
 interface PaginationQuery {
   page?: string;
@@ -127,7 +127,9 @@ export class UsersController {
     }
 
     const result = await this.usersService.findWithPagination({
-      organisationId: isSuperAdmin ? (query.organisationId || undefined) : userOrgId,
+      organisationId: isSuperAdmin
+        ? query.organisationId || undefined
+        : userOrgId,
       branchId,
       page: query.page ? parseInt(query.page) : 1,
       limit: query.limit ? parseInt(query.limit) : 10,
@@ -166,16 +168,20 @@ export class UsersController {
   ) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
-    const isAdmin = userRole === Role.ADMIN;
+    const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin && !userOrgId) {
       return { total: 0, active: 0, customers: 0, staff: 0 };
     }
 
-    const organisationId =
-      isAdmin && query.organisationId ? query.organisationId : userOrgId;
+    let organisationId: string | undefined;
+    if (isAdmin) {
+      organisationId = query.organisationId || userOrgId || undefined;
+    } else {
+      organisationId = userOrgId;
+    }
 
-    if (req.user.organisationId && organisationId !== req.user.organisationId) {
+    if (userOrgId && organisationId !== userOrgId) {
       throw new ForbiddenException(
         'You can only access stats for your organisation',
       );
@@ -211,7 +217,7 @@ export class UsersController {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
 
-    if (userRole !== Role.ADMIN) {
+    if (!isAdminRole(userRole)) {
       throw new ForbiddenException('Only admins can invite users');
     }
 
@@ -247,6 +253,16 @@ export class UsersController {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
     const userId = req.user.id;
+
+    if (userRole === Role.SUPERADMIN) {
+      const targetUser = await this.usersService.findById(id);
+
+      if (!targetUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      return sanitizeUser(targetUser);
+    }
 
     if (userRole === Role.ADMIN || userRole === Role.STAFF) {
       const targetUser = await this.usersService.findById(id);

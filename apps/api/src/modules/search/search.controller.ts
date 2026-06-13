@@ -19,16 +19,17 @@ export class SearchController {
 
   @Get()
   @ApiOperation({ summary: 'Search across shipments, quotes, and users' })
-  async search(@Query('q') query: string, @Request() req: any) {
+  async search(
+    @Query('q') query: string,
+    @Request() req: any,
+    @Query('organisationId') organisationId?: string,
+  ) {
     if (!query || query.trim().length < 1) {
       return [];
     }
 
-    const organisationId = req.user.organisationId;
-    if (!organisationId) {
-      throw new BadRequestException('User must be assigned to an organisation');
-    }
+    const orgId = organisationId || req.user.organisationId || undefined;
 
-    return this.searchService.search(query.trim(), organisationId);
+    return this.searchService.search(query.trim(), orgId);
   }
 }

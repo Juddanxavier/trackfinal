@@ -1,5 +1,5 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
-import { Role } from '../enums/role.enum';
+import { Role, isAdminRole } from '../enums/role.enum';
 
 export interface UserContext {
   id: string;
@@ -16,10 +16,10 @@ export class OrgScopedService {
   private readonly logger = new Logger(OrgScopedService.name);
 
   getOrgId(user: UserContext): string {
-    if (!user.organisationId) {
+    if (!user.organisationId && !isAdminRole(user.role)) {
       throw new ForbiddenException('Organisation ID is required');
     }
-    return user.organisationId;
+    return user.organisationId || '';
   }
 
   buildOrgFilter(
@@ -34,6 +34,9 @@ export class OrgScopedService {
   }
 
   canAccessOrg(user: UserContext, targetOrgId: string): boolean {
+    if (isAdminRole(user.role)) {
+      return true;
+    }
     return user.organisationId === targetOrgId;
   }
 }

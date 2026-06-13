@@ -327,7 +327,7 @@ export class ShipmentsService {
   }
 
   async findAll(data: {
-    organisationId: string;
+    organisationId?: string;
     branchId?: string;
     page?: number;
     limit?: number;
@@ -340,7 +340,10 @@ export class ShipmentsService {
     const limit = data.limit || 20;
     const offset = (page - 1) * limit;
 
-    const where = [eq(shipments.organisationId, data.organisationId)];
+    const where: any[] = [];
+    if (data.organisationId) {
+      where.push(eq(shipments.organisationId, data.organisationId));
+    }
 
     if (data.branchId) {
       where.push(eq(shipments.branchId, data.branchId));
@@ -368,15 +371,17 @@ export class ShipmentsService {
       where.push(isNull(shipments.deletedAt));
     }
 
+    const whereClause = where.length > 0 ? and(...where) : undefined;
+
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(shipments)
-      .where(and(...where));
+      .where(whereClause);
 
     const result = await db
       .select()
       .from(shipments)
-      .where(and(...where))
+      .where(whereClause)
       .orderBy(desc(shipments.createdAt))
       .limit(limit)
       .offset(offset);
@@ -787,15 +792,17 @@ export class ShipmentsService {
     };
   }
 
-  async getActivity(organisationId: string, branchId?: string, days: number = 30) {
+  async getActivity(
+    organisationId: string,
+    branchId?: string,
+    days: number = 30,
+  ) {
     if (!organisationId) return [];
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const branchFilter = branchId
-        ? sql`AND branch_id = ${branchId}`
-        : sql``;
+    const branchFilter = branchId ? sql`AND branch_id = ${branchId}` : sql``;
 
     const result = await db.execute(sql`
       SELECT 
@@ -835,7 +842,11 @@ export class ShipmentsService {
     return Object.entries(byDate).map(([date, data]) => ({ date, ...data }));
   }
 
-  async getDestinations(organisationId: string, branchId?: string, limit: number = 6) {
+  async getDestinations(
+    organisationId: string,
+    branchId?: string,
+    limit: number = 6,
+  ) {
     if (!organisationId) return [];
 
     const filters: any[] = [

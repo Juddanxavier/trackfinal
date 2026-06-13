@@ -37,7 +37,15 @@ export class NotificationLogsService {
     titleKey: string,
     data: Record<string, any>,
   ) {
-    await this.log(organisationId, userId, shipmentId, channel, titleKey, data, 'sent');
+    await this.log(
+      organisationId,
+      userId,
+      shipmentId,
+      channel,
+      titleKey,
+      data,
+      'sent',
+    );
   }
 
   async logFailure(
@@ -49,7 +57,16 @@ export class NotificationLogsService {
     data: Record<string, any>,
     errorMessage: string,
   ) {
-    await this.log(organisationId, userId, shipmentId, channel, titleKey, data, 'failed', errorMessage);
+    await this.log(
+      organisationId,
+      userId,
+      shipmentId,
+      channel,
+      titleKey,
+      data,
+      'failed',
+      errorMessage,
+    );
   }
 
   async logQueued(
@@ -60,7 +77,15 @@ export class NotificationLogsService {
     titleKey: string,
     data: Record<string, any>,
   ) {
-    await this.log(organisationId, userId, shipmentId, channel, titleKey, data, 'queued');
+    await this.log(
+      organisationId,
+      userId,
+      shipmentId,
+      channel,
+      titleKey,
+      data,
+      'queued',
+    );
   }
 
   async hasSentNotification(

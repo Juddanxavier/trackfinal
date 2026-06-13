@@ -108,11 +108,6 @@ export class ShipmentsController {
     @Query('branchId') branchId?: string,
   ) {
     const orgId = organisationId || req.user.organisationId;
-    if (!orgId) {
-      throw new BadRequestException(
-        'User must be assigned to an organisation to view shipments.',
-      );
-    }
     if (req.user.organisationId && orgId !== req.user.organisationId) {
       throw new ForbiddenException(
         'You can only access shipments in your organisation',
@@ -122,7 +117,7 @@ export class ShipmentsController {
     const resolvedBranchId =
       req.user.role === 'staff' ? req.user.branchId : branchId || undefined;
     return this.shipmentsService.findAll({
-      organisationId: orgId,
+      organisationId: orgId || undefined,
       branchId: resolvedBranchId,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
@@ -140,6 +135,11 @@ export class ShipmentsController {
     const userId = req.user.id;
     const role = req.user.role;
     const organisationId = req.user.organisationId;
+
+    // SUPERADMIN without org: see all shipments
+    if (role === Role.SUPERADMIN && !organisationId) {
+      return this.shipmentsService.findAll({ page: 1, limit: 1000 });
+    }
 
     // ADMIN and STAFF see all organisation shipments
     if ((isAdminRole(role) || role === 'staff') && organisationId) {
@@ -245,7 +245,10 @@ export class ShipmentsController {
     }
     const resolvedBranchId =
       req.user.role === 'staff' ? req.user.branchId : branchId || undefined;
-    return this.shipmentsService.getStats(requestedOrgId || '', resolvedBranchId);
+    return this.shipmentsService.getStats(
+      requestedOrgId || '',
+      resolvedBranchId,
+    );
   }
 
   @Get('activity')
@@ -312,12 +315,9 @@ export class ShipmentsController {
     @Query('limit') limit?: string,
   ) {
     const orgId = req.user.organisationId;
-    if (!orgId) {
-      throw new BadRequestException('User must be assigned to an organisation');
-    }
     const data = await this.shipmentsService.findByUserAndOrganisation(
       userId,
-      orgId,
+      orgId || undefined,
     );
     const pageNum = page ? parseInt(page) : 1;
     const limitNum = limit ? parseInt(limit) : 20;

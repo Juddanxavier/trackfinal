@@ -67,18 +67,18 @@ export class WebhooksService {
 
   async updateEndpoint(
     id: string,
-    organisationId: string,
+    organisationId: string | undefined,
     data: { url?: string; events?: string[]; isActive?: boolean },
   ) {
+    const whereConditions: any[] = [eq(webhookEndpoints.id, id)];
+    if (organisationId) {
+      whereConditions.push(eq(webhookEndpoints.organisationId, organisationId));
+    }
+
     const [existing] = await db
       .select()
       .from(webhookEndpoints)
-      .where(
-        and(
-          eq(webhookEndpoints.id, id),
-          eq(webhookEndpoints.organisationId, organisationId),
-        ),
-      );
+      .where(and(...whereConditions));
 
     if (!existing) {
       throw new NotFoundException('Webhook endpoint not found');
@@ -101,16 +101,16 @@ export class WebhooksService {
     return updated;
   }
 
-  async deleteEndpoint(id: string, organisationId: string) {
+  async deleteEndpoint(id: string, organisationId: string | undefined) {
+    const whereConditions: any[] = [eq(webhookEndpoints.id, id)];
+    if (organisationId) {
+      whereConditions.push(eq(webhookEndpoints.organisationId, organisationId));
+    }
+
     const [existing] = await db
       .select()
       .from(webhookEndpoints)
-      .where(
-        and(
-          eq(webhookEndpoints.id, id),
-          eq(webhookEndpoints.organisationId, organisationId),
-        ),
-      );
+      .where(and(...whereConditions));
 
     if (!existing) {
       throw new NotFoundException('Webhook endpoint not found');
@@ -143,7 +143,7 @@ export class WebhooksService {
         .values({
           endpointId: ep.id,
           event,
-          payload: payload as Record<string, unknown>,
+          payload: payload,
           attempt: 1,
           maxAttempts: 3,
         })
@@ -174,18 +174,18 @@ export class WebhooksService {
 
   async getDeliveryLogs(
     endpointId: string,
-    organisationId: string,
+    organisationId: string | undefined,
     limit = 50,
   ) {
+    const whereConditions: any[] = [eq(webhookEndpoints.id, endpointId)];
+    if (organisationId) {
+      whereConditions.push(eq(webhookEndpoints.organisationId, organisationId));
+    }
+
     const [endpoint] = await db
       .select()
       .from(webhookEndpoints)
-      .where(
-        and(
-          eq(webhookEndpoints.id, endpointId),
-          eq(webhookEndpoints.organisationId, organisationId),
-        ),
-      );
+      .where(and(...whereConditions));
 
     if (!endpoint) {
       throw new NotFoundException('Webhook endpoint not found');

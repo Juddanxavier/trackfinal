@@ -10,8 +10,14 @@ import { ilike, or, eq, isNull, and } from 'drizzle-orm';
 export class SearchService {
   private readonly logger = new Logger(SearchService.name);
 
-  async search(query: string, organisationId: string) {
+  async search(query: string, organisationId?: string) {
     const q = `%${query}%`;
+
+    const conditions: any[] = [];
+
+    if (organisationId) {
+      conditions.push(eq(shipments.organisationId, organisationId));
+    }
 
     const [shipmentResults, quoteResults, userResults] = await Promise.all([
       db
@@ -25,7 +31,7 @@ export class SearchService {
         .from(shipments)
         .where(
           and(
-            eq(shipments.organisationId, organisationId),
+            ...conditions,
             isNull(shipments.deletedAt),
             or(
               ilike(shipments.trackingNumber, q),
@@ -48,7 +54,9 @@ export class SearchService {
         .from(quotes)
         .where(
           and(
-            eq(quotes.organisationId, organisationId),
+            ...(organisationId
+              ? [eq(quotes.organisationId, organisationId)]
+              : []),
             or(
               ilike(quotes.originCountry, q),
               ilike(quotes.destinationCountry, q),
@@ -70,7 +78,9 @@ export class SearchService {
         .from(users)
         .where(
           and(
-            eq(users.organisationId, organisationId),
+            ...(organisationId
+              ? [eq(users.organisationId, organisationId)]
+              : []),
             or(ilike(users.name, q), ilike(users.email, q)),
           ),
         )

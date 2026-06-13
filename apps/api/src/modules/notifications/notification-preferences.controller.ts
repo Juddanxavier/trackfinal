@@ -20,6 +20,16 @@ export class NotificationPreferencesController {
     const userId = req.user.id;
     const organisationId = req.user.organisationId;
 
+    if (!organisationId) {
+      return {
+        emailEnabled: true,
+        whatsappEnabled: true,
+        inTransitNotifications: true,
+        deliveredNotifications: true,
+        exceptionsNotifications: true,
+      };
+    }
+
     const prefs = await this.preferencesService.getPreferences(
       organisationId,
       userId,
@@ -40,6 +50,10 @@ export class NotificationPreferencesController {
   ) {
     const userId = req.user.id;
     const organisationId = req.user.organisationId;
+
+    if (!organisationId) {
+      return { success: false, message: 'No organisation context' };
+    }
 
     return this.preferencesService.updatePreferences(
       organisationId,

@@ -41,7 +41,9 @@ export class NotificationService {
   ) {
     const envTrue = (key: string, defaultVal: boolean = false) => {
       const val = configService.get(key);
-      return val === 'true' || val === true || (val === undefined && defaultVal);
+      return (
+        val === 'true' || val === true || (val === undefined && defaultVal)
+      );
     };
 
     this.config = {
@@ -223,9 +225,15 @@ export class NotificationService {
     }
   }
 
-  async retryFailed(organisationId: string, shipmentId: string, channel?: string): Promise<number> {
-    const failedLogs =
-      await this.notificationLogsService.getFailedLogs(organisationId, shipmentId);
+  async retryFailed(
+    organisationId: string,
+    shipmentId: string,
+    channel?: string,
+  ): Promise<number> {
+    const failedLogs = await this.notificationLogsService.getFailedLogs(
+      organisationId,
+      shipmentId,
+    );
     let retried = 0;
 
     for (const log of failedLogs) {
@@ -326,7 +334,9 @@ export class NotificationService {
     return this.send(payload, activeChannels);
   }
 
-  private getChannel(channelName: ChannelType): NotificationChannel | undefined {
+  private getChannel(
+    channelName: ChannelType,
+  ): NotificationChannel | undefined {
     if (!this.config.emailEnabled && channelName === 'email') return undefined;
     if (!this.config.whatsappEnabled && channelName === 'whatsapp')
       return undefined;

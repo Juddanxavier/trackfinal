@@ -14,12 +14,13 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require } from '../../common/casbin';
+import { Role } from '../../common/enums/role.enum';
 import { WebhooksService, WebhookEvent } from './webhooks.service';
 
 interface AuthUser {
   sub: string;
   role: string;
-  organisationId: string;
+  organisationId: string | null;
 }
 
 interface AuthRequest {
@@ -36,9 +37,17 @@ export class WebhooksController {
 
   @Get()
   @ApiOperation({ summary: 'List webhook endpoints' })
-  async getEndpoints(@Request() req: AuthRequest) {
-    const orgId = req.user.organisationId;
-    if (!orgId) return [];
+  async getEndpoints(
+    @Request() req: AuthRequest,
+    @Query('organisationId') organisationId?: string,
+  ) {
+    const orgId = organisationId || req.user.organisationId;
+    if (!orgId) {
+      if (req.user.role === Role.SUPERADMIN) {
+        return [];
+      }
+      return [];
+    }
     return this.webhooksService.getEndpoints(orgId);
   }
 
@@ -47,10 +56,12 @@ export class WebhooksController {
   @ApiOperation({ summary: 'Create a webhook endpoint' })
   async createEndpoint(
     @Request() req: AuthRequest,
-    @Body() body: { url: string; events: string[] },
+    @Body() body: { url: string; events: string[]; organisationId?: string },
   ) {
-    const orgId = req.user.organisationId;
-    if (!orgId) return { error: 'No organisation' };
+    const orgId = body.organisationId || req.user.organisationId;
+    if (!orgId) {
+      return { error: 'Organisation ID is required' };
+    }
     return this.webhooksService.createEndpoint(orgId, body);
   }
 
@@ -62,8 +73,7 @@ export class WebhooksController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { url?: string; events?: string[]; isActive?: boolean },
   ) {
-    const orgId = req.user.organisationId;
-    if (!orgId) return { error: 'No organisation' };
+    const orgId = req.user.organisationId || undefined;
     return this.webhooksService.updateEndpoint(id, orgId, body);
   }
 
@@ -74,8 +84,7 @@ export class WebhooksController {
     @Request() req: AuthRequest,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const orgId = req.user.organisationId;
-    if (!orgId) return { error: 'No organisation' };
+    const orgId = req.user.organisationId || undefined;
     await this.webhooksService.deleteEndpoint(id, orgId);
     return { success: true };
   }
@@ -88,8 +97,7 @@ export class WebhooksController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('limit') limit?: string,
   ) {
-    const orgId = req.user.organisationId;
-    if (!orgId) return [];
+    const orgId = req.user.organisationId || undefined;
     return this.webhooksService.getDeliveryLogs(
       id,
       orgId,
