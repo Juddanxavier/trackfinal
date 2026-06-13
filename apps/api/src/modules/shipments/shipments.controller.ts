@@ -370,7 +370,10 @@ export class ShipmentsController {
       throw new NotFoundException('Shipment not found');
     }
 
-    if (shipment.organisationId !== req.user.organisationId) {
+    if (
+      req.user.role !== Role.SUPERADMIN &&
+      shipment.organisationId !== req.user.organisationId
+    ) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -421,7 +424,7 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Archive shipment' })
   @ApiResponse({ status: 200, description: 'Shipment archived' })
   async archive(@Param('id') id: string, @Request() req: any) {
-    if (!req.user.organisationId) {
+    if (req.user.role !== Role.SUPERADMIN && !req.user.organisationId) {
       throw new BadRequestException(
         'User must be assigned to an organisation to archive shipments.',
       );
@@ -435,7 +438,7 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Unarchive shipment' })
   @ApiResponse({ status: 200, description: 'Shipment unarchived' })
   async unarchive(@Param('id') id: string, @Request() req: any) {
-    if (!req.user.organisationId) {
+    if (req.user.role !== Role.SUPERADMIN && !req.user.organisationId) {
       throw new BadRequestException(
         'User must be assigned to an organisation to unarchive shipments.',
       );
@@ -449,7 +452,7 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Soft delete shipment' })
   @ApiResponse({ status: 200, description: 'Shipment deleted' })
   async softDelete(@Param('id') id: string, @Request() req: any) {
-    if (!req.user.organisationId) {
+    if (req.user.role !== Role.SUPERADMIN && !req.user.organisationId) {
       throw new BadRequestException(
         'User must be assigned to an organisation to delete shipments.',
       );
@@ -463,7 +466,7 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Restore soft-deleted shipment' })
   @ApiResponse({ status: 200, description: 'Shipment restored' })
   async restore(@Param('id') id: string, @Request() req: any) {
-    if (!req.user.organisationId) {
+    if (req.user.role !== Role.SUPERADMIN && !req.user.organisationId) {
       throw new BadRequestException(
         'User must be assigned to an organisation to restore shipments.',
       );

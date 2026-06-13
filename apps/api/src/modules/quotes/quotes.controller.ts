@@ -29,7 +29,7 @@ import {
 } from './dto/quotes.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CasbinGuard, Require } from '../../common/casbin';
-import { Role } from '../../common/enums/role.enum';
+import { Role, isAdminRole } from '../../common/enums/role.enum';
 
 interface PaginationQuery {
   page?: string;
@@ -121,10 +121,10 @@ export class QuotesController {
   ) {
     const userRole = req.user.role;
     const userOrgId = req.user.organisationId;
-    const isAdmin = userRole === Role.ADMIN;
+    const isSuperAdmin = userRole === Role.SUPERADMIN;
     const isStaff = userRole === Role.STAFF;
 
-    const organisationId = userOrgId;
+    const organisationId = isSuperAdmin ? undefined : userOrgId;
     const branchId = isStaff ? req.user.branchId : undefined;
 
     return this.quotesService.findWithPagination({
@@ -146,10 +146,11 @@ export class QuotesController {
   @ApiOperation({ summary: 'Get pending quotes' })
   @ApiResponse({ status: 200, description: 'List of pending quotes' })
   async findPending(@Request() req: any) {
+    const isSuperAdmin = req.user.role === Role.SUPERADMIN;
     const branchId =
       req.user.role === Role.STAFF ? req.user.branchId : undefined;
     return this.quotesService.findPendingByOrganisation(
-      req.user.organisationId,
+      isSuperAdmin ? undefined : req.user.organisationId,
       branchId,
     );
   }
@@ -172,6 +173,7 @@ export class QuotesController {
     }
 
     if (
+      req.user.role !== Role.SUPERADMIN &&
       req.user.role !== Role.ADMIN &&
       quote.organisationId !== req.user.organisationId
     ) {
@@ -204,12 +206,15 @@ export class QuotesController {
     const userOrgId = req.user.organisationId;
     const userId = req.user.id;
 
-    if (userRole === Role.ADMIN && body?.hardDelete) {
+    if (isAdminRole(userRole) && body?.hardDelete) {
       const quote = await this.quotesService.findById(id);
       if (!quote) {
         throw new NotFoundException('Quote not found');
       }
-      if (quote.organisationId !== userOrgId) {
+      if (
+        userRole !== Role.SUPERADMIN &&
+        quote.organisationId !== userOrgId
+      ) {
         throw new ForbiddenException(
           'Quote does not belong to your organisation',
         );
@@ -235,7 +240,10 @@ export class QuotesController {
     if (!quote) {
       throw new NotFoundException('Quote not found');
     }
-    if (quote.organisationId !== userOrgId) {
+    if (
+      userRole !== Role.SUPERADMIN &&
+      quote.organisationId !== userOrgId
+    ) {
       throw new ForbiddenException(
         'Quote does not belong to your organisation',
       );
@@ -250,7 +258,8 @@ export class QuotesController {
   @ApiOperation({ summary: 'Get quote statistics' })
   @ApiResponse({ status: 200, description: 'Quote statistics' })
   async getStats(@Request() req: any, @Query() query: { branchId?: string }) {
-    const organisationId = req.user.organisationId;
+    const organisationId =
+      req.user.role === Role.SUPERADMIN ? undefined : req.user.organisationId;
     const branchId =
       req.user.role === Role.STAFF ? req.user.branchId : query.branchId;
     return this.quotesService.getStats(organisationId, branchId);
@@ -269,7 +278,8 @@ export class QuotesController {
     @Request() req: any,
     @Query() query: { days?: string },
   ) {
-    const organisationId = req.user.organisationId;
+    const organisationId =
+      req.user.role === Role.SUPERADMIN ? undefined : req.user.organisationId;
     const branchId =
       req.user.role === Role.STAFF ? req.user.branchId : undefined;
     return this.quotesService.getActivityHistory(
@@ -296,6 +306,7 @@ export class QuotesController {
     }
 
     if (
+      req.user.role !== Role.SUPERADMIN &&
       req.user.role !== Role.ADMIN &&
       quote.organisationId !== req.user.organisationId
     ) {
